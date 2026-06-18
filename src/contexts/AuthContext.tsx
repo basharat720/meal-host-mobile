@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
-import { User as FirebaseUser, onAuthStateChanged, onIdTokenChanged } from "firebase/auth";
+import { User as FirebaseUser, onAuthStateChanged, onIdTokenChanged, reload } from "firebase/auth";
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { auth } from "@/integrations/firebase/config";
@@ -137,9 +137,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
           setUser(convertFirebaseUser(firebaseUser));
           try {
-            const t = await firebaseUser.getIdToken();
-            await storeToken(t);
+            // Pull latest profile from Firebase so email_verified is current,
+            // then force a fresh token if email is verified (old cached tokens
+            // still carry email_verified:false and keep the chef inactive).
+            try { await reload(firebaseUser); } catch {}
             setEmailVerified(firebaseUser.emailVerified);
+            const t = await firebaseUser.getIdToken(firebaseUser.emailVerified === true);
+            await storeToken(t);
 
             try {
               const backendUser = await userService.getUser();
@@ -241,6 +245,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch { return null; }
   };
 
+  const refreshDbUser = async (): Promise<DbUser | null> => {
+    try {
+      const backendUser = await userService.getUser();
+      if (backendUser) {
+        setDbUser(backendUser);
+        const resolvedRole: UserRole = backendUser.is_chef ? "chef" : "customer";
+        setRoleState(resolvedRole);
+        await AsyncStorage.setItem(ROLE_KEY, resolvedRole);
+      }
+      return backendUser;
+    } catch { return null; }
+  };
+
   const signUp = async (email: string, password: string, userRole: UserRole, fullName?: string, additionalData?: any) => {
     const { user: firebaseUser, token: t, error } = await signUpWithEmail(email, password, userRole, fullName);
     if (error) return { error };
@@ -311,7 +328,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         getFreshToken,
         sendPasswordReset,
         resendEmailVerification,
-        checkEmailVerification,
+        checkEmailVerification: async () => {
+          const result = await checkEmailVerification();
+          if (result.isVerified !== null) setEmailVerified(result.isVerified);
+          if (result.isVerified) {
+            // Force-refresh token so backend sees email_verified:true, then re-sync user
+            await getFreshToken();
+            await refreshDbUser();
+          }
+          return result;
+        },
         isChef: dbUser ? dbUser.is_chef : role === "chef",
         isCustomer: dbUser ? (dbUser.is_customer || role === "customer") : role === "customer",
       }}

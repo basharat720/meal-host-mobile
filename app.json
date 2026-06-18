@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "MealHost",
+    "name": "Pakwanhus",
     "slug": "meal-host-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#2D8B7F"
+      "backgroundColor": "#062D1E"
     },
     "newArchEnabled": true,
     "ios": {
@@ -20,7 +20,7 @@
     "android": {
       "package": "com.mealhost.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#2D8B7F",
+        "backgroundColor": "#062D1E",
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
@@ -45,21 +45,21 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "MealHost needs your location to show nearby home chefs."
+          "locationAlwaysAndWhenInUsePermission": "Pakwanhus needs your location to show nearby home chefs."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "MealHost needs access to your photos to upload a profile picture or dish image.",
-          "cameraPermission": "MealHost needs camera access to take a photo."
+          "photosPermission": "Pakwanhus needs access to your photos to upload a profile picture or dish image.",
+          "cameraPermission": "Pakwanhus needs camera access to take a photo."
         }
       ],
       [
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#2D8B7F"
+          "color": "#062D1E"
         }
       ]
     ],

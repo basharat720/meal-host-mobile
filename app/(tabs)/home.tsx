@@ -1,52 +1,20 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View, Text, StyleSheet, FlatList, TextInput, Pressable,
-  ActivityIndicator, Modal, ScrollView, Alert,
+  ActivityIndicator, Modal, ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { DishCard } from "@/components/DishCard";
-import { DietaryFilterBar } from "@/components/DietaryFilterBar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
-import { dishService } from "@/services/api";
+import { dishService, cuisineService } from "@/services/api";
+import { CuisineType } from "@/services/types";
 import { useI18n } from "@/i18n/context";
-import { colors, fonts, radius, spacing, typography, shadow } from "@/constants/theme";
+import { colors, fonts, radius, spacing, typography } from "@/constants/theme";
 import { Logo } from "@/components/Logo";
 import { router } from "expo-router";
-
-// Same inference logic as web
-const inferCuisine = (title: string, description = ""): string => {
-  const t = `${title} ${description}`.toLowerCase();
-  if (t.includes("biryani")) return "Biryani";
-  if (t.includes("paratha")) return "Paratha";
-  if (t.includes("karahi") || t.includes("handi")) return "Karahi & Handi";
-  if (t.includes("broast")) return "Broast";
-  if (t.includes("pulao") || t.includes("pilaf")) return "Pulao";
-  if (t.includes("samosa")) return "Samosa";
-  if (t.includes("pizza")) return "Pizza";
-  if (t.includes("burger")) return "Burgers";
-  if (t.includes("pasta") || t.includes("spaghetti")) return "Pasta";
-  if (t.includes("sandwich") || t.includes("sub")) return "Sandwiches";
-  if (t.includes("wrap") || t.includes("roll") || t.includes("shawarma")) return "Wraps & Rolls";
-  if (t.includes("steak")) return "Steak";
-  if (t.includes("seafood") || t.includes("fish") || t.includes("prawn")) return "Seafood";
-  if (t.includes("cake") || t.includes("bakery") || t.includes("bread") || t.includes("cookie")) return "Cakes & Bakery";
-  if (t.includes("dessert") || t.includes("ice cream") || t.includes("halwa") || t.includes("kheer")) return "Desserts";
-  if (t.includes("shake") || t.includes("smoothie") || t.includes("juice")) return "Shakes";
-  if (t.includes("tea") || t.includes("coffee") || t.includes("chai")) return "Tea & Coffee";
-  if (t.includes("salad") || t.includes("veggie") || t.includes("healthy")) return "Healthy Food";
-  if (t.includes("chinese") || t.includes("noodle") || t.includes("fried rice")) return "Chinese";
-  return "Pakistani";
-};
-
-const CUISINES = [
-  "American","BBQ","Beverages","Biryani","Broast","Burgers","Cakes & Bakery","Chinese",
-  "Continental","Desserts","Fast Food","Healthy Food","Ice Cream","Karahi & Handi",
-  "Pakistani","Paratha","Pasta","Pizza","Pulao","Samosa","Sandwiches","Savouries",
-  "Seafood","Shakes","Steak","Tea & Coffee","Western","Wraps & Rolls",
-];
 
 const SORT_OPTIONS = [
   { value: "relevance", label: "Relevance" },
@@ -63,12 +31,13 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
 
+  // API-driven cuisine types
+  const [cuisineTypes, setCuisineTypes] = useState<CuisineType[]>([]);
+
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState("relevance");
   const [selectedCuisines, setSelectedCuisines] = useState<Set<string>>(new Set());
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 500]);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
   // Pagination
@@ -80,10 +49,10 @@ export default function HomeScreen() {
       setIsLoading(true);
       setFetchError(false);
       const params: any = { limit: 100 };
-      if (lat && lon) { params.lat = lat; params.lon = lon; params.radius_km = 10000; }
+      if (lat && lon) { params.lat = lat; params.lon = lon; params.radius_km = 50; }
       else { params.query = ""; }
       const raw = await dishService.searchFood(params);
-      const mapped = raw.map(d => ({
+      const mapped = raw.map((d: any) => ({
         id: d.id.toString(),
         name: d.title,
         chef: d.chef_name || "Home Chef",
@@ -101,9 +70,10 @@ export default function HomeScreen() {
         isDairyFree: d.dietary_tags?.some((t: any) => t.code === "DAIRY_FREE") || false,
         isSpicy:     d.dietary_tags?.some((t: any) => t.code === "SPICY") || false,
         description: d.description || "",
-        cuisine: inferCuisine(d.title, d.description || ""),
+        cuisineTypes: d.cuisine_types || [],
         preparationTimeMinutes: d.preparation_time_minutes,
         availableQty: d.available_quantity,
+        chefIsAvailable: d.chef_is_available !== false,
       }));
       setAllDishes(mapped);
     } catch {
@@ -129,25 +99,27 @@ export default function HomeScreen() {
     })();
   }, [fetchDishes]);
 
-  // Reset pagination when filters change
-  useEffect(() => { setDisplayedCount(PAGE_SIZE); }, [searchQuery, selectedFilters, sortBy, selectedCuisines, priceRange]);
+  useEffect(() => {
+    cuisineService.getCuisineTypes()
+      .then(setCuisineTypes)
+      .catch(() => {});
+  }, []);
 
-  const filteredDishes = allDishes.filter(d => {
+  // Reset pagination when filters change
+  useEffect(() => { setDisplayedCount(PAGE_SIZE); }, [searchQuery, sortBy, selectedCuisines]);
+
+  const filteredDishes = allDishes.filter((d) => {
     if (searchQuery && !d.name.toLowerCase().includes(searchQuery.toLowerCase()) && !d.chef.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    if (selectedFilters.has("vegan") && !d.isVegan) return false;
-    if (selectedFilters.has("veg") && !d.isVeg) return false;
-    if (selectedFilters.has("glutenFree") && !d.isGlutenFree) return false;
-    if (selectedFilters.has("halal") && !d.isHalal) return false;
-    if (selectedFilters.has("kosher") && !d.isKosher) return false;
-    if (selectedFilters.has("nutFree") && !d.isNutFree) return false;
-    if (selectedFilters.has("dairyFree") && !d.isDairyFree) return false;
-    if (selectedFilters.has("spicy") && !d.isSpicy) return false;
-    if (selectedCuisines.size > 0 && !selectedCuisines.has(d.cuisine)) return false;
-    if (d.price < priceRange[0] || d.price > priceRange[1]) return false;
+    if (selectedCuisines.size > 0) {
+      const hasCuisine = d.cuisineTypes?.some((ct: any) => selectedCuisines.has(ct.code));
+      if (!hasCuisine) return false;
+    }
     return true;
   });
 
+  // Offline chefs always sort last, matching the web behaviour
   const sortedDishes = [...filteredDishes].sort((a, b) => {
+    if (a.chefIsAvailable !== b.chefIsAvailable) return a.chefIsAvailable ? -1 : 1;
     if (sortBy === "topRated") return b.rating - a.rating;
     if (sortBy === "priceLow") return a.price - b.price;
     if (sortBy === "priceHigh") return b.price - a.price;
@@ -157,28 +129,18 @@ export default function HomeScreen() {
   const displayedDishes = sortedDishes.slice(0, displayedCount);
   const hasMore = displayedCount < sortedDishes.length;
 
-  const hasActiveFilters = selectedFilters.size > 0 || searchQuery !== "" || selectedCuisines.size > 0 || priceRange[0] !== 0 || priceRange[1] !== 500;
+  const hasActiveFilters = searchQuery !== "" || selectedCuisines.size > 0 || sortBy !== "relevance";
 
   const resetFilters = () => {
     setSearchQuery("");
-    setSelectedFilters(new Set());
     setSortBy("relevance");
     setSelectedCuisines(new Set());
-    setPriceRange([0, 500]);
   };
 
-  const toggleFilter = (key: string) => {
-    setSelectedFilters(prev => {
+  const toggleCuisine = (code: string) => {
+    setSelectedCuisines((prev) => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
-  };
-
-  const toggleCuisine = (c: string) => {
-    setSelectedCuisines(prev => {
-      const next = new Set(prev);
-      next.has(c) ? next.delete(c) : next.add(c);
+      next.has(code) ? next.delete(code) : next.add(code);
       return next;
     });
   };
@@ -187,13 +149,13 @@ export default function HomeScreen() {
     if (!hasMore || isLoadingMore) return;
     setIsLoadingMore(true);
     setTimeout(() => {
-      setDisplayedCount(prev => Math.min(prev + PAGE_SIZE, sortedDishes.length));
+      setDisplayedCount((prev) => Math.min(prev + PAGE_SIZE, sortedDishes.length));
       setIsLoadingMore(false);
     }, 400);
   };
 
   const renderItem = useCallback(({ item, index }: { item: any; index: number }) => {
-    if (index % 2 === 1) return null; // rendered as pair by renderPair
+    if (index % 2 === 1) return null;
     const next = displayedDishes[index + 1];
     return (
       <View style={styles.row}>
@@ -202,6 +164,7 @@ export default function HomeScreen() {
           price={item.price} image={item.image} chefId={item.chefId}
           chefName={item.chef} isVeg={item.isVeg} rating={item.rating}
           availableQty={item.availableQty} preparationTimeMinutes={item.preparationTimeMinutes}
+          isChefOffline={!item.chefIsAvailable}
         />
         {next ? (
           <DishCard
@@ -209,6 +172,7 @@ export default function HomeScreen() {
             price={next.price} image={next.image} chefId={next.chefId}
             chefName={next.chef} isVeg={next.isVeg} rating={next.rating}
             availableQty={next.availableQty} preparationTimeMinutes={next.preparationTimeMinutes}
+            isChefOffline={!next.chefIsAvailable}
           />
         ) : <View style={{ flex: 1 }} />}
       </View>
@@ -256,13 +220,36 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Dietary filter chips */}
-      <DietaryFilterBar
-        selectedFilters={selectedFilters}
-        onToggle={toggleFilter}
-        onReset={resetFilters}
-        hasActiveFilters={hasActiveFilters}
-      />
+      {/* Cuisine type chips from API */}
+      {cuisineTypes.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.cuisineChipsRow}
+          style={styles.cuisineChipsContainer}
+        >
+          {cuisineTypes.map((cuisine) => (
+            <Pressable
+              key={cuisine.code}
+              style={[styles.cuisineChip, selectedCuisines.has(cuisine.code) && styles.cuisineChipActive]}
+              onPress={() => toggleCuisine(cuisine.code)}
+            >
+              <Text style={[styles.cuisineChipText, selectedCuisines.has(cuisine.code) && styles.cuisineChipTextActive]}>
+                {cuisine.name}
+              </Text>
+            </Pressable>
+          ))}
+          {selectedCuisines.size > 0 && (
+            <Pressable
+              style={styles.cuisineChipReset}
+              onPress={() => setSelectedCuisines(new Set())}
+            >
+              <Ionicons name="close" size={14} color={colors.mutedForeground} />
+              <Text style={styles.cuisineChipResetText}>Reset</Text>
+            </Pressable>
+          )}
+        </ScrollView>
+      )}
 
       {/* Request a dish banner */}
       <Pressable
@@ -293,7 +280,7 @@ export default function HomeScreen() {
       ) : (
         <FlatList
           data={displayedDishes}
-          keyExtractor={item => item.id}
+          keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
@@ -329,7 +316,7 @@ export default function HomeScreen() {
             {/* Sort */}
             <Text style={styles.sectionTitle}>Sort By</Text>
             <View style={styles.sortOptions}>
-              {SORT_OPTIONS.map(opt => (
+              {SORT_OPTIONS.map((opt) => (
                 <Pressable
                   key={opt.value}
                   style={[styles.sortOption, sortBy === opt.value && styles.sortOptionActive]}
@@ -342,21 +329,25 @@ export default function HomeScreen() {
               ))}
             </View>
 
-            {/* Cuisines */}
-            <Text style={styles.sectionTitle}>Cuisines</Text>
-            <View style={styles.cuisineGrid}>
-              {CUISINES.map(c => (
-                <Pressable
-                  key={c}
-                  style={[styles.cuisineChip, selectedCuisines.has(c) && styles.cuisineChipActive]}
-                  onPress={() => toggleCuisine(c)}
-                >
-                  <Text style={[styles.cuisineText, selectedCuisines.has(c) && styles.cuisineTextActive]}>
-                    {c}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            {/* Cuisines from API */}
+            {cuisineTypes.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>Cuisines</Text>
+                <View style={styles.cuisineGrid}>
+                  {cuisineTypes.map((c) => (
+                    <Pressable
+                      key={c.code}
+                      style={[styles.modalCuisineChip, selectedCuisines.has(c.code) && styles.modalCuisineChipActive]}
+                      onPress={() => toggleCuisine(c.code)}
+                    >
+                      <Text style={[styles.modalCuisineText, selectedCuisines.has(c.code) && styles.modalCuisineTextActive]}>
+                        {c.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
           </ScrollView>
 
           <View style={styles.modalFooter}>
@@ -395,6 +386,38 @@ const styles = StyleSheet.create({
     position: "absolute", top: 8, right: 8,
     width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary,
   },
+
+  // Cuisine chips horizontal scroll
+  cuisineChipsContainer: { maxHeight: 48 },
+  cuisineChipsRow: {
+    flexDirection: "row",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    gap: spacing.sm,
+    alignItems: "center",
+  },
+  cuisineChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    borderRadius: radius.full,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  cuisineChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
+  cuisineChipText: { ...typography.sm, fontFamily: fonts.sansMedium, color: colors.mutedForeground },
+  cuisineChipTextActive: { color: "#fff", fontFamily: fonts.sansSemiBold },
+  cuisineChipReset: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: spacing.md, paddingVertical: 7,
+    borderRadius: radius.full, borderWidth: 1.5,
+    borderColor: colors.border, backgroundColor: colors.surface,
+  },
+  cuisineChipResetText: { ...typography.sm, fontFamily: fonts.sans, color: colors.mutedForeground },
+
   requestBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -404,7 +427,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
-    backgroundColor: `${colors.accent}15`,
+    backgroundColor: `${colors.accent}18`,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: `${colors.accent}40`,
@@ -412,6 +435,7 @@ const styles = StyleSheet.create({
   requestBannerLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flex: 1 },
   requestBannerTitle: { ...typography.sm, fontFamily: fonts.sansSemiBold, fontWeight: "600", color: colors.foreground },
   requestBannerSub: { ...typography.xs, fontFamily: fonts.sans, color: colors.mutedForeground },
+
   resultsHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   resultsTitle: { ...typography.lg, fontFamily: fonts.sansBold, fontWeight: "700", color: colors.foreground },
   resultsCount: { ...typography.sm, fontFamily: fonts.sans, color: colors.mutedForeground },
@@ -434,10 +458,10 @@ const styles = StyleSheet.create({
   sortOptionText: { ...typography.base, fontFamily: fonts.sans, color: colors.foreground },
   sortOptionTextActive: { color: colors.primary, fontFamily: fonts.sansBold, fontWeight: "700" },
   cuisineGrid: { flexDirection: "row", flexWrap: "wrap" },
-  cuisineChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface, marginRight: spacing.sm, marginBottom: spacing.sm },
-  cuisineChipActive: { borderColor: colors.primary, backgroundColor: colors.primary },
-  cuisineText: { ...typography.sm, fontFamily: fonts.sans, color: colors.mutedForeground },
-  cuisineTextActive: { color: "#fff", fontFamily: fonts.sansSemiBold, fontWeight: "600" },
+  modalCuisineChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface, marginRight: spacing.sm, marginBottom: spacing.sm },
+  modalCuisineChipActive: { borderColor: colors.primary, backgroundColor: colors.primary },
+  modalCuisineText: { ...typography.sm, fontFamily: fonts.sans, color: colors.mutedForeground },
+  modalCuisineTextActive: { color: "#fff", fontFamily: fonts.sansSemiBold, fontWeight: "600" },
   modalFooter: { flexDirection: "row", gap: spacing.md, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
   modalBtn: { flex: 1 },
 });

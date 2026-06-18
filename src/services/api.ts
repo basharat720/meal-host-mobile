@@ -8,5 +8,6 @@ export { chefService } from "./chefService";
 export { requestService } from "./requestService";
 export { reviewService } from "./reviewService";
 export { availabilityService } from "./availabilityService";
+export { cuisineService } from "./cuisineService";
 export type { ChefDashboardStats } from "./chefService";
 export type { PaymentRecord } from "./orderService";

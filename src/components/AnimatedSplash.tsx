@@ -67,7 +67,7 @@ export function AnimatedSplash({ onComplete }: Props) {
   return (
     <Animated.View style={[StyleSheet.absoluteFill, styles.root, { opacity: screen }]}>
       <LinearGradient
-        colors={["#2D8B7F", "#1A5C54"]}
+        colors={["#0D5233", "#062D1E"]}
         style={styles.gradient}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 0.6, y: 1 }}
@@ -94,7 +94,7 @@ export function AnimatedSplash({ onComplete }: Props) {
           <Animated.View
             style={{ opacity: textOpacity, transform: [{ translateY: textY }], marginTop: 26 }}
           >
-            <Text style={styles.brandName}>MealHost</Text>
+            <Text style={styles.brandName}>Pakwanhus</Text>
           </Animated.View>
 
           <Animated.View style={{ opacity: tagOpacity, marginTop: 8 }}>

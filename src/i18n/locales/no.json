@@ -29,7 +29,7 @@
     "bestseller": "Bestseller"
   },
   "navbar": {
-    "mealHost": "Meal Host",
+    "mealHost": "Pakwanhus",
     "home": "Hjem",
     "findChefs": "Finn Kokker",
     "howItWorks": "Slik Fungerer Det",
@@ -50,7 +50,7 @@
     "pricingFees": "Priser og Gebyrer",
     "successStories": "Suksesshistorier",
     "faqs": "Ofte Stilte Spørsmål",
-    "copyright": "© 2024 Meal Host. Alle rettigheter reservert.",
+    "copyright": "© 2024 Pakwanhus. Alle rettigheter reservert.",
     "madeWith": "Laget med",
     "forHomeChefs": "for hjemmekokker"
   },
@@ -241,7 +241,7 @@
     "trackOrderDesc": "Få oppdateringer i sanntid mens maten din forberedes. Vet nøyaktig når du kan forvente levering.",
     "enjoyFood": "Nyt Fersk Mat",
     "enjoyFoodDesc": "Motta varm, fersk tilberedt hjemmelaget mat på døren. Smak forskjellen!",
-    "whyChoose": "Hvorfor Velge Meal Host?",
+    "whyChoose": "Hvorfor Velge Pakwanhus?",
     "cookedWithLove": "Laget med Kjærlighet",
     "cookedWithLoveDesc": "Hvert måltid er tilberedt av lidenskapelige hjemmekokker som legger kjærlighet og omsorg i matlagingen.",
     "verifiedSafe": "Verifisert og Trygg",

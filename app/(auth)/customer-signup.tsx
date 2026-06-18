@@ -59,7 +59,7 @@ export default function CustomerSignupScreen() {
           <View style={styles.header}>
             <Logo size="lg" showText={true} />
             <Text style={styles.title}>Create account</Text>
-            <Text style={styles.subtitle}>Join MealHost as a customer</Text>
+            <Text style={styles.subtitle}>Join Pakwanhus as a customer</Text>
           </View>
 
           <View style={styles.form}>

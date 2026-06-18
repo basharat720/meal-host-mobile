@@ -43,14 +43,20 @@ export function Logo({ size = "md", showText = true, dark = false }: LogoProps) 
       </LinearGradient>
 
       {showText && (
-        <Text
-          style={[
-            styles.text,
-            { fontSize: s.text, color: textColor },
-          ]}
-        >
-          MealHost
-        </Text>
+        <View style={styles.textColumn}>
+          <Text
+            style={[
+              styles.text,
+              { fontSize: s.text, color: textColor },
+            ]}
+          >
+            Pakwanhus
+          </Text>
+          <View style={styles.taglineRow}>
+            <View style={[styles.taglineLine, { backgroundColor: colors.gradientSecondaryEnd }]} />
+            <Text style={[styles.tagline, { color: colors.secondary }]}>HOME CHEFS</Text>
+          </View>
+        </View>
       )}
     </View>
   );
@@ -66,9 +72,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  textColumn: {
+    flexDirection: "column",
+    gap: 1,
+  },
   text: {
     fontFamily: fonts.display,
     fontWeight: "700",
     letterSpacing: -0.5,
+  },
+  taglineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  taglineLine: {
+    height: 1.5,
+    width: 16,
+    borderRadius: 1,
+  },
+  tagline: {
+    fontFamily: fonts.sansBold,
+    fontSize: 7,
+    fontWeight: "700",
+    letterSpacing: 2,
   },
 });

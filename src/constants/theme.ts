@@ -1,64 +1,64 @@
 // Colors match the web app's CSS variables exactly (converted from HSL to hex)
 export const colors = {
-  // Deep Teal — hsl(168 65% 38%) — primary brand identity
-  primary: "#2D8B7F",
-  primaryForeground: "#FEFCFA",
+  // Deep Forest Green — hsl(157 77% 10%) — primary brand identity
+  primary: "#062D1E",
+  primaryForeground: "#FFFFFF",
 
-  // Light sage — used for chip/tag backgrounds (web: --light-sage)
-  secondary: "#D6EDE9",
-  secondaryForeground: "#1A2626",
+  // Warm Gold — hsl(40 62% 48%) — secondary/accent brand token
+  secondary: "#C5922F",
+  secondaryForeground: "#FFFFFF",
 
-  // Warm cream background — hsl(45 25% 97%)
-  background: "#F9F7F3",
+  // Pure white background (web: --background: 0 0% 100%)
+  background: "#FFFFFF",
   surface: "#FFFFFF",
 
-  // Dark teal text — hsl(180 25% 12%)
-  foreground: "#1A2626",
+  // Dark forest green text — hsl(157 77% 10%)
+  foreground: "#062D1E",
 
   card: "#FFFFFF",
-  cardBorder: "#E2DDD5",
+  cardBorder: "#DCE5E2",
 
-  // Soft cream — hsl(45 30% 92%)
-  muted: "#EDE7DA",
-  mutedForeground: "#5A706E",
+  // Soft sage muted — hsl(157 20% 96%)
+  muted: "#F3F7F5",
+  mutedForeground: "#4C675C",
 
-  border: "#E2DDD5",
+  border: "#DCE5E2",
 
   destructive: "#E02222",
-  destructiveForeground: "#FEFCFA",
+  destructiveForeground: "#FFFFFF",
 
   // Green — hsl(152 60% 42%)
   success: "#3BA965",
-  successForeground: "#FEFCFA",
+  successForeground: "#FFFFFF",
 
-  // Golden honey — hsl(38 92% 55%)
-  warning: "#F5B419",
+  // Warm gold — hsl(38 70% 42%) for warnings
+  warning: "#C5922F",
 
-  // Warm coral — hsl(12 85% 62%) — secondary brand CTA
-  accent: "#E67043",
-  accentForeground: "#FEFCFA",
+  // Warm Gold accent — hsl(40 62% 48%)
+  accent: "#C5922F",
+  accentForeground: "#062D1E",
 
   // Extra brand tokens
-  warmCream: "#F5EFE3",
-  lightSage: "#D6EDE9",
+  warmCream: "#F7F5ED",
+  lightSage: "#E4F2EC",
 
-  // Gradient stops
-  gradientPrimaryStart: "#2D8B7F",
-  gradientPrimaryEnd: "#1F6B61",
-  gradientSecondaryStart: "#E67043",
-  gradientSecondaryEnd: "#D45A2A",
+  // Gradient stops (Deep Forest Green)
+  gradientPrimaryStart: "#0D5233",
+  gradientPrimaryEnd: "#062D1E",
+  gradientSecondaryStart: "#C5922F",
+  gradientSecondaryEnd: "#B8860B",
 
   // Dark mode
   dark: {
-    background: "#0F1818",
-    surface: "#182121",
-    card: "#182121",
-    cardBorder: "#2A3636",
-    border: "#2A3636",
-    muted: "#263030",
-    mutedForeground: "#ADA89B",
-    foreground: "#F5F2EE",
-    primary: "#33B5A3",
+    background: "#061510",
+    surface: "#0D2218",
+    card: "#0D2218",
+    cardBorder: "#1A3528",
+    border: "#1A3528",
+    muted: "#112B1E",
+    mutedForeground: "#8AB09A",
+    foreground: "#F0F5F3",
+    primary: "#33CC91",
   },
 };
 
@@ -106,21 +106,21 @@ export const fonts = {
 
 export const shadow = {
   sm: {
-    shadowColor: "#1A2626",
+    shadowColor: "#062D1E",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 1,
   },
   md: {
-    shadowColor: "#1A2626",
+    shadowColor: "#062D1E",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
   },
   lg: {
-    shadowColor: "#2D8B7F",
+    shadowColor: "#062D1E",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 16,

@@ -19,18 +19,24 @@ interface DishCardProps {
   rating?: number;
   availableQty?: number;
   preparationTimeMinutes?: number;
+  isChefOffline?: boolean;
 }
 
 export const DishCard = ({
   id, name, description, price, image, chefId, chefName,
   isVeg = false, rating, availableQty, preparationTimeMinutes,
+  isChefOffline = false,
 }: DishCardProps) => {
   const { addItem } = useCart();
   const { formatPrice } = useI18n();
   const { width } = useWindowDimensions();
   const cardWidth = (width - spacing.md * 2 - spacing.sm) / 2;
 
+  const isOutOfStock = typeof availableQty === "number" && availableQty === 0;
+  const orderDisabled = isOutOfStock || isChefOffline;
+
   const handleAddToCart = () => {
+    if (orderDisabled) return;
     const result = addItem({ id, name, price, image, chefId, chefName }, availableQty);
     if (!result.success) {
       if (result.requiresSwitch && result.pendingItem) {
@@ -47,7 +53,7 @@ export const DishCard = ({
   return (
     <Pressable
       onPress={() => router.push(`/chef/${chefId}`)}
-      style={[styles.card, { width: cardWidth }]}
+      style={[styles.card, { width: cardWidth }, isChefOffline && { opacity: 0.7 }]}
     >
       <View style={styles.imageContainer}>
         <Image
@@ -56,17 +62,23 @@ export const DishCard = ({
           contentFit="cover"
           transition={200}
         />
-        {isVeg && (
+        {isVeg && !isChefOffline && (
           <View style={styles.vegBadge}>
             <Text style={styles.vegText}>🌿 Veg</Text>
           </View>
         )}
+        {isChefOffline ? (
+          <View style={styles.offlineBadge}>
+            <Text style={styles.offlineText}>Chef offline</Text>
+          </View>
+        ) : null}
         <Pressable
           onPress={(e) => { e.stopPropagation?.(); handleAddToCart(); }}
-          style={styles.addButton}
+          style={[styles.addButton, orderDisabled && styles.addButtonDisabled]}
           hitSlop={8}
+          disabled={orderDisabled}
         >
-          <Ionicons name="add" size={18} color="#fff" />
+          <Ionicons name={orderDisabled ? "close" : "add"} size={18} color="#fff" />
         </Pressable>
       </View>
 
@@ -114,12 +126,21 @@ const styles = StyleSheet.create({
     borderRadius: radius.full, paddingHorizontal: 6, paddingVertical: 2,
   },
   vegText: { fontSize: 10, fontWeight: "600", color: "#166534" },
+  offlineBadge: {
+    position: "absolute", top: 6, left: 6,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: radius.full, paddingHorizontal: 7, paddingVertical: 3,
+  },
+  offlineText: { fontSize: 10, fontWeight: "600", color: "#fff" },
   addButton: {
     position: "absolute", bottom: 6, right: 6,
     width: 30, height: 30, borderRadius: 15,
     backgroundColor: colors.primary,
     alignItems: "center", justifyContent: "center",
     ...shadow.md,
+  },
+  addButtonDisabled: {
+    backgroundColor: colors.mutedForeground,
   },
   content: { padding: spacing.sm },
   name: { ...typography.sm, fontWeight: "700", color: colors.foreground },

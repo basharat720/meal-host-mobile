@@ -75,6 +75,13 @@ export interface DietaryTag {
   description?: string;
 }
 
+export interface CuisineType {
+  id: number;
+  code: string;
+  name: string;
+  description?: string;
+}
+
 export interface FoodImage {
   id: number;
   image_url: string;
@@ -99,6 +106,8 @@ export interface FoodListing {
   created_at: string;
   images: FoodImage[];
   dietary_tags: DietaryTag[];
+  cuisine_types?: CuisineType[];
+  chef_is_available?: boolean;
 }
 
 export interface FoodListingCreate {
