@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -6,9 +6,10 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, router } from "expo-router";
+import { useLocalSearchParams, router, useFocusEffect } from "expo-router";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { Button } from "@/components/ui/Button";
@@ -42,12 +43,17 @@ export default function ChefProfileScreen() {
   const [chef, setChef] = useState<Chef | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     if (!id) return;
-    setIsLoading(true);
-    setFetchError(null);
+    // Keep showing the profile while refetching silently (refocus / pull-to-refresh).
+    if (!silent) {
+      setIsLoading(true);
+      setFetchError(null);
+    }
     try {
       const [chefRes, reviewsRes] = await Promise.allSettled([
         chefService.getChef(id),
@@ -55,7 +61,7 @@ export default function ChefProfileScreen() {
       ]);
 
       if (chefRes.status === "rejected") {
-        setFetchError("Chef not found.");
+        if (!silent) setFetchError("Chef not found.");
         return;
       }
       setChef(chefRes.value);
@@ -65,8 +71,21 @@ export default function ChefProfileScreen() {
     }
   }, [id]);
 
-  useEffect(() => {
-    load();
+  // Refetch when the screen regains focus (e.g. returning from the menu screen).
+  useFocusEffect(
+    useCallback(() => {
+      load(hasLoadedRef.current);
+      hasLoadedRef.current = true;
+    }, [load])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await load(true);
+    } finally {
+      setRefreshing(false);
+    }
   }, [load]);
 
   if (isLoading) {
@@ -87,7 +106,7 @@ export default function ChefProfileScreen() {
             >
               Browse Chefs
             </Button>
-            <Button onPress={load} style={styles.errorBtn}>
+            <Button onPress={() => load()} style={styles.errorBtn}>
               Retry
             </Button>
           </View>
@@ -132,6 +151,13 @@ export default function ChefProfileScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
       >
         {/* Chef header card */}
         <View style={styles.card}>

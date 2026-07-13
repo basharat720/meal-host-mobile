@@ -13,6 +13,7 @@ import { Image } from "expo-image";
 import { useAuth } from "@/contexts/AuthContext";
 import { chefService, ChefDashboardStats } from "@/services/chefService";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { NotificationBell } from "@/components/NotificationBell";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 
 interface StatCardProps {
@@ -129,6 +130,7 @@ export default function DashboardScreen() {
             <Text style={styles.title}>Chef Dashboard</Text>
             <Text style={styles.subtitle}>Welcome back, {chefName}</Text>
           </View>
+          <NotificationBell color={colors.foreground} />
         </View>
 
         {/* Stats Grid */}

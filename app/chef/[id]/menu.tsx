@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   Pressable,
+  RefreshControl,
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, router } from "expo-router";
+import { useLocalSearchParams, router, useFocusEffect } from "expo-router";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { DishCard } from "@/components/DishCard";
@@ -65,12 +66,17 @@ export default function ChefMenuScreen() {
   const [chef, setChef] = useState<MappedChef | null>(null);
   const [menuItems, setMenuItems] = useState<FoodListing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (silent = false) => {
     if (!id) return;
-    setIsLoading(true);
-    setFetchError(null);
+    // Keep the current menu on screen while refetching silently.
+    if (!silent) {
+      setIsLoading(true);
+      setFetchError(null);
+    }
     try {
       const [chefData, listings] = await Promise.all([
         chefService.getChef(id),
@@ -80,14 +86,27 @@ export default function ChefMenuScreen() {
       setChef(mapChefForDisplay(chefData, activeListings));
       setMenuItems(activeListings);
     } catch {
-      setFetchError("We couldn't load this chef's menu right now.");
+      if (!silent) setFetchError("We couldn't load this chef's menu right now.");
     } finally {
       setIsLoading(false);
     }
   }, [id]);
 
-  useEffect(() => {
-    loadData();
+  // Refetch the menu whenever the screen regains focus so it stays current.
+  useFocusEffect(
+    useCallback(() => {
+      loadData(hasLoadedRef.current);
+      hasLoadedRef.current = true;
+    }, [loadData])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadData(true);
+    } finally {
+      setRefreshing(false);
+    }
   }, [loadData]);
 
   // Column width calculation: 2 columns with gap and horizontal padding
@@ -170,7 +189,7 @@ export default function ChefMenuScreen() {
             >
               Browse Chefs
             </Button>
-            <Button onPress={loadData} style={styles.errorBtn}>
+            <Button onPress={() => loadData()} style={styles.errorBtn}>
               Retry
             </Button>
           </View>
@@ -282,6 +301,13 @@ export default function ChefMenuScreen() {
         ListHeaderComponent={ListHeader}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
         ListEmptyComponent={
           <EmptyState
             icon="🍽️"

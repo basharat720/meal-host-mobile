@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View, Text, StyleSheet, FlatList, TextInput, Pressable,
-  ActivityIndicator, Modal, ScrollView,
+  ActivityIndicator, Modal, ScrollView, RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
@@ -14,7 +14,8 @@ import { CuisineType } from "@/services/types";
 import { useI18n } from "@/i18n/context";
 import { colors, fonts, radius, spacing, typography } from "@/constants/theme";
 import { Logo } from "@/components/Logo";
-import { router } from "expo-router";
+import { NotificationBell } from "@/components/NotificationBell";
+import { router, useFocusEffect } from "expo-router";
 
 const SORT_OPTIONS = [
   { value: "relevance", label: "Relevance" },
@@ -29,7 +30,13 @@ export default function HomeScreen() {
   const { formatPrice } = useI18n();
   const [allDishes, setAllDishes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState(false);
+
+  // Cache the resolved GPS coordinates so we don't re-prompt / re-locate on
+  // every screen focus — we only need the device location once.
+  const coordsRef = useRef<{ lat: number; lon: number } | null>(null);
+  const hasLoadedRef = useRef(false);
 
   // API-driven cuisine types
   const [cuisineTypes, setCuisineTypes] = useState<CuisineType[]>([]);
@@ -44,9 +51,11 @@ export default function HomeScreen() {
   const [displayedCount, setDisplayedCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const fetchDishes = useCallback(async (lat?: number, lon?: number) => {
+  const fetchDishes = useCallback(async (lat?: number, lon?: number, silent = false) => {
     try {
-      setIsLoading(true);
+      // On a silent refetch (screen refocus / pull-to-refresh) keep showing the
+      // existing dishes instead of flashing the full-screen loader.
+      if (!silent) setIsLoading(true);
       setFetchError(false);
       const params: any = { limit: 100 };
       if (lat && lon) { params.lat = lat; params.lon = lon; params.radius_km = 50; }
@@ -83,21 +92,44 @@ export default function HomeScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    (async () => {
+  // Resolve device location once, then fetch dishes. Subsequent calls reuse the
+  // cached coordinates. `silent` keeps existing data on screen while refetching.
+  const loadDishes = useCallback(async (silent = false) => {
+    if (coordsRef.current) {
+      await fetchDishes(coordsRef.current.lat, coordsRef.current.lon, silent);
+      return;
+    }
+    try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === "granted") {
-        try {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
-          fetchDishes(loc.coords.latitude, loc.coords.longitude);
-        } catch {
-          fetchDishes();
-        }
-      } else {
-        fetchDishes();
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
+        coordsRef.current = { lat: loc.coords.latitude, lon: loc.coords.longitude };
+        await fetchDishes(loc.coords.latitude, loc.coords.longitude, silent);
+        return;
       }
-    })();
+    } catch {
+      // fall through to a location-less fetch
+    }
+    await fetchDishes(undefined, undefined, silent);
   }, [fetchDishes]);
+
+  // Refetch every time the screen gains focus so the list never shows stale data.
+  // The first load shows the full-screen loader; later focuses refetch silently.
+  useFocusEffect(
+    useCallback(() => {
+      loadDishes(hasLoadedRef.current);
+      hasLoadedRef.current = true;
+    }, [loadDishes])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadDishes(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadDishes]);
 
   useEffect(() => {
     cuisineService.getCuisineTypes()
@@ -192,6 +224,7 @@ export default function HomeScreen() {
       {/* Top bar with logo */}
       <View style={styles.topBar}>
         <Logo size="md" showText={true} />
+        <NotificationBell />
       </View>
 
       {/* Search bar */}
@@ -284,6 +317,13 @@ export default function HomeScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.3}
           ListEmptyComponent={

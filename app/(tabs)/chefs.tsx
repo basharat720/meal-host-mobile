@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -6,10 +6,11 @@ import {
   FlatList,
   TextInput,
   Pressable,
+  RefreshControl,
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ChefCard } from "@/components/ChefCard";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -56,12 +57,16 @@ export default function ChefsScreen() {
   const { width } = useWindowDimensions();
   const [allChefs, setAllChefs] = useState<MappedChef[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const hasLoadedRef = useRef(false);
 
-  const fetchChefs = useCallback(async () => {
+  const fetchChefs = useCallback(async (silent = false) => {
     try {
-      setIsLoading(true);
+      // Keep the existing list visible on refocus/pull-to-refresh instead of
+      // flashing the full-screen loader.
+      if (!silent) setIsLoading(true);
       setFetchError(false);
       const data = await chefService.getAllChefs();
       setAllChefs(data.map(mapChef));
@@ -72,8 +77,21 @@ export default function ChefsScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchChefs();
+  // Refetch whenever the screen regains focus so chefs never show stale data.
+  useFocusEffect(
+    useCallback(() => {
+      fetchChefs(hasLoadedRef.current);
+      hasLoadedRef.current = true;
+    }, [fetchChefs])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchChefs(true);
+    } finally {
+      setRefreshing(false);
+    }
   }, [fetchChefs]);
 
   const filteredChefs = allChefs.filter((chef) => {
@@ -114,7 +132,7 @@ export default function ChefsScreen() {
           title="Couldn't load chefs"
           description="Please check your connection and try again."
           actionLabel="Retry"
-          onAction={fetchChefs}
+          onAction={() => fetchChefs()}
         />
       </SafeAreaView>
     );
@@ -177,6 +195,13 @@ export default function ChefsScreen() {
         columnWrapperStyle={styles.columnWrapper}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
         ListEmptyComponent={
           <EmptyState
             icon="🔍"

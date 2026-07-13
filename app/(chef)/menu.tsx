@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Switch,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
@@ -338,11 +339,15 @@ export default function MenuScreen() {
   const [addForm, setAddForm] = useState<DishForm>(EMPTY_FORM);
   const [editForm, setEditForm] = useState<DishForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const hasLoadedRef = useRef(false);
 
-  const fetchMenu = useCallback(async () => {
+  const fetchMenu = useCallback(async (silent = false) => {
     if (!dbUser) return;
     try {
-      setLoading(true);
+      // Keep the current list on screen while refetching silently
+      // (refocus / pull-to-refresh) instead of flashing the loader.
+      if (!silent) setLoading(true);
       const [data, tags] = await Promise.all([
         menuService.getChefListings(dbUser.id.toString()),
         menuService.getDietaryTags(),
@@ -358,9 +363,19 @@ export default function MenuScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchMenu();
+      fetchMenu(hasLoadedRef.current);
+      hasLoadedRef.current = true;
     }, [fetchMenu])
   );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchMenu(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchMenu]);
 
   // ------------------------------------------------------------------
   // Toggle active/inactive
@@ -539,7 +554,7 @@ export default function MenuScreen() {
         <Text style={styles.screenTitle}>My Menu</Text>
         <Pressable
           style={styles.refreshBtn}
-          onPress={fetchMenu}
+          onPress={() => fetchMenu()}
           hitSlop={8}
         >
           <Ionicons name="refresh-outline" size={22} color={colors.primary} />
@@ -561,6 +576,13 @@ export default function MenuScreen() {
             />
           )}
           contentContainerStyle={listings.length === 0 ? styles.emptyContainer : styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
           ListEmptyComponent={
             <EmptyState
               icon="🍽️"

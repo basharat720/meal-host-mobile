@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Badge } from "@/components/ui/Badge";
@@ -101,9 +101,15 @@ export default function RequestDetailScreen() {
     [requestId]
   );
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const hasLoadedRef = useRef(false);
+
+  // Refetch offers whenever the screen regains focus so the latest offers show.
+  useFocusEffect(
+    useCallback(() => {
+      loadData(!hasLoadedRef.current);
+      hasLoadedRef.current = true;
+    }, [loadData])
+  );
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);

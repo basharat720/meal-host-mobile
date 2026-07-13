@@ -22,9 +22,24 @@ import { CartProvider } from "@/contexts/CartContext";
 import { I18nProvider } from "@/i18n/context";
 import { colors } from "@/constants/theme";
 import { AnimatedSplash } from "@/components/AnimatedSplash";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { configureNotificationHandler } from "@/lib/pushNotifications";
 
 // Keep native splash visible until we're ready to show our animated one
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Configure foreground notification behaviour once, at module load, before any
+// notification can be delivered.
+configureNotificationHandler();
+
+/**
+ * Mounts the push-notification wiring. Must live UNDER AuthProvider (needs the
+ * logged-in user) and the QueryClientProvider (invalidates the unread badge).
+ */
+function PushNotificationsGate() {
+  usePushNotifications();
+  return null;
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,6 +80,7 @@ export default function RootLayout() {
                   style={splashDone ? "dark" : "light"}
                   backgroundColor={splashDone ? colors.background : colors.primary}
                 />
+                <PushNotificationsGate />
                 {fontsLoaded && (
                   <Stack screenOptions={{ headerShown: false }}>
                     <Stack.Screen name="(auth)" />
@@ -72,6 +88,7 @@ export default function RootLayout() {
                     <Stack.Screen name="(chef)" />
                     <Stack.Screen name="chef/[id]" options={{ headerShown: false }} />
                     <Stack.Screen name="my-requests/[id]" options={{ headerShown: false }} />
+                    <Stack.Screen name="notifications" options={{ headerShown: false }} />
                   </Stack>
                 )}
                 {fontsLoaded && !splashDone && (

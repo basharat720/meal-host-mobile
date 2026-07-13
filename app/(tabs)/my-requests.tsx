@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Badge } from "@/components/ui/Badge";
@@ -39,6 +39,7 @@ export default function MyRequestsScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
   const hasMore = requests.length < total;
 
@@ -119,13 +120,19 @@ export default function MyRequestsScreen() {
     }
   }, [dbUser, requests.length, isLoadingMore, hasMore]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // Refetch on every focus so the list reflects the latest requests/offers.
+  // First focus shows the full loader; later focuses refetch silently (reset=false
+  // keeps the current list visible without flashing the loader).
+  useFocusEffect(
+    useCallback(() => {
+      fetchData(!hasLoadedRef.current);
+      hasLoadedRef.current = true;
+    }, [fetchData])
+  );
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
-    fetchData(true);
+    fetchData(false);
   }, [fetchData]);
 
   if (authLoading || (isLoading && !isRefreshing)) {

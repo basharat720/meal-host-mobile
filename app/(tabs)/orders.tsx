@@ -13,10 +13,11 @@ import {
   Modal,
   TextInput,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { orderService } from "@/services/orderService";
@@ -733,6 +734,7 @@ export default function OrdersScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [dishMap, setDishMap] = useState<Map<number, DishInfo>>(new Map());
@@ -745,6 +747,14 @@ export default function OrdersScreen() {
 
   const hasMore = orders.length < total;
   const isMounted = useRef(true);
+  const hasLoadedRef = useRef(false);
+  // Mirror the current order count in a ref so `fetchOrders` can preserve the
+  // loaded page size without depending on `orders.length` (which would make the
+  // focus effect re-run on every data change).
+  const ordersLengthRef = useRef(0);
+  useEffect(() => {
+    ordersLengthRef.current = orders.length;
+  }, [orders.length]);
 
   const enrichDishes = useCallback(
     async (fetched: Order[], currentMap: Map<number, DishInfo>) => {
@@ -856,7 +866,7 @@ export default function OrdersScreen() {
       if (!dbUser) return;
       if (isInitial) setIsLoading(true);
       try {
-        const currentCount = isInitial ? 0 : orders.length;
+        const currentCount = isInitial ? 0 : ordersLengthRef.current;
         const limitToUse = Math.max(currentCount, 20);
         const page = await orderService.getCustomerOrders(
           dbUser.id as number,
@@ -879,7 +889,7 @@ export default function OrdersScreen() {
         if (isInitial && isMounted.current) setIsLoading(false);
       }
     },
-    [dbUser, enrichDishes, enrichRequests, enrichChefs, orders.length]
+    [dbUser, enrichDishes, enrichRequests, enrichChefs]
   );
 
   const loadMore = useCallback(async () => {
@@ -905,14 +915,33 @@ export default function OrdersScreen() {
     }
   }, [dbUser, isLoadingMore, orders.length, enrichDishes, enrichRequests, enrichChefs, dishMap, requestMap, chefMap]);
 
+  // Track real mount/unmount so we don't call setState on an unmounted screen.
   useEffect(() => {
     isMounted.current = true;
-    fetchOrders(true);
-    const interval = setInterval(() => fetchOrders(false), 30_000);
     return () => {
       isMounted.current = false;
-      clearInterval(interval);
     };
+  }, []);
+
+  // Refetch on every focus (fresh data when you switch back to the tab) and poll
+  // every 30s while the screen is focused. The first load shows the full loader;
+  // subsequent focuses refetch silently, keeping the current list on screen.
+  useFocusEffect(
+    useCallback(() => {
+      fetchOrders(!hasLoadedRef.current);
+      hasLoadedRef.current = true;
+      const interval = setInterval(() => fetchOrders(false), 30_000);
+      return () => clearInterval(interval);
+    }, [fetchOrders])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchOrders(false);
+    } finally {
+      if (isMounted.current) setIsRefreshing(false);
+    }
   }, [fetchOrders]);
 
   const toggleExpand = (id: number) =>
@@ -1000,6 +1029,13 @@ export default function OrdersScreen() {
           data={orders}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
           ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
           renderItem={({ item }) => (
             <OrderCard
