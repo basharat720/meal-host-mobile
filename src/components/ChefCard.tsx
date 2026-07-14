@@ -15,6 +15,8 @@ export interface ChefCardProps {
   maxPrice?: number;
   isVerified?: boolean;
   isVeg?: boolean;
+  isOpenNow?: boolean;
+  location?: string;
   onPress: () => void;
 }
 
@@ -28,8 +30,11 @@ export const ChefCard = ({
   maxPrice = 0,
   isVerified,
   isVeg,
+  isOpenNow = true,
+  location,
   onPress,
 }: ChefCardProps) => {
+  const isOffline = isOpenNow === false;
   const displayedSpecialties = specialties.slice(0, 3);
   const initials = name
     .split(" ")
@@ -40,7 +45,7 @@ export const ChefCard = ({
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.card, isOffline && styles.cardOffline, pressed && styles.pressed]}
       onPress={onPress}
     >
       {/* Avatar / Photo */}
@@ -73,6 +78,20 @@ export const ChefCard = ({
           )}
         </View>
 
+        {/* Open / Offline status badge */}
+        <View style={styles.statusBadgeWrap}>
+          {isOffline ? (
+            <View style={styles.offlineBadge}>
+              <Text style={styles.offlineBadgeText}>Offline</Text>
+            </View>
+          ) : (
+            <View style={styles.openBadge}>
+              <View style={styles.openDot} />
+              <Text style={styles.openBadgeText}>Open now</Text>
+            </View>
+          )}
+        </View>
+
         {/* Rating pill */}
         <View style={styles.ratingPill}>
           <Ionicons name="star" size={11} color={colors.warning} />
@@ -86,6 +105,13 @@ export const ChefCard = ({
       {/* Content */}
       <View style={styles.content}>
         <Text style={styles.name} numberOfLines={1}>{name}</Text>
+
+        {!!location && (
+          <View style={styles.locationRow}>
+            <Ionicons name="location-outline" size={11} color={colors.mutedForeground} />
+            <Text style={styles.locationText} numberOfLines={1}>{location}</Text>
+          </View>
+        )}
 
         {/* Specialties tags */}
         {displayedSpecialties.length > 0 && (
@@ -130,6 +156,7 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorder,
     ...shadow.sm,
   },
+  cardOffline: { opacity: 0.72 },
   pressed: { opacity: 0.88 },
 
   imageContainer: {
@@ -180,6 +207,47 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     color: "#fff",
+  },
+
+  statusBadgeWrap: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+  },
+  openBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.success,
+    borderRadius: radius.full,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  openDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "#fff",
+  },
+  openBadgeText: { fontSize: 10, fontWeight: "700", color: "#fff" },
+  offlineBadge: {
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: radius.full,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  offlineBadgeText: { fontSize: 10, fontWeight: "700", color: "#fff" },
+
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginBottom: spacing.xs,
+  },
+  locationText: {
+    ...typography.xs,
+    color: colors.mutedForeground,
+    flex: 1,
   },
 
   ratingPill: {

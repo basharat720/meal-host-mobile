@@ -43,6 +43,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   setRole: (role: UserRole | null) => void;
   getFreshToken: () => Promise<string | null>;
+  refreshDbUser: () => Promise<DbUser | null>;
   sendPasswordReset: (email: string) => Promise<{ error: Error | null }>;
   resendEmailVerification: () => Promise<{ error: Error | null }>;
   checkEmailVerification: () => Promise<{ isVerified: boolean; error: Error | null }>;
@@ -326,6 +327,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signOut: handleSignOut,
         setRole: (r) => { setRoleState(r); if (r) AsyncStorage.setItem(ROLE_KEY, r); else AsyncStorage.removeItem(ROLE_KEY); },
         getFreshToken,
+        refreshDbUser,
         sendPasswordReset,
         resendEmailVerification,
         checkEmailVerification: async () => {

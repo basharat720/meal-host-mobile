@@ -16,9 +16,19 @@ import { DishCard } from "@/components/DishCard";
 import { FullScreenLoader } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
-import { chefService, menuService } from "@/services/api";
-import { Chef, FoodListing } from "@/services/types";
+import { chefService, menuService, availabilityService } from "@/services/api";
+import { Chef, FoodListing, ChefAvailabilityStatus } from "@/services/types";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
+
+// "HH:MM" (24h) -> "9:00 AM" (12h) for display.
+function displayTime(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map((n) => parseInt(n, 10));
+  const hour = Number.isFinite(h) ? h : 0;
+  const min = Number.isFinite(m) ? m : 0;
+  const period = hour >= 12 ? "PM" : "AM";
+  const h12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${h12}:${String(min).padStart(2, "0")} ${period}`;
+}
 
 interface MappedChef {
   id: string;
@@ -65,6 +75,7 @@ export default function ChefMenuScreen() {
 
   const [chef, setChef] = useState<MappedChef | null>(null);
   const [menuItems, setMenuItems] = useState<FoodListing[]>([]);
+  const [status, setStatus] = useState<ChefAvailabilityStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -78,13 +89,16 @@ export default function ChefMenuScreen() {
       setFetchError(null);
     }
     try {
-      const [chefData, listings] = await Promise.all([
+      const [chefData, listings, statusData] = await Promise.all([
         chefService.getChef(id),
         menuService.getChefListingsPublic(id),
+        // Availability is best-effort — never block the menu on it.
+        availabilityService.getStatus(id).catch(() => null),
       ]);
       const activeListings = listings.filter((l) => l.status === "ACTIVE");
       setChef(mapChefForDisplay(chefData, activeListings));
       setMenuItems(activeListings);
+      setStatus(statusData);
     } catch {
       if (!silent) setFetchError("We couldn't load this chef's menu right now.");
     } finally {
@@ -114,6 +128,8 @@ export default function ChefMenuScreen() {
   const H_PADDING = spacing.md;
   const columnWidth = (width - H_PADDING * 2 - COLUMN_GAP) / 2;
 
+  const isChefOffline = status ? !status.is_open : false;
+
   const renderItem = useCallback(
     ({ item, index }: { item: FoodListing; index: number }) => {
       if (index % 2 === 1) return null; // pairs rendered together
@@ -141,6 +157,7 @@ export default function ChefMenuScreen() {
             rating={chef?.rating}
             availableQty={item.available_quantity}
             preparationTimeMinutes={item.preparation_time_minutes}
+            isChefOffline={isChefOffline}
           />
           {next ? (
             <DishCard
@@ -155,6 +172,7 @@ export default function ChefMenuScreen() {
               rating={chef?.rating}
               availableQty={next.available_quantity}
               preparationTimeMinutes={next.preparation_time_minutes}
+              isChefOffline={isChefOffline}
             />
           ) : (
             <View style={{ flex: 1 }} />
@@ -162,7 +180,7 @@ export default function ChefMenuScreen() {
         </View>
       );
     },
-    [menuItems, chef, id]
+    [menuItems, chef, id, isChefOffline]
   );
 
   if (isLoading) {
@@ -281,6 +299,18 @@ export default function ChefMenuScreen() {
           )}
         </View>
       </View>
+
+      {/* Offline banner */}
+      {isChefOffline && (
+        <View style={styles.offlineBanner}>
+          <Ionicons name="moon-outline" size={18} color={colors.mutedForeground} />
+          <Text style={styles.offlineBannerText}>
+            {status?.next_open_day_label && status?.next_open_time
+              ? `This chef is currently offline. Opens ${status.next_open_day_label} at ${displayTime(status.next_open_time)}. Ordering is unavailable.`
+              : "This chef is currently offline. Ordering is unavailable."}
+          </Text>
+        </View>
+      )}
 
       {/* Section heading */}
       <View style={styles.menuHeading}>
@@ -428,6 +458,26 @@ const styles = StyleSheet.create({
   chefBio: {
     ...typography.sm,
     color: colors.mutedForeground,
+    lineHeight: 18,
+  },
+
+  // Offline banner
+  offlineBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.muted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+  },
+  offlineBannerText: {
+    ...typography.sm,
+    color: colors.mutedForeground,
+    flex: 1,
     lineHeight: 18,
   },
 

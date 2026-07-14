@@ -1,6 +1,5 @@
 import { userService } from "./userService";
-import { Chef } from "./types";
-import { dishService } from "./dishService";
+import { Chef, ChefListItem } from "./types";
 import { apiRequest } from "./client";
 
 export interface ChefDashboardStats {
@@ -12,46 +11,22 @@ export interface ChefDashboardStats {
 
 export const chefService = {
   /**
-   * Get all chefs with active listings, including computed price ranges.
+   * Get all active chefs in one call via the optimized backend endpoint, which
+   * returns each chef's profile, locations, price range, and current
+   * availability (is_available). Sorted open-first, then by rating (matches web).
    */
-  getAllChefs: async (): Promise<Chef[]> => {
+  getAllChefs: async (): Promise<ChefListItem[]> => {
     try {
-      const listings = await dishService.searchFood({ limit: 200 });
-
-      // Compute min/max price per chef from their listings.
-      // chef_id from the API is a numeric user ID (integer), so we key by String(numeric).
-      const priceByChef = new Map<string, { min: number; max: number }>();
-      listings.forEach(l => {
-        if (!l.chef_id) return;
-        const key = String(l.chef_id);
-        const existing = priceByChef.get(key);
-        if (!existing) {
-          priceByChef.set(key, { min: l.price, max: l.price });
-        } else {
-          priceByChef.set(key, {
-            min: Math.min(existing.min, l.price),
-            max: Math.max(existing.max, l.price),
-          });
-        }
-      });
-
-      const chefIds = Array.from(new Set(listings.map(l => String(l.chef_id)).filter(Boolean)));
-
-      const results = await Promise.allSettled(
-        chefIds.map(id => chefService.getChef(id))
+      const response = await apiRequest<{ success: boolean; data: ChefListItem[]; total: number }>(
+        "chefs?limit=100"
       );
-
-      return results
-        .filter((r): r is PromiseFulfilledResult<Chef> => r.status === "fulfilled")
-        .map(r => {
-          const chef = r.value;
-          const prices = priceByChef.get(String(chef.id));
-          return {
-            ...chef,
-            minPrice: prices?.min ?? 0,
-            maxPrice: prices?.max ?? 0,
-          };
-        });
+      const chefs = response.data ?? [];
+      return [...chefs].sort((a, b) => {
+        const availA = a.is_available !== false;
+        const availB = b.is_available !== false;
+        if (availA !== availB) return availA ? -1 : 1;
+        return (b.chef_profile?.rating_avg ?? 0) - (a.chef_profile?.rating_avg ?? 0);
+      });
     } catch (e) {
       console.error("Failed to fetch chefs", e);
       return [];

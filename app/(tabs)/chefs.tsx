@@ -17,7 +17,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { FullScreenLoader } from "@/components/ui/LoadingSpinner";
 import { Button } from "@/components/ui/Button";
 import { chefService } from "@/services/api";
-import { Chef } from "@/services/types";
+import { ChefListItem } from "@/services/types";
 import { colors, fonts, radius, spacing, typography, shadow } from "@/constants/theme";
 import { Logo } from "@/components/Logo";
 
@@ -30,26 +30,31 @@ interface MappedChef {
   reviews: number;
   isVerified: boolean;
   isVeg: boolean;
+  isOpenNow: boolean;
+  location: string;
   minPrice: number;
   maxPrice: number;
 }
 
-function mapChef(chef: Chef): MappedChef {
-  const tags = chef.dietary_tags ?? [];
+function mapChef(chef: ChefListItem): MappedChef {
+  const tags = chef.chef_profile?.dietary_tags ?? [];
+  const primaryLocation =
+    chef.locations?.find((l) => l.is_primary) ?? chef.locations?.[0];
   return {
     id: String(chef.id),
     name: chef.name,
     image: chef.chef_profile?.profile_picture_url ?? null,
-    specialties: chef.chef_profile?.specialties ?? chef.specialties ?? [],
+    specialties: chef.chef_profile?.specialties ?? [],
     rating: chef.chef_profile?.rating_avg ?? 0,
     reviews: chef.chef_profile?.review_count ?? 0,
-    isVerified:
-      chef.status === "VERIFIED" || chef.chef_profile?.status === "active",
+    isVerified: chef.chef_profile?.status === "active",
     isVeg: tags.some(
       (t) => t.toUpperCase() === "VEG" || t.toUpperCase() === "VEGETARIAN"
     ),
-    minPrice: chef.minPrice ?? 0,
-    maxPrice: chef.maxPrice ?? 0,
+    isOpenNow: chef.is_available !== false,
+    location: primaryLocation?.address ?? "Local Kitchen",
+    minPrice: chef.min_price ?? 0,
+    maxPrice: chef.max_price ?? 0,
   };
 }
 

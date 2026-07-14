@@ -247,6 +247,41 @@ export interface AvailabilitySlot {
   close_time: string;  // "21:00"
 }
 
+export interface ChefAvailabilityStatus {
+  has_schedule: boolean;
+  is_open: boolean;
+  next_open_day: number | null;        // 0=Mon … 6=Sun
+  next_open_day_label: string | null;  // e.g. "Saturday"
+  next_open_time: string | null;       // "HH:MM"
+}
+
+/** Summary shape returned by the optimized GET /chefs list endpoint. */
+export interface ChefListItem {
+  id: number;
+  firebase_uid: string;
+  name: string;
+  email: string;
+  chef_profile?: {
+    profile_picture_url?: string | null;
+    rating_avg?: number;
+    review_count?: number;
+    specialties?: string[];
+    dietary_tags?: string[];
+    status?: string;
+  };
+  locations?: {
+    id: number;
+    address: string;
+    latitude: number;
+    longitude: number;
+    is_primary: boolean;
+  }[];
+  min_price?: number | null;
+  max_price?: number | null;
+  active_listings_count?: number;
+  is_available?: boolean;
+}
+
 export interface PaymentIntentOut {
   payment_id: number;
   client_secret: string;

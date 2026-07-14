@@ -7,7 +7,8 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, router } from "expo-router";
+import { Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useAuth } from "@/contexts/AuthContext";
@@ -145,6 +146,23 @@ export default function DashboardScreen() {
             />
           ))}
         </View>
+
+        {/* Quick actions */}
+        <Pressable
+          style={({ pressed }) => [styles.actionCard, pressed && { opacity: 0.85 }]}
+          onPress={() => router.push("/(chef)/availability")}
+        >
+          <View style={styles.actionIconWrap}>
+            <Ionicons name="calendar-outline" size={22} color={colors.primary} />
+          </View>
+          <View style={styles.actionText}>
+            <Text style={styles.actionTitle}>Availability & Prep Time</Text>
+            <Text style={styles.actionSubtitle}>
+              Set your weekly opening hours and default prep time
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.mutedForeground} />
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -232,5 +250,36 @@ const styles = StyleSheet.create({
     width: 80,
     borderRadius: radius.sm,
     backgroundColor: colors.muted,
+  },
+
+  actionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    ...shadow.sm,
+  },
+  actionIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.accent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  actionText: { flex: 1 },
+  actionTitle: {
+    ...typography.base,
+    fontWeight: "700",
+    color: colors.foreground,
+  },
+  actionSubtitle: {
+    ...typography.sm,
+    color: colors.mutedForeground,
+    marginTop: 2,
   },
 });

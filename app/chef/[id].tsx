@@ -15,11 +15,21 @@ import { Ionicons } from "@expo/vector-icons";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { FullScreenLoader } from "@/components/ui/LoadingSpinner";
-import { chefService, reviewService } from "@/services/api";
-import { Chef, Review } from "@/services/types";
+import { chefService, reviewService, availabilityService } from "@/services/api";
+import { Chef, Review, AvailabilitySlot, ChefAvailabilityStatus } from "@/services/types";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+// "HH:MM" (24h) -> "9:00 AM" (12h) for display.
+function displayTime(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map((n) => parseInt(n, 10));
+  const hour = Number.isFinite(h) ? h : 0;
+  const min = Number.isFinite(m) ? m : 0;
+  const period = hour >= 12 ? "PM" : "AM";
+  const h12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${h12}:${String(min).padStart(2, "0")} ${period}`;
+}
 
 function StarRow({ stars, size = "sm" }: { stars: number; size?: "sm" | "lg" }) {
   const iconSize = size === "lg" ? 16 : 12;
@@ -42,6 +52,8 @@ export default function ChefProfileScreen() {
 
   const [chef, setChef] = useState<Chef | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [status, setStatus] = useState<ChefAvailabilityStatus | null>(null);
+  const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -55,9 +67,11 @@ export default function ChefProfileScreen() {
       setFetchError(null);
     }
     try {
-      const [chefRes, reviewsRes] = await Promise.allSettled([
+      const [chefRes, reviewsRes, statusRes, slotsRes] = await Promise.allSettled([
         chefService.getChef(id),
         reviewService.getChefReviews(Number(id)),
+        availabilityService.getStatus(id),
+        availabilityService.getAvailability(Number(id)),
       ]);
 
       if (chefRes.status === "rejected") {
@@ -66,6 +80,8 @@ export default function ChefProfileScreen() {
       }
       setChef(chefRes.value);
       setReviews(reviewsRes.status === "fulfilled" ? reviewsRes.value : []);
+      setStatus(statusRes.status === "fulfilled" ? statusRes.value : null);
+      setSlots(slotsRes.status === "fulfilled" ? slotsRes.value : []);
     } finally {
       setIsLoading(false);
     }
@@ -210,9 +226,53 @@ export default function ChefProfileScreen() {
                   <Badge label="Active" variant="success" />
                 </View>
               )}
+
+              {status && (
+                status.is_open ? (
+                  <View style={[styles.availBadge, styles.availBadgeOpen]}>
+                    <View style={styles.availDot} />
+                    <Text style={styles.availBadgeOpenText}>Open now</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.availBadge, styles.availBadgeOffline]}>
+                    <Ionicons name="moon-outline" size={11} color={colors.mutedForeground} />
+                    <Text style={styles.availBadgeOfflineText}>
+                      {status.next_open_day_label && status.next_open_time
+                        ? `Offline · Opens ${status.next_open_day_label} ${displayTime(status.next_open_time)}`
+                        : "Offline"}
+                    </Text>
+                  </View>
+                )
+              )}
             </View>
           </View>
         </View>
+
+        {/* Weekly hours */}
+        {slots.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Weekly Availability</Text>
+            <View style={styles.hoursList}>
+              {DAYS.map((label, i) => {
+                const daySlots = slots.filter((s) => s.day_of_week === i);
+                return (
+                  <View key={label} style={styles.hoursRow}>
+                    <Text style={styles.hoursDay}>{label}</Text>
+                    {daySlots.length > 0 ? (
+                      <Text style={styles.hoursValue}>
+                        {daySlots
+                          .map((s) => `${displayTime(s.open_time)} – ${displayTime(s.close_time)}`)
+                          .join(", ")}
+                      </Text>
+                    ) : (
+                      <Text style={styles.hoursClosed}>Closed</Text>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {/* Bio / Kitchen Description */}
         {!!profile?.kitchen_description && (
@@ -428,6 +488,52 @@ const styles = StyleSheet.create({
     color: colors.mutedForeground,
   },
   activeBadge: { marginTop: 6 },
+
+  availBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginTop: 6,
+  },
+  availBadgeOpen: { backgroundColor: colors.success },
+  availDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#fff" },
+  availBadgeOpenText: { ...typography.xs, fontWeight: "700", color: "#fff" },
+  availBadgeOffline: { backgroundColor: colors.muted },
+  availBadgeOfflineText: {
+    ...typography.xs,
+    fontWeight: "600",
+    color: colors.mutedForeground,
+  },
+
+  hoursList: { gap: 0 },
+  hoursRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 6,
+  },
+  hoursDay: {
+    ...typography.sm,
+    fontWeight: "600",
+    color: colors.foreground,
+    width: 44,
+  },
+  hoursValue: {
+    ...typography.sm,
+    color: colors.foreground,
+    flex: 1,
+    textAlign: "right",
+  },
+  hoursClosed: {
+    ...typography.sm,
+    color: colors.mutedForeground,
+    flex: 1,
+    textAlign: "right",
+  },
 
   // Sections
   sectionTitle: {
