@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -70,6 +70,7 @@ export default function CheckoutScreen() {
   const [isPickupLoading, setIsPickupLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [etaText, setEtaText] = useState<string | null>(null);
+  const orderPlacedRef = useRef(false);
 
   // Pre-fill name and phone from dbUser
   useEffect(() => {
@@ -137,7 +138,7 @@ export default function CheckoutScreen() {
 
   // If cart is empty and not offer mode, redirect back (must be in effect, not during render)
   useEffect(() => {
-    if (!isOfferMode && items.length === 0) {
+    if (!isOfferMode && items.length === 0 && !orderPlacedRef.current) {
       router.replace("/(tabs)/cart");
     }
   }, [isOfferMode, items.length]);
@@ -232,6 +233,7 @@ export default function CheckoutScreen() {
           await orderService.payOrder(order.id, { method: "CASH" });
           createdOrderIds.push(order.id);
         }
+        orderPlacedRef.current = true;
         clearCart();
       }
 

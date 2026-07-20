@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useCart } from "@/contexts/CartContext";
 import { View, Text, StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function CartBadge() {
   const { items } = useCart();
@@ -17,6 +18,7 @@ function CartBadge() {
 }
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
@@ -27,8 +29,8 @@ export default function TabsLayout() {
           borderTopColor: colors.border,
           borderTopWidth: 1,
           backgroundColor: colors.surface,
-          height: 62,
-          paddingBottom: 8,
+          height: 62 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
           paddingTop: 6,
         },
         tabBarLabelStyle: {

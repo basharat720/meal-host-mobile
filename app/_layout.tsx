@@ -13,10 +13,6 @@ import {
   Nunito_700Bold,
   Nunito_800ExtraBold,
 } from "@expo-google-fonts/nunito";
-import {
-  PlayfairDisplay_600SemiBold,
-  PlayfairDisplay_700Bold,
-} from "@expo-google-fonts/playfair-display";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { I18nProvider } from "@/i18n/context";
@@ -54,8 +50,6 @@ export default function RootLayout() {
     Nunito_600SemiBold,
     Nunito_700Bold,
     Nunito_800ExtraBold,
-    PlayfairDisplay_600SemiBold,
-    PlayfairDisplay_700Bold,
   });
 
   const [splashDone, setSplashDone] = useState(false);
