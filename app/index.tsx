@@ -7,7 +7,9 @@ export default function Root() {
 
   if (loading) return <FullScreenLoader message="Loading..." />;
 
-  if (!user) return <Redirect href="/(auth)/customer-login" />;
+  // Browse-first: logged-out users land on the public home feed (matching the
+  // web app), not the login screen. Login is only demanded at protected actions.
+  if (!user) return <Redirect href="/(tabs)/home" />;
 
   // Only route to the chef dashboard when the backend user explicitly confirms is_chef.
   // Avoids acting on a stale AsyncStorage role when dbUser hasn't loaded yet.

@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useCart } from "@/contexts/CartContext";
+import { useI18n } from "@/i18n/context";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -31,11 +32,9 @@ interface OfferCheckout {
   requestTitle: string;
 }
 
-const formatPrice = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD" });
-
 export default function CheckoutScreen() {
   const router = useRouter();
+  const { formatPrice } = useI18n();
   const params = useLocalSearchParams<{
     offerId?: string;
     chefId?: string;
@@ -164,7 +163,12 @@ export default function CheckoutScreen() {
             variant="primary"
             size="lg"
             style={styles.unauthButton}
-            onPress={() => router.push("/(auth)/customer-login")}
+            onPress={() =>
+              router.push({
+                pathname: "/(auth)/customer-login",
+                params: { redirect: "/(tabs)/checkout" },
+              })
+            }
           >
             Sign In
           </Button>

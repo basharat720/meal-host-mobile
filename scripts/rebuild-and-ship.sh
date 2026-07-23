@@ -19,7 +19,7 @@ NODE_VERSION="${NODE_VERSION:-20.19.4}"
 BACKEND_URL="${EXPO_PUBLIC_BACKEND_API_URL:-https://api.pakwanhus.com}"
 
 # ---- resolve paths relative to this script ----
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"w
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 ANDROID_DIR="$PROJECT_DIR/android"
 APK_OUT="$ANDROID_DIR/app/build/outputs/apk/release/app-release.apk"

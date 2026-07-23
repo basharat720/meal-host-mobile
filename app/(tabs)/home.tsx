@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { dishService, cuisineService } from "@/services/api";
 import { CuisineType } from "@/services/types";
 import { useI18n } from "@/i18n/context";
+import { useAuth } from "@/contexts/AuthContext";
 import { colors, fonts, radius, spacing, typography } from "@/constants/theme";
 import { Logo } from "@/components/Logo";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -28,6 +29,7 @@ const PAGE_SIZE = 12;
 
 export default function HomeScreen() {
   const { formatPrice } = useI18n();
+  const { user } = useAuth();
   const [allDishes, setAllDishes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -224,7 +226,18 @@ export default function HomeScreen() {
       {/* Top bar with logo */}
       <View style={styles.topBar}>
         <Logo size="md" showText={true} />
-        <NotificationBell />
+        {user ? (
+          <NotificationBell />
+        ) : (
+          <Pressable
+            style={styles.signInButton}
+            onPress={() => router.push("/(auth)/customer-login")}
+            hitSlop={8}
+          >
+            <Ionicons name="person-outline" size={16} color={colors.primary} />
+            <Text style={styles.signInButtonText}>Sign In</Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Search bar */}
@@ -407,6 +420,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md, paddingVertical: 12,
     backgroundColor: colors.background, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
+  signInButton: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    paddingHorizontal: spacing.md, paddingVertical: 7,
+    borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.primary,
+    backgroundColor: `${colors.primary}12`,
+  },
+  signInButtonText: { ...typography.sm, fontFamily: fonts.sansSemiBold, fontWeight: "600", color: colors.primary },
   searchContainer: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.background },
   searchRow: { flexDirection: "row", gap: spacing.sm, alignItems: "center" },
   searchInputWrap: {

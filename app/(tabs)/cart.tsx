@@ -12,12 +12,14 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useCart, CartItem } from "@/contexts/CartContext";
+import { useI18n } from "@/i18n/context";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
 
 export default function CartScreen() {
   const { items, updateQuantity, removeItem, total } = useCart();
+  const { formatPrice } = useI18n();
   const router = useRouter();
 
   const handleRemove = (item: CartItem) => {
@@ -26,9 +28,6 @@ export default function CartScreen() {
       { text: "Remove", style: "destructive", onPress: () => removeItem(item.id) },
     ]);
   };
-
-  const formatPrice = (n: number) =>
-    n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
   if (items.length === 0) {
     return (

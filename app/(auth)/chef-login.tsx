@@ -4,7 +4,7 @@ import {
   KeyboardAvoidingView, Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Link, router } from "expo-router";
+import { Link, router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -18,6 +18,14 @@ const CHEF_GRADIENT: [string, string] = ["#F06D4C", "#F36325"];
 
 export default function ChefLoginScreen() {
   const { signIn, signInWithGoogle, setRole } = useAuth();
+  const { redirect } = useLocalSearchParams<{ redirect?: string }>();
+  const destination = (redirect as string) || "/(chef)/dashboard";
+
+  const goBackOrHome = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)/home");
+  };
+
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -44,7 +52,7 @@ export default function ChefLoginScreen() {
       Alert.alert("Login Failed", error.message);
     } else {
       setRole("chef");
-      router.replace("/(chef)/dashboard");
+      router.replace(destination as any);
     }
   };
 
@@ -53,11 +61,14 @@ export default function ChefLoginScreen() {
     const { error } = await signInWithGoogle("chef");
     setIsGoogleLoading(false);
     if (error) Alert.alert("Google Sign-In Failed", error.message);
-    else router.replace("/(chef)/dashboard");
+    else router.replace(destination as any);
   };
 
   return (
     <SafeAreaView style={styles.safe} edges={["bottom"]}>
+      <TouchableOpacity onPress={goBackOrHome} hitSlop={8} style={styles.backButton}>
+        <Ionicons name="arrow-back" size={24} color="#fff" />
+      </TouchableOpacity>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" bounces={false}>
 
@@ -168,6 +179,10 @@ export default function ChefLoginScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   scroll: { flexGrow: 1 },
+  backButton: {
+    position: "absolute", top: 48, left: spacing.md, zIndex: 10,
+    width: 40, height: 40, alignItems: "center", justifyContent: "center",
+  },
 
   // Hero header
   hero: {

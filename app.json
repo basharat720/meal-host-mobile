@@ -20,7 +20,7 @@
     "android": {
       "package": "com.mealhost.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#062D1E",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false,

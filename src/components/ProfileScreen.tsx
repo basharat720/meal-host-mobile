@@ -171,7 +171,9 @@ export const ProfileScreen = () => {
         style: "destructive",
         onPress: async () => {
           await signOut();
-          router.replace("/(auth)/customer-login");
+          // Browse-first: after logout, return to the public home/discover feed
+          // (not the login screen), matching the web app.
+          router.replace("/(tabs)/home");
         },
       },
     ]);
@@ -182,6 +184,37 @@ export const ProfileScreen = () => {
   // ---------------------------------------------------------------------------
   const avatarUri = localImageUri ?? (profilePictureUrl || null);
   const initials = (name || dbUser?.name || "?").charAt(0).toUpperCase();
+
+  // Not logged in — show a sign-in prompt instead of an empty profile form.
+  // Signing in returns the user here (see redirect param).
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <View style={styles.gateHeader}>
+          <Text style={styles.screenTitle}>My Profile</Text>
+        </View>
+        <View style={styles.signInGate}>
+          <Ionicons name="person-circle-outline" size={56} color={colors.mutedForeground} />
+          <Text style={styles.signInTitle}>Sign in to your account</Text>
+          <Text style={styles.signInDesc}>
+            Sign in to manage your profile and see your details.
+          </Text>
+          <Button
+            size="lg"
+            style={styles.signInButton}
+            onPress={() =>
+              router.push({
+                pathname: "/(auth)/customer-login",
+                params: { redirect: "/(tabs)/profile" },
+              })
+            }
+          >
+            Sign In
+          </Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -357,6 +390,11 @@ const styles = StyleSheet.create({
   content: { padding: spacing.md, gap: spacing.lg, paddingBottom: 40 },
 
   headerSection: { gap: 4 },
+  gateHeader: { paddingHorizontal: spacing.md, paddingTop: spacing.md, gap: 4 },
+  signInGate: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl, gap: spacing.md },
+  signInTitle: { ...typography.xl, fontFamily: fonts.display, fontWeight: "700", color: colors.foreground, textAlign: "center" },
+  signInDesc: { ...typography.base, fontFamily: fonts.sans, color: colors.mutedForeground, textAlign: "center" },
+  signInButton: { marginTop: spacing.sm, alignSelf: "stretch" },
   screenTitle: { ...typography["2xl"], fontFamily: fonts.display, fontWeight: "700", color: colors.foreground },
   screenSubtitle: { ...typography.sm, fontFamily: fonts.sans, color: colors.mutedForeground },
 

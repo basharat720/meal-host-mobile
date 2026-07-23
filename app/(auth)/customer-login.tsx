@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, KeyboardAvoidingView, Platform,
 } from "react-native";
-import { Link, router } from "expo-router";
+import { Link, router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,6 +13,15 @@ import { Logo } from "@/components/Logo";
 
 export default function CustomerLoginScreen() {
   const { signIn, signInWithGoogle, setRole } = useAuth();
+  // Where to go after a successful login. Set by the gate that sent the user
+  // here (e.g. checkout, profile); falls back to the home feed.
+  const { redirect } = useLocalSearchParams<{ redirect?: string }>();
+  const destination = (redirect as string) || "/(tabs)/home";
+
+  const goBackOrHome = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)/home");
+  };
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -38,7 +47,7 @@ export default function CustomerLoginScreen() {
       Alert.alert("Login Failed", error.message);
     } else {
       setRole("customer"); // pin role so 404-handler never creates a chef account
-      router.replace("/(tabs)/home");
+      router.replace(destination as any);
     }
   };
 
@@ -47,11 +56,16 @@ export default function CustomerLoginScreen() {
     const { error } = await signInWithGoogle("customer");
     setIsGoogleLoading(false);
     if (error) Alert.alert("Google Sign-In Failed", error.message);
-    else router.replace("/(tabs)/home");
+    else router.replace(destination as any);
   };
 
   return (
     <SafeAreaView style={styles.safe}>
+      <View style={styles.topBar}>
+        <TouchableOpacity onPress={goBackOrHome} hitSlop={8} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={colors.foreground} />
+        </TouchableOpacity>
+      </View>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
@@ -133,6 +147,8 @@ export default function CustomerLoginScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
+  topBar: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  backButton: { width: 40, height: 40, alignItems: "flex-start", justifyContent: "center" },
   container: { flexGrow: 1, padding: spacing.lg, justifyContent: "center" },
   header: { alignItems: "center", marginBottom: spacing["2xl"], gap: spacing.md },
   title: { ...typography["3xl"], fontFamily: fonts.display, fontWeight: "700", color: colors.foreground, marginBottom: spacing.xs, marginTop: spacing.xs },

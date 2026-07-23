@@ -143,6 +143,18 @@ export default function PostRequestScreen() {
           <Text style={styles.signInDesc}>
             Please sign in to post a food request.
           </Text>
+          <Button
+            size="lg"
+            style={styles.signInButton}
+            onPress={() =>
+              router.push({
+                pathname: "/(auth)/customer-login",
+                params: { redirect: "/(tabs)/post-request" },
+              })
+            }
+          >
+            Sign In
+          </Button>
         </View>
       </SafeAreaView>
     );
@@ -338,6 +350,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: spacing.sm,
   },
+  signInButton: { marginTop: spacing.lg, alignSelf: "stretch" },
 
   header: {
     flexDirection: "row",
