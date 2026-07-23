@@ -93,15 +93,18 @@ export const typography = {
 };
 
 // Font families — loaded in app/_layout.tsx via useFonts
+// Web redesign moved to a single humanist sans (Aptos) for both body and
+// headings — no serif display face. Mobile mirrors that intent with Nunito for
+// everything, so `display*` tokens are just heavier Nunito weights.
 export const fonts = {
   sans: "Nunito_400Regular",
   sansMedium: "Nunito_500Medium",
   sansSemiBold: "Nunito_600SemiBold",
   sansBold: "Nunito_700Bold",
   sansExtraBold: "Nunito_800ExtraBold",
-  display: "PlayfairDisplay_700Bold",
-  displayMedium: "PlayfairDisplay_600SemiBold",
-  displaySemiBold: "PlayfairDisplay_600SemiBold",
+  display: "Nunito_800ExtraBold",
+  displayMedium: "Nunito_700Bold",
+  displaySemiBold: "Nunito_600SemiBold",
 };
 
 export const shadow = {

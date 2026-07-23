@@ -148,10 +148,6 @@ export default function ChefsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Logo size="md" showText={true} />
-        <Text style={styles.headerTitle}>Home Chefs</Text>
-        <Text style={styles.headerSubtitle}>
-          Discover authentic home-cooked meals near you
-        </Text>
       </View>
 
       {/* Search bar */}

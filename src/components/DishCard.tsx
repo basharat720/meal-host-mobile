@@ -27,7 +27,7 @@ export const DishCard = ({
   isVeg = false, rating, availableQty, preparationTimeMinutes,
   isChefOffline = false,
 }: DishCardProps) => {
-  const { addItem } = useCart();
+  const { addItem, switchChefAndAdd } = useCart();
   const { formatPrice } = useI18n();
   const { width } = useWindowDimensions();
   const cardWidth = (width - spacing.md * 2 - spacing.sm) / 2;
@@ -42,7 +42,7 @@ export const DishCard = ({
       if (result.requiresSwitch && result.pendingItem) {
         Alert.alert("Switch Chef?", result.message, [
           { text: "Cancel", style: "cancel" },
-          { text: "Switch", style: "destructive", onPress: () => addItem(result.pendingItem!) },
+          { text: "Switch", style: "destructive", onPress: () => switchChefAndAdd(result.pendingItem!) },
         ]);
       } else if (result.message) {
         Alert.alert("Can't Add", result.message);

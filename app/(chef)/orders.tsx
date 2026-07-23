@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/i18n/context";
 import { orderService } from "@/services/orderService";
 import { Order } from "@/services/types";
 import { Badge } from "@/components/ui/Badge";
@@ -183,6 +184,7 @@ function OrderCard({
   onConfirmWithEta,
   updatingId,
 }: OrderCardProps) {
+  const { formatPrice } = useI18n();
   const badge = STATUS_BADGE[order.status];
   const isUpdating = updatingId === order.id;
 
@@ -234,7 +236,7 @@ function OrderCard({
           )}
         </View>
         <View style={styles.cardHeaderRight}>
-          <Text style={styles.orderTotal}>${order.total_amount.toFixed(2)}</Text>
+          <Text style={styles.orderTotal}>{formatPrice(order.total_amount)}</Text>
           <Badge label={badge.label} variant={badge.variant} />
           <Ionicons
             name={expanded ? "chevron-up" : "chevron-down"}

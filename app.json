@@ -20,7 +20,7 @@
     "android": {
       "package": "com.mealhost.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#062D1E",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
@@ -30,7 +30,8 @@
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.VIBRATE"
+        "android.permission.VIBRATE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -42,6 +43,14 @@
       "expo-router",
       "expo-font",
       "expo-splash-screen",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
       [
         "expo-location",
         {
@@ -61,15 +70,18 @@
           "icon": "./assets/icon.png",
           "color": "#062D1E"
         }
-      ]
+      ],
+      "expo-build-properties"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
       "eas": {
-        "projectId": ""
-      }
-    }
+        "projectId": "c1b4d665-1386-4de1-a1a7-a01e6d9b9360"
+      },
+      "router": {}
+    },
+    "owner": "waseemkhan01"
   }
 }

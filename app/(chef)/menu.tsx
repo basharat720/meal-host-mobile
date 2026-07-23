@@ -19,6 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/i18n/context";
 import { menuService } from "@/services/menuService";
 import { DietaryTag, FoodListing } from "@/services/types";
 import { Button } from "@/components/ui/Button";
@@ -108,6 +109,7 @@ function DishRow({
   onEdit: (item: FoodListing) => void;
   onDelete: (id: number) => void;
 }) {
+  const { formatPrice } = useI18n();
   const primaryImage = item.images?.find((i) => i.is_primary)?.image_url ?? item.images?.[0]?.image_url ?? null;
   const isActive = item.status === "ACTIVE";
 
@@ -123,7 +125,7 @@ function DishRow({
 
       <View style={styles.rowInfo}>
         <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
-        <Text style={styles.rowPrice}>${item.price.toFixed(2)}</Text>
+        <Text style={styles.rowPrice}>{formatPrice(item.price)}</Text>
         <Text style={styles.rowQty}>Qty: {item.available_quantity}</Text>
         {item.dietary_tags?.length > 0 && (
           <View style={styles.rowTags}>

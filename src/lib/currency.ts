@@ -5,10 +5,9 @@
  */
 export const getCurrencyConfig = (language: string) => {
   const map: Record<string, { currency: string; locale: string }> = {
-    en: { currency: "NOK", locale: "nb-NO" },
-    no: { currency: "NOK", locale: "nb-NO" },
-    nb: { currency: "NOK", locale: "nb-NO" },
-    default: { currency: "NOK", locale: "nb-NO" },
+    en: { currency: "PKR", locale: "en-PK" },
+    ur: { currency: "PKR", locale: "ur-PK" },
+    default: { currency: "PKR", locale: "en-PK" },
   };
 
   return map[language] || map[language.split("-")[0]] || map.default;
@@ -26,6 +25,6 @@ export const formatCurrency = (amount: number, language: string): string => {
       maximumFractionDigits: 0,
     }).format(amount);
   } catch (e) {
-    return `kr ${amount}`;
+    return `Rs ${amount}`;
   }
 };

@@ -33,9 +33,16 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Firebase service account (never commit)
+firebase-service-account.json
+*-service-account.json
+
 # typescript
 *.tsbuildinfo
 
 # generated native folders
 /ios
 /android
+
+# local build/ship scripts (contain project config, kept out of git)
+/scripts

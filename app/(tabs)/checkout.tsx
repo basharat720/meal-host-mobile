@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useCart } from "@/contexts/CartContext";
+import { useI18n } from "@/i18n/context";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -31,11 +32,9 @@ interface OfferCheckout {
   requestTitle: string;
 }
 
-const formatPrice = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD" });
-
 export default function CheckoutScreen() {
   const router = useRouter();
+  const { formatPrice } = useI18n();
   const params = useLocalSearchParams<{
     offerId?: string;
     chefId?: string;
@@ -70,6 +69,7 @@ export default function CheckoutScreen() {
   const [isPickupLoading, setIsPickupLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [etaText, setEtaText] = useState<string | null>(null);
+  const orderPlacedRef = useRef(false);
 
   // Pre-fill name and phone from dbUser
   useEffect(() => {
@@ -137,7 +137,7 @@ export default function CheckoutScreen() {
 
   // If cart is empty and not offer mode, redirect back (must be in effect, not during render)
   useEffect(() => {
-    if (!isOfferMode && items.length === 0) {
+    if (!isOfferMode && items.length === 0 && !orderPlacedRef.current) {
       router.replace("/(tabs)/cart");
     }
   }, [isOfferMode, items.length]);
@@ -163,7 +163,12 @@ export default function CheckoutScreen() {
             variant="primary"
             size="lg"
             style={styles.unauthButton}
-            onPress={() => router.push("/(auth)/customer-login")}
+            onPress={() =>
+              router.push({
+                pathname: "/(auth)/customer-login",
+                params: { redirect: "/(tabs)/checkout" },
+              })
+            }
           >
             Sign In
           </Button>
@@ -232,6 +237,7 @@ export default function CheckoutScreen() {
           await orderService.payOrder(order.id, { method: "CASH" });
           createdOrderIds.push(order.id);
         }
+        orderPlacedRef.current = true;
         clearCart();
       }
 

@@ -146,6 +146,13 @@ export default function MyRequestsScreen() {
           icon="👤"
           title="Sign in required"
           description="Please sign in to view your food requests."
+          actionLabel="Sign In"
+          onAction={() =>
+            router.push({
+              pathname: "/(auth)/customer-login",
+              params: { redirect: "/(tabs)/my-requests" },
+            })
+          }
         />
       </SafeAreaView>
     );

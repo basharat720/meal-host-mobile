@@ -20,6 +20,7 @@ import { Image } from "expo-image";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/i18n/context";
 import { orderService } from "@/services/orderService";
 import { reviewService } from "@/services/reviewService";
 import { dishService } from "@/services/dishService";
@@ -275,6 +276,7 @@ function OrderCard({
   onMarkReceived,
   onLeaveReview,
 }: OrderCardProps) {
+  const { formatPrice } = useI18n();
   const currentIndex =
     order.status === "CANCELLED" ? -1 : STATUS_STEPS.indexOf(order.status);
 
@@ -344,7 +346,7 @@ function OrderCard({
               variant={getStatusBadgeVariant(order.status)}
             />
             <Text style={cardStyles.amount}>
-              {order.total_amount.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+              {formatPrice(order.total_amount)}
             </Text>
           </View>
           {showEtaInHeader && (
@@ -392,12 +394,12 @@ function OrderCard({
                   <Text style={cardStyles.detailSubText} numberOfLines={2}>{requestInfo.description}</Text>
                 ) : null}
                 <Text style={cardStyles.detailSubText}>
-                  {order.quantity} × {(order.total_amount / order.quantity).toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                  {order.quantity} × {formatPrice(order.total_amount / order.quantity)}
                 </Text>
                 <View style={cardStyles.totalRow}>
                   <Text style={cardStyles.detailSubText}>Total</Text>
                   <Text style={cardStyles.totalAmount}>
-                    {order.total_amount.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                    {formatPrice(order.total_amount)}
                   </Text>
                 </View>
               </View>
@@ -975,7 +977,12 @@ export default function OrdersScreen() {
           title="Sign in to view orders"
           description="Please sign in to see your order history."
           actionLabel="Sign In"
-          onAction={() => router.push("/(auth)/customer-login")}
+          onAction={() =>
+            router.push({
+              pathname: "/(auth)/customer-login",
+              params: { redirect: "/(tabs)/orders" },
+            })
+          }
         />
       </SafeAreaView>
     );
