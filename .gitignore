@@ -43,3 +43,6 @@ firebase-service-account.json
 # generated native folders
 /ios
 /android
+
+# local build/ship scripts (contain project config, kept out of git)
+/scripts
