@@ -1,25 +1,23 @@
 import React from "react";
-import { Tabs } from "expo-router";
+import { Tabs, Redirect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, typography } from "@/constants/theme";
-import { useCart } from "@/contexts/CartContext";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-function CartBadge() {
-  const { items } = useCart();
-  const count = items.reduce((s, i) => s + i.quantity, 0);
-  if (count === 0) return null;
-  return (
-    <View style={styles.badge}>
-      <Text style={styles.badgeText}>{count > 9 ? "9+" : count}</Text>
-    </View>
-  );
-}
+import { NotificationPrompt } from "@/components/NotificationPrompt";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const { dbUser } = useAuth();
+
+  // Role guard: the customer tabs are public for browsing (logged-out users land
+  // here), but a logged-in chef must never enter the customer experience. Only
+  // act on a confirmed backend role (dbUser), never a stale cached role.
+  if (dbUser?.is_chef === true) return <Redirect href="/(chef)/dashboard" />;
+
   return (
+    <View style={styles.root}>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -57,13 +55,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="cart"
         options={{
-          title: "Cart",
-          tabBarIcon: ({ color, size }) => (
-            <View>
-              <Ionicons name="bag-outline" size={size} color={color} />
-              <CartBadge />
-            </View>
-          ),
+          href: null,
+          tabBarItemStyle: { display: "none" },
         }}
       />
       <Tabs.Screen
@@ -109,21 +102,11 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+      <NotificationPrompt />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  badge: {
-    position: "absolute",
-    top: -4,
-    right: -8,
-    backgroundColor: colors.primary,
-    borderRadius: 9,
-    minWidth: 18,
-    height: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 3,
-  },
-  badgeText: { color: "#fff", fontSize: 10, fontWeight: "700" },
+  root: { flex: 1 },
 });

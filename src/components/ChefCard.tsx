@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
+import { useI18n } from "@/i18n/context";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 
 export interface ChefCardProps {
@@ -34,6 +35,7 @@ export const ChefCard = ({
   location,
   onPress,
 }: ChefCardProps) => {
+  const { formatPrice } = useI18n();
   const isOffline = isOpenNow === false;
   const displayedSpecialties = specialties.slice(0, 3);
   const initials = name
@@ -134,8 +136,8 @@ export const ChefCard = ({
           {(minPrice > 0 || maxPrice > 0) ? (
             <Text style={styles.priceRange}>
               {minPrice === maxPrice
-                ? `PKR ${minPrice}`
-                : `PKR ${minPrice} – ${maxPrice}`}
+                ? formatPrice(minPrice)
+                : `${formatPrice(minPrice)} – ${formatPrice(maxPrice)}`}
             </Text>
           ) : (
             <Text style={styles.priceRange}>View menu</Text>
@@ -170,7 +172,7 @@ const styles = StyleSheet.create({
     height: "100%",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.lightSage,
   },
   avatarInitials: {
     ...typography["2xl"],

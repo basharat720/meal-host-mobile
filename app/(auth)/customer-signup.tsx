@@ -4,11 +4,23 @@ import {
 } from "react-native";
 import { Link, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { colors, spacing, typography, fonts } from "@/constants/theme";
+import { colors, spacing, typography, fonts, radius } from "@/constants/theme";
 import { Logo } from "@/components/Logo";
+
+type Coords = { latitude: number; longitude: number };
+
+// Phone is optional for customers; validate format only when provided.
+const validatePhone = (phone: string): string | null => {
+  const digits = phone.replace(/[^\d]/g, "");
+  if (digits.length < 10) return "Phone number must be at least 10 digits";
+  if (digits.length > 15) return "Phone number is too long";
+  return null;
+};
 
 export default function CustomerSignupScreen() {
   const { signUp, signInWithGoogle } = useAuth();
@@ -16,6 +28,11 @@ export default function CustomerSignupScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [coords, setCoords] = useState<Coords | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -23,19 +40,82 @@ export default function CustomerSignupScreen() {
   const validate = () => {
     const e: Record<string, string> = {};
     if (!name.trim()) e.name = "Name is required";
+    else if (name.trim().length < 2) e.name = "Name must be at least 2 characters";
     if (!email.trim()) e.email = "Email is required";
     else if (!/\S+@\S+\.\S+/.test(email)) e.email = "Invalid email";
     if (!password) e.password = "Password is required";
     else if (password.length < 6) e.password = "Password must be at least 6 characters";
     if (password !== confirmPassword) e.confirmPassword = "Passwords do not match";
+    if (phone.trim()) {
+      const phoneError = validatePhone(phone);
+      if (phoneError) e.phone = phoneError;
+    }
+    if (!address.trim()) e.address = "Address is required";
+    else if (address.trim().length < 5) e.address = "Address is too short";
     setErrors(e);
     return Object.keys(e).length === 0;
+  };
+
+  // Fill address + coordinates from the device's current location.
+  const useCurrentLocation = async () => {
+    setLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission needed", "Location permission is required to use your current location.");
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const c = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+      setCoords(c);
+      try {
+        const places = await Location.reverseGeocodeAsync(c);
+        const p = places?.[0];
+        if (p) {
+          const parts = [p.name, p.street, p.city, p.region, p.postalCode, p.country].filter(Boolean);
+          if (parts.length) setAddress(parts.join(", "));
+        }
+      } catch {}
+      setErrors((prev) => { const n = { ...prev }; delete n.address; return n; });
+    } catch {
+      Alert.alert("Location Error", "Could not get your current location. Please enter your address manually.");
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  // Return coordinates for the typed address, forward-geocoding if needed.
+  const resolveCoords = async (): Promise<Coords | null> => {
+    if (coords) return coords;
+    try {
+      const results = await Location.geocodeAsync(address.trim());
+      if (results?.[0]) {
+        const c = { latitude: results[0].latitude, longitude: results[0].longitude };
+        setCoords(c);
+        return c;
+      }
+    } catch {}
+    return null;
   };
 
   const handleSignup = async () => {
     if (!validate()) return;
     setIsLoading(true);
-    const { error } = await signUp(email.trim(), password, "customer", name.trim());
+    const resolved = await resolveCoords();
+    if (!resolved) {
+      setIsLoading(false);
+      setErrors((prev) => ({ ...prev, address: "Could not find that address. Please enter a more specific address or use your current location." }));
+      return;
+    }
+    const { error } = await signUp(
+      email.trim(),
+      password,
+      "customer",
+      name.trim(),
+      undefined,
+      phone.trim() || undefined,
+      { latitude: resolved.latitude, longitude: resolved.longitude, address: address.trim() },
+    );
     setIsLoading(false);
     if (error) {
       Alert.alert("Sign Up Failed", error.message);
@@ -67,8 +147,35 @@ export default function CustomerSignupScreen() {
             <Input label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="you@example.com" error={errors.email} containerStyle={{ marginTop: spacing.md }} />
             <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry placeholder="••••••••" error={errors.password} containerStyle={{ marginTop: spacing.md }} />
             <Input label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry placeholder="••••••••" error={errors.confirmPassword} containerStyle={{ marginTop: spacing.md }} />
+            <Input label="Phone Number (optional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+92 300 1234567" error={errors.phone} containerStyle={{ marginTop: spacing.md }} />
 
-            <Button onPress={handleSignup} loading={isLoading} style={styles.button}>Create Account</Button>
+            <Input
+              label="Address"
+              value={address}
+              onChangeText={(t) => { setAddress(t); setCoords(null); }}
+              placeholder="Street, city, region..."
+              error={errors.address}
+              containerStyle={{ marginTop: spacing.md }}
+            />
+            <TouchableOpacity style={styles.locationButton} onPress={useCurrentLocation} disabled={locating} activeOpacity={0.7}>
+              <Ionicons name="location-outline" size={16} color={colors.primary} />
+              <Text style={styles.locationButtonText}>{locating ? "Getting location..." : "Use current location"}</Text>
+            </TouchableOpacity>
+            {coords && <Text style={styles.locationHint}>Location set ({coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)})</Text>}
+
+            <TouchableOpacity style={styles.checkboxRow} onPress={() => setAcceptedTerms((v) => !v)} activeOpacity={0.7}>
+              <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+                {acceptedTerms && <Ionicons name="checkmark" size={14} color={colors.primaryForeground} />}
+              </View>
+              <Text style={styles.termsText}>
+                I agree to the{" "}
+                <Text style={styles.termsLink} onPress={() => router.push("/terms" as any)}>Terms & Conditions</Text>
+                {" "}and{" "}
+                <Text style={styles.termsLink} onPress={() => router.push("/privacy")}>Privacy Policy</Text>
+              </Text>
+            </TouchableOpacity>
+
+            <Button onPress={handleSignup} loading={isLoading} disabled={!acceptedTerms} style={styles.button}>Create Account</Button>
 
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
@@ -110,6 +217,17 @@ const styles = StyleSheet.create({
   subtitle: { ...typography.base, fontFamily: fonts.sans, color: colors.mutedForeground },
   form: {},
   button: { marginTop: spacing.lg },
+  locationButton: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.sm },
+  locationButtonText: { ...typography.sm, color: colors.primary, fontWeight: "600" },
+  locationHint: { ...typography.xs, color: colors.mutedForeground, marginTop: 4 },
+  checkboxRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, marginTop: spacing.lg },
+  checkbox: {
+    width: 22, height: 22, borderRadius: radius.sm, borderWidth: 1.5, borderColor: colors.border,
+    alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, marginTop: 1,
+  },
+  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+  termsText: { flex: 1, ...typography.sm, color: colors.mutedForeground, lineHeight: 20 },
+  termsLink: { color: colors.primary, fontWeight: "700" },
   divider: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginVertical: spacing.md },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
   dividerText: { ...typography.sm, color: colors.mutedForeground },

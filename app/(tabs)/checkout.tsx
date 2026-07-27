@@ -10,7 +10,7 @@ import {
   Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, type Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useCart } from "@/contexts/CartContext";
 import { useI18n } from "@/i18n/context";
@@ -19,9 +19,11 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
 import { orderService } from "@/services/orderService";
+import type { OrderCreate } from "@/services/types";
 import { requestService } from "@/services/requestService";
 import { userService } from "@/services/userService";
 import { dishService } from "@/services/dishService";
+import { formatDuration, formatDurationRange } from "@/lib/duration";
 
 interface OfferCheckout {
   offerId: number;
@@ -67,6 +69,9 @@ export default function CheckoutScreen() {
   const [instructions, setInstructions] = useState("");
   const [pickupAddress, setPickupAddress] = useState("");
   const [isPickupLoading, setIsPickupLoading] = useState(false);
+  const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [etaText, setEtaText] = useState<string | null>(null);
   const orderPlacedRef = useRef(false);
@@ -97,8 +102,8 @@ export default function CheckoutScreen() {
         if (maxMinutes > 0) {
           setEtaText(
             minMinutes && minMinutes !== maxMinutes
-              ? `${minMinutes}–${maxMinutes} min`
-              : `~${maxMinutes} min`
+              ? formatDurationRange(minMinutes, maxMinutes)
+              : `~${formatDuration(maxMinutes)}`
           );
         }
       }
@@ -180,6 +185,8 @@ export default function CheckoutScreen() {
   // Render nothing while the effect above redirects
   if (!isOfferMode && items.length === 0) return null;
 
+  const openLink = (path: string) => router.push(path as Href);
+
   const handlePlaceOrder = async () => {
     if (!fullName.trim()) {
       Alert.alert("Missing Info", "Please enter your full name.");
@@ -189,8 +196,19 @@ export default function CheckoutScreen() {
       Alert.alert("Missing Info", "Please enter a phone number.");
       return;
     }
-    if (!pickupAddress) {
+    if (deliveryType === "pickup" && !pickupAddress) {
       Alert.alert("No Address", "Pickup address is unavailable for this chef.");
+      return;
+    }
+    if (deliveryType === "delivery" && !deliveryAddress.trim()) {
+      Alert.alert("Missing Info", "Please enter your delivery address.");
+      return;
+    }
+    if (!acceptedTerms) {
+      Alert.alert(
+        "Accept Terms",
+        "Please agree to the Terms & Conditions and Refund Policy to place your order."
+      );
       return;
     }
     if (!dbUser) {
@@ -219,21 +237,27 @@ export default function CheckoutScreen() {
         createdOrderIds.push(order.id);
       } else {
         const chefId = items[0].chefId;
+        const finalAddress =
+          deliveryType === "delivery" ? deliveryAddress.trim() : pickupAddress;
         for (const item of items) {
           const foodListingId = parseInt(item.id, 10);
           if (isNaN(foodListingId)) {
             throw new Error(`Invalid food listing ID: ${item.id}`);
           }
-          const order = await orderService.createOrder({
+          // delivery_type is accepted by the backend but not yet in the
+          // OrderCreate type; widen the payload so it is serialized.
+          const payload: OrderCreate & { delivery_type: "pickup" | "delivery" } = {
             quantity: item.quantity,
             total_amount: item.price * item.quantity,
             customer_id: user.id,
             chef_id: chefId,
             food_listing_id: foodListingId,
-            delivery_address: pickupAddress,
+            delivery_address: finalAddress,
             delivery_phone: phone.trim(),
+            delivery_type: deliveryType,
             special_instructions: instructions.trim() || undefined,
-          });
+          };
+          const order = await orderService.createOrder(payload);
           await orderService.payOrder(order.id, { method: "CASH" });
           createdOrderIds.push(order.id);
         }
@@ -241,7 +265,17 @@ export default function CheckoutScreen() {
         clearCart();
       }
 
-      router.replace("/(tabs)/order-success");
+      const successChefName = isOfferMode
+        ? offerCheckout!.chefName
+        : items[0]?.chefName;
+      router.replace({
+        pathname: "/(tabs)/order-success",
+        params: {
+          orderIds: createdOrderIds.join(","),
+          eta: etaText ?? "",
+          chefName: successChefName ?? "",
+        },
+      });
     } catch (err: any) {
       Alert.alert("Order Failed", err?.message ?? "Failed to place order. Please try again.");
     } finally {
@@ -367,36 +401,114 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
-        {/* Pickup Location */}
+        {/* Delivery Method */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.stepBadge}>
               <Text style={styles.stepBadgeText}>3</Text>
             </View>
             <Ionicons name="location-outline" size={18} color={colors.primary} />
-            <Text style={styles.sectionTitle}>Pickup Location</Text>
+            <Text style={styles.sectionTitle}>Delivery Method</Text>
           </View>
 
-          <View style={styles.addressBox}>
-            {isPickupLoading ? (
-              <View style={styles.addressLoading}>
-                <ActivityIndicator size="small" color={colors.mutedForeground} />
-                <Text style={styles.addressLoadingText}>Loading chef address…</Text>
-              </View>
-            ) : pickupAddress ? (
-              <View style={styles.addressRow}>
-                <Ionicons name="location" size={16} color={colors.primary} />
-                <Text style={styles.addressText}>{pickupAddress}</Text>
-              </View>
-            ) : (
-              <Text style={styles.addressUnavailable}>
-                Pickup address is unavailable for this chef.
+          <View style={styles.methodToggle}>
+            <Pressable
+              onPress={() => setDeliveryType("pickup")}
+              style={[
+                styles.methodOption,
+                deliveryType === "pickup" && styles.methodOptionActive,
+              ]}
+            >
+              <Ionicons
+                name="storefront-outline"
+                size={18}
+                color={deliveryType === "pickup" ? colors.primary : colors.mutedForeground}
+              />
+              <Text
+                style={[
+                  styles.methodOptionText,
+                  deliveryType === "pickup" && styles.methodOptionTextActive,
+                ]}
+              >
+                Pickup
               </Text>
-            )}
+            </Pressable>
+            <Pressable
+              onPress={() => setDeliveryType("delivery")}
+              style={[
+                styles.methodOption,
+                deliveryType === "delivery" && styles.methodOptionActive,
+              ]}
+            >
+              <Ionicons
+                name="bicycle-outline"
+                size={18}
+                color={deliveryType === "delivery" ? colors.primary : colors.mutedForeground}
+              />
+              <Text
+                style={[
+                  styles.methodOptionText,
+                  deliveryType === "delivery" && styles.methodOptionTextActive,
+                ]}
+              >
+                Delivery
+              </Text>
+            </Pressable>
           </View>
-          <Text style={styles.pickupNote}>
-            Please collect your order from this chef location.
-          </Text>
+
+          {deliveryType === "pickup" ? (
+            <>
+              <View style={styles.addressBox}>
+                {isPickupLoading ? (
+                  <View style={styles.addressLoading}>
+                    <ActivityIndicator size="small" color={colors.mutedForeground} />
+                    <Text style={styles.addressLoadingText}>Loading chef address…</Text>
+                  </View>
+                ) : pickupAddress ? (
+                  <View style={styles.addressRow}>
+                    <Ionicons name="location" size={16} color={colors.primary} />
+                    <Text style={styles.addressText}>{pickupAddress}</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.addressUnavailable}>
+                    Pickup address is unavailable for this chef.
+                  </Text>
+                )}
+              </View>
+              <Text style={styles.pickupNote}>
+                Please collect your order from this chef location.
+              </Text>
+            </>
+          ) : (
+            <>
+              <View style={styles.deliveryNotice}>
+                <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
+                <View style={styles.deliveryNoticeTextWrap}>
+                  <Text style={styles.deliveryNoticeTitle}>Transportation cost on customer</Text>
+                  <Text style={styles.deliveryNoticeBody}>
+                    Delivery transportation costs are borne by the customer. The chef or delivery
+                    person will coordinate delivery charges separately.
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.textAreaContainer}>
+                <Text style={styles.textAreaLabel}>Delivery Address *</Text>
+                <TextInput
+                  style={styles.textArea}
+                  placeholder="Enter your complete delivery address (street, building, floor, landmarks)…"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={deliveryAddress}
+                  onChangeText={setDeliveryAddress}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+                <Text style={styles.pickupNote}>
+                  Be as specific as possible to ensure smooth delivery.
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Payment Method */}
@@ -421,6 +533,36 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
+        {/* Terms Acceptance */}
+        <Pressable
+          style={styles.termsRow}
+          onPress={() => setAcceptedTerms((v) => !v)}
+          hitSlop={6}
+        >
+          <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+            {acceptedTerms ? (
+              <Ionicons name="checkmark" size={16} color={colors.primaryForeground} />
+            ) : null}
+          </View>
+          <Text style={styles.termsAcceptText}>
+            {"I agree to the "}
+            <Text
+              style={styles.termsLink}
+              onPress={() => openLink("/terms")}
+            >
+              Terms & Conditions
+            </Text>
+            {", "}
+            <Text
+              style={styles.termsLink}
+              onPress={() => openLink("/refund-policy")}
+            >
+              Refund Policy
+            </Text>
+            {", and understand the order cancellation rules."}
+          </Text>
+        </Pressable>
+
         {/* Place Order Button */}
         <Button
           variant="primary"
@@ -428,14 +570,10 @@ export default function CheckoutScreen() {
           style={styles.placeOrderButton}
           onPress={handlePlaceOrder}
           loading={isSubmitting}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !acceptedTerms}
         >
           {isSubmitting ? "Placing Order…" : `Place Order — ${formatPrice(checkoutTotal)}`}
         </Button>
-
-        <Text style={styles.termsText}>
-          By placing this order, you agree to our terms and confirm you can pick up from the listed location.
-        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -672,6 +810,85 @@ const styles = StyleSheet.create({
     color: colors.mutedForeground,
     textAlign: "center",
     paddingHorizontal: spacing.md,
+  },
+  methodToggle: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  methodOption: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+  },
+  methodOptionActive: {
+    borderColor: colors.primary,
+    backgroundColor: `${colors.primary}0D`,
+  },
+  methodOptionText: {
+    ...typography.base,
+    fontWeight: "600",
+    color: colors.mutedForeground,
+  },
+  methodOptionTextActive: {
+    color: colors.primary,
+  },
+  deliveryNotice: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.muted,
+  },
+  deliveryNoticeTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  deliveryNoticeTitle: {
+    ...typography.sm,
+    fontWeight: "700",
+    color: colors.foreground,
+  },
+  deliveryNoticeBody: {
+    ...typography.xs,
+    color: colors.mutedForeground,
+  },
+  termsRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: radius.sm,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  checkboxChecked: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
+  termsAcceptText: {
+    ...typography.sm,
+    color: colors.foreground,
+    flex: 1,
+    lineHeight: 20,
+  },
+  termsLink: {
+    color: colors.primary,
+    fontWeight: "600",
   },
   unauthContainer: {
     flex: 1,

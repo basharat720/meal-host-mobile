@@ -30,6 +30,67 @@ interface User {
   photoURL: string | null;
 }
 
+// Location payload accepted by signUp. Mirrors UserRegisterRequest.location.
+interface SignUpLocationInput {
+  latitude: number;
+  longitude: number;
+  address?: string;
+}
+
+interface AuthError {
+  message: string;
+  code: "NETWORK_ERROR" | "SERVER_ERROR" | "AUTH_ERROR" | "NOT_FOUND" | "UNKNOWN";
+  status?: number;
+  canRetry: boolean;
+}
+
+// Classify a backend error (from userService) into an AuthError. Pure helper so
+// both the auth-state listener and retryAuth can share the same logic.
+// NOTE: 404 is handled by callers (new-user creation) BEFORE this runs.
+const classifyAuthError = (err: any): AuthError => {
+  const status: number | undefined = typeof err?.status === "number" ? err.status : undefined;
+  const message: string = err?.message || "";
+  // Explicit auth failures: 401/403, or a hard token/refresh failure surfaced as a plain Error.
+  if (
+    status === 401 ||
+    status === 403 ||
+    /authentication failed|sign in again|token refresh failed/i.test(message)
+  ) {
+    return {
+      message:
+        status === 403
+          ? "Access denied. Your account does not have the required permissions."
+          : "Your session has expired or is invalid. Please sign in again.",
+      code: "AUTH_ERROR",
+      status,
+      canRetry: false,
+    };
+  }
+  if (status !== undefined && status >= 500) {
+    return {
+      message: "Our servers are temporarily experiencing issues. Please try again in a few moments.",
+      code: "SERVER_ERROR",
+      status,
+      canRetry: true,
+    };
+  }
+  if (status === undefined) {
+    // No HTTP status — treat as a connectivity problem and let the user retry.
+    return {
+      message: "Unable to reach our servers. Please check your connection and try again.",
+      code: "NETWORK_ERROR",
+      canRetry: true,
+    };
+  }
+  // Other 4xx — surface but don't loop on retries.
+  return {
+    message: message || "An unexpected error occurred. Please try again.",
+    code: "UNKNOWN",
+    status,
+    canRetry: false,
+  };
+};
+
 interface AuthContextType {
   user: User | null;
   dbUser: DbUser | null;
@@ -37,7 +98,19 @@ interface AuthContextType {
   loading: boolean;
   token: string | null;
   emailVerified: boolean | null;
-  signUp: (email: string, password: string, role: UserRole, fullName?: string, additionalData?: any) => Promise<{ error: Error | null }>;
+  authError: AuthError | null;
+  clearError: () => void;
+  retryAuth: () => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    role: UserRole,
+    fullName?: string,
+    additionalData?: any,
+    phone?: string,
+    location?: SignUpLocationInput,
+    profilePictureUrl?: string,
+  ) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: (role: UserRole) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -70,6 +143,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
+  const [authError, setAuthError] = useState<AuthError | null>(null);
   const tokenRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const storeToken = async (t: string) => {
@@ -152,9 +226,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               const resolvedRole: UserRole = backendUser.is_chef ? "chef" : "customer";
               setRoleState(resolvedRole);
               await AsyncStorage.setItem(ROLE_KEY, resolvedRole);
+              setAuthError(null);
             } catch (err: any) {
               const cachedRole = (await AsyncStorage.getItem(ROLE_KEY)) as UserRole | null;
               if (err?.status === 404) {
+                // Backend has no profile yet (new user). Create it from the cached
+                // intended role. This is the ONLY branch that may assume a role.
                 const roleToUse: UserRole = cachedRole === "chef" ? "chef" : "customer";
                 try {
                   const created = await userService.createUser({
@@ -169,13 +246,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   const r: UserRole = created.is_chef ? "chef" : "customer";
                   setRoleState(r);
                   await AsyncStorage.setItem(ROLE_KEY, r);
-                } catch {
-                  setRoleState("customer");
-                  await AsyncStorage.setItem(ROLE_KEY, "customer");
+                  setAuthError(null);
+                } catch (createErr: any) {
+                  // Profile creation failed — surface a (retryable) error instead
+                  // of silently assuming a role.
+                  setAuthError(classifyAuthError(createErr));
                 }
               } else {
-                setRoleState("customer");
-                await AsyncStorage.setItem(ROLE_KEY, "customer");
+                // getUser failed for a reason other than 404. Do NOT silently
+                // assume role="customer" anymore.
+                const ae = classifyAuthError(err);
+                setAuthError(ae);
+                if (ae.code === "AUTH_ERROR") {
+                  // Explicit 401/403 (or hard auth failure): tear down the session,
+                  // mirroring the web behavior.
+                  await AsyncStorage.removeItem(SESSION_FLAG_KEY);
+                  try { await firebaseSignOut(); } catch {}
+                  await handleLogout();
+                }
+                // Network/5xx/other: keep the Firebase session so the user can retry;
+                // role stays unresolved (null) rather than defaulting to customer.
               }
             }
           } catch {}
@@ -259,7 +349,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch { return null; }
   };
 
-  const signUp = async (email: string, password: string, userRole: UserRole, fullName?: string, additionalData?: any) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    userRole: UserRole,
+    fullName?: string,
+    additionalData?: any,
+    phone?: string,
+    location?: SignUpLocationInput,
+    profilePictureUrl?: string,
+  ) => {
     const { user: firebaseUser, token: t, error } = await signUpWithEmail(email, password, userRole, fullName);
     if (error) return { error };
     if (t) await storeToken(t);
@@ -270,12 +369,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const userData = {
         name: fullName || email.split("@")[0],
         email,
-        phone: "",
+        phone: phone ?? "",
         is_customer: userRole === "customer",
         is_chef: userRole === "chef",
         status: "active",
-        chef_profile: { kitchen_description: "", specialties: [], dietary_tags: [], documents: [] },
-        location: { latitude: 0, longitude: 0, address: "", is_primary: true },
+        chef_profile: {
+          kitchen_description: "",
+          specialties: [],
+          dietary_tags: [],
+          documents: [],
+          // profile_picture_url lives on chef_profile in the backend user model.
+          ...(profilePictureUrl ? { profile_picture_url: profilePictureUrl } : {}),
+        },
+        location: location
+          ? {
+              latitude: location.latitude,
+              longitude: location.longitude,
+              address: location.address ?? "",
+              is_primary: true,
+            }
+          : { latitude: 0, longitude: 0, address: "", is_primary: true },
+        // additionalData still spreads last so existing callers keep overriding.
         ...additionalData,
         firebase_uid: firebaseUser!.uid,
       };
@@ -307,9 +421,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setDbUser(null);
     setRoleState(null);
     setEmailVerified(null);
+    setAuthError(null);
     await removeToken();
     await AsyncStorage.removeItem(ROLE_KEY);
     await AsyncStorage.removeItem(FCM_KEY);
+  };
+
+  const clearError = () => setAuthError(null);
+
+  // Re-attempt backend verification after a network/5xx failure without forcing
+  // a fresh sign-in. Used by the retry affordance surfaced from authError.
+  const retryAuth = async () => {
+    if (!auth.currentUser) {
+      setAuthError({
+        message: "No active session. Please sign in again.",
+        code: "AUTH_ERROR",
+        canRetry: false,
+      });
+      return;
+    }
+    setLoading(true);
+    setAuthError(null);
+    try {
+      const backendUser = await userService.getUser();
+      setDbUser(backendUser);
+      const resolvedRole: UserRole = backendUser.is_chef ? "chef" : "customer";
+      setRoleState(resolvedRole);
+      await AsyncStorage.setItem(ROLE_KEY, resolvedRole);
+    } catch (err: any) {
+      if (err?.status === 404) {
+        setAuthError({
+          message: "Your account profile was not found. Please try again.",
+          code: "NOT_FOUND",
+          status: 404,
+          canRetry: false,
+        });
+      } else {
+        const ae = classifyAuthError(err);
+        setAuthError(ae);
+        if (ae.code === "AUTH_ERROR") await handleSignOut();
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -321,6 +475,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         loading,
         token,
         emailVerified,
+        authError,
+        clearError,
+        retryAuth,
         signUp,
         signIn,
         signInWithGoogle: handleGoogleSignIn,

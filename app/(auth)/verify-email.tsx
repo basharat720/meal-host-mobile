@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { View, Text, StyleSheet, Alert } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -6,10 +6,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { colors, spacing, typography } from "@/constants/theme";
 
+const RESEND_COOLDOWN_SECONDS = 60;
+
 export default function VerifyEmailScreen() {
   const { checkEmailVerification, resendEmailVerification, emailVerified, user, isChef } = useAuth();
   const [isChecking, setIsChecking] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  // Keep the latest verification status in a ref so the poll interval
+  // (set up once) always reads the freshest value without re-subscribing.
+  const emailVerifiedRef = useRef(emailVerified);
+  useEffect(() => {
+    emailVerifiedRef.current = emailVerified;
+  }, [emailVerified]);
 
   useEffect(() => {
     if (emailVerified) {
@@ -17,6 +27,33 @@ export default function VerifyEmailScreen() {
       else router.replace("/(tabs)/home");
     }
   }, [emailVerified, isChef]);
+
+  // Silently poll verification status every 5 seconds until verified.
+  const pollVerification = useCallback(async () => {
+    if (emailVerifiedRef.current) return;
+    try {
+      await checkEmailVerification();
+    } catch {
+      // Ignore transient polling errors; the manual button surfaces failures.
+    }
+  }, [checkEmailVerification]);
+
+  useEffect(() => {
+    if (emailVerified) return;
+    const interval = setInterval(() => {
+      if (!emailVerifiedRef.current) pollVerification();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [emailVerified, pollVerification]);
+
+  // Countdown tick for the resend cooldown.
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => {
+      setCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   const handleCheck = async () => {
     setIsChecking(true);
@@ -32,11 +69,15 @@ export default function VerifyEmailScreen() {
   };
 
   const handleResend = async () => {
+    if (cooldown > 0) return;
     setIsResending(true);
     const { error } = await resendEmailVerification();
     setIsResending(false);
     if (error) Alert.alert("Error", error.message);
-    else Alert.alert("Email Sent", "Verification email resent. Please check your inbox.");
+    else {
+      setCooldown(RESEND_COOLDOWN_SECONDS);
+      Alert.alert("Email Sent", "Verification email resent. Please check your inbox.");
+    }
   };
 
   return (
@@ -53,8 +94,14 @@ export default function VerifyEmailScreen() {
         <Button onPress={handleCheck} loading={isChecking} style={styles.button}>
           I've Verified My Email
         </Button>
-        <Button variant="ghost" onPress={handleResend} loading={isResending} style={styles.resendButton}>
-          Resend Email
+        <Button
+          variant="ghost"
+          onPress={handleResend}
+          loading={isResending}
+          disabled={cooldown > 0}
+          style={styles.resendButton}
+        >
+          {cooldown > 0 ? `Resend Email (${cooldown}s)` : "Resend Email"}
         </Button>
       </View>
     </SafeAreaView>

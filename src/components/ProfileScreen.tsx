@@ -11,15 +11,73 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
 import { useAuth } from "@/contexts/AuthContext";
 import { userService } from "@/services/userService";
+import type { UserLocationInput } from "@/services/types";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { colors, fonts, radius, shadow, spacing, typography } from "@/constants/theme";
+
+// ---------------------------------------------------------------------------
+// Profile picture URL validation (mirrors web lib/profilePicture.ts)
+// ---------------------------------------------------------------------------
+const ALLOWED_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "webp", "avif", "svg"];
+const IMAGE_URL_EXTENSION_REGEX = new RegExp(
+  `\\.(${ALLOWED_IMAGE_EXTENSIONS.join("|")})(?:$|[?#])`,
+  "i"
+);
+
+const isHttpUrl = (value: string): boolean => {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
+const isCloudinaryImageDeliveryUrl = (value: string): boolean => {
+  try {
+    const parsed = new URL(value);
+    const isCloudinaryHost =
+      parsed.hostname === "res.cloudinary.com" ||
+      parsed.hostname.endsWith(".res.cloudinary.com");
+    const isImageDeliveryPath =
+      parsed.pathname.includes("/image/upload/") ||
+      parsed.pathname.includes("/image/private/") ||
+      parsed.pathname.includes("/image/authenticated/");
+    return isCloudinaryHost && isImageDeliveryPath;
+  } catch {
+    return false;
+  }
+};
+
+const validateProfilePictureUrl = (value?: string | null): string | null => {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  if (!isHttpUrl(trimmed)) {
+    return "Profile picture URL must start with http:// or https://";
+  }
+  if (!IMAGE_URL_EXTENSION_REGEX.test(trimmed) && !isCloudinaryImageDeliveryUrl(trimmed)) {
+    return "Profile picture URL must end with: jpg, jpeg, png, gif, webp, avif, or svg";
+  }
+  return null;
+};
+
+// Legal & About links — fixed routes owned by another unit this phase.
+const LEGAL_LINKS: { label: string; icon: keyof typeof Ionicons.glyphMap; path: string }[] = [
+  { label: "How It Works", icon: "help-buoy-outline", path: "/how-it-works" },
+  { label: "FAQ", icon: "chatbubbles-outline", path: "/faq" },
+  { label: "Contact Us", icon: "mail-outline", path: "/contact" },
+  { label: "Privacy Policy", icon: "shield-checkmark-outline", path: "/privacy" },
+  { label: "Terms of Service", icon: "document-text-outline", path: "/terms" },
+  { label: "Refund Policy", icon: "cash-outline", path: "/refund-policy" },
+];
 
 // ---------------------------------------------------------------------------
 // Cloudinary upload helper (same pattern as menu.tsx)
@@ -65,15 +123,34 @@ const uploadImageToCloudinary = async (uri: string, uid: string): Promise<string
 export const ProfileScreen = () => {
   const { dbUser, user, isChef, signOut } = useAuth();
 
+  const primaryLocation =
+    dbUser?.locations?.find((l) => l.is_primary) ?? dbUser?.locations?.[0];
+
   const [name, setName] = useState(dbUser?.name ?? "");
   const [phone, setPhone] = useState(dbUser?.phone ?? "");
-  const [address, setAddress] = useState(dbUser?.locations?.[0]?.address ?? "");
+  const [address, setAddress] = useState(primaryLocation?.address ?? "");
+  const [city, setCity] = useState("");
+  const [zip, setZip] = useState("");
   const [bio, setBio] = useState(dbUser?.chef_profile?.kitchen_description ?? "");
   const [specialties, setSpecialties] = useState(
     dbUser?.chef_profile?.specialties?.join(", ") ?? ""
   );
+  const [experience, setExperience] = useState("");
+  const [kitchenAddress, setKitchenAddress] = useState(primaryLocation?.address ?? "");
+  const [deliveryRadius, setDeliveryRadius] = useState("");
+  const [cuisineTypes, setCuisineTypes] = useState(
+    dbUser?.chef_profile?.dietary_tags?.join(", ") ?? ""
+  );
+  const [deliveryInstructions, setDeliveryInstructions] = useState("");
   const [profilePictureUrl, setProfilePictureUrl] = useState(
     dbUser?.chef_profile?.profile_picture_url ?? ""
+  );
+  const [profilePictureTouched, setProfilePictureTouched] = useState(false);
+  const [profilePictureError, setProfilePictureError] = useState<string | null>(null);
+  const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(
+    primaryLocation
+      ? { lat: primaryLocation.latitude, lon: primaryLocation.longitude }
+      : null
   );
   const [localImageUri, setLocalImageUri] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -82,12 +159,19 @@ export const ProfileScreen = () => {
   // Sync when dbUser loads (e.g. after navigation)
   useEffect(() => {
     if (!dbUser) return;
+    const primary =
+      dbUser.locations?.find((l) => l.is_primary) ?? dbUser.locations?.[0];
     setName(dbUser.name ?? "");
     setPhone(dbUser.phone ?? "");
-    setAddress(dbUser.locations?.[0]?.address ?? "");
+    setAddress(primary?.address ?? "");
+    setLocationCoords(
+      primary ? { lat: primary.latitude, lon: primary.longitude } : null
+    );
     if (isChef && dbUser.chef_profile) {
       setBio(dbUser.chef_profile.kitchen_description ?? "");
       setSpecialties(dbUser.chef_profile.specialties?.join(", ") ?? "");
+      setCuisineTypes(dbUser.chef_profile.dietary_tags?.join(", ") ?? "");
+      setKitchenAddress(primary?.address ?? "");
       setProfilePictureUrl(dbUser.chef_profile.profile_picture_url ?? "");
     }
   }, [dbUser, isChef]);
@@ -111,6 +195,8 @@ export const ProfileScreen = () => {
       const uid = user?.id ?? dbUser?.firebase_uid ?? "profile-user";
       const uploadedUrl = await uploadImageToCloudinary(uri, uid);
       setProfilePictureUrl(uploadedUrl);
+      setProfilePictureTouched(true);
+      setProfilePictureError(null);
       setLocalImageUri(null); // use remote URL
     } catch {
       // Fall back to showing locally only — user can still save (URL won't be sent if empty)
@@ -125,16 +211,69 @@ export const ProfileScreen = () => {
   };
 
   // ---------------------------------------------------------------------------
+  // Remove profile picture (clears it; the removal is persisted on save)
+  // ---------------------------------------------------------------------------
+  const removeProfilePicture = () => {
+    setProfilePictureUrl("");
+    setLocalImageUri(null);
+    setProfilePictureTouched(true);
+    setProfilePictureError(null);
+  };
+
+  // ---------------------------------------------------------------------------
   // Save profile
   // ---------------------------------------------------------------------------
   const handleSave = async () => {
     if (!dbUser?.id) return;
+
+    // Validate the profile picture URL before saving (mirrors web).
+    if (isChef) {
+      const picError = validateProfilePictureUrl(profilePictureUrl);
+      setProfilePictureError(picError);
+      if (picError) {
+        Alert.alert("Invalid Image URL", picError);
+        return;
+      }
+    }
+
     setSaving(true);
     try {
-      const updateData: Parameters<typeof userService.updateUser>[1] = {
+      // updateData allows an optional `location` alongside UserUpdate; the
+      // payload passes it through to the backend (mirrors the web app, which
+      // persists the primary location on save).
+      type UpdatePayload = Parameters<typeof userService.updateUser>[1] & {
+        location?: UserLocationInput;
+      };
+
+      const updateData: UpdatePayload = {
         name: name.trim(),
         phone: phone.trim() || undefined,
       };
+
+      // BUG FIX: previously the edited address + coordinates were never sent,
+      // so address changes were silently lost. Geocode the typed address to
+      // resolve coordinates and persist it as the user's primary location.
+      const trimmedAddress = address.trim();
+      let coords = locationCoords;
+      if (trimmedAddress) {
+        try {
+          const geocoded = await Location.geocodeAsync(trimmedAddress);
+          if (geocoded?.[0]) {
+            coords = { lat: geocoded[0].latitude, lon: geocoded[0].longitude };
+            setLocationCoords(coords);
+          }
+        } catch {
+          // Keep any previously known coordinates if geocoding fails.
+        }
+        if (coords) {
+          updateData.location = {
+            latitude: coords.lat,
+            longitude: coords.lon,
+            address: trimmedAddress,
+            is_primary: true,
+          };
+        }
+      }
 
       if (isChef) {
         updateData.chef_profile = {
@@ -143,15 +282,21 @@ export const ProfileScreen = () => {
             .split(",")
             .map((s) => s.trim())
             .filter(Boolean),
-          dietary_tags: dbUser.chef_profile?.dietary_tags ?? [],
+          dietary_tags: cuisineTypes
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean),
           documents: dbUser.chef_profile?.documents ?? [],
-          ...(profilePictureUrl.trim()
-            ? { profile_picture_url: profilePictureUrl.trim() }
+          // When the picture has been touched, persist the change (clearing it
+          // sends null so the removal sticks); otherwise leave it untouched.
+          ...(profilePictureTouched
+            ? { profile_picture_url: profilePictureUrl.trim() || null }
             : {}),
         };
       }
 
       await userService.updateUser(dbUser.id, updateData);
+      setProfilePictureTouched(false);
       Alert.alert("Saved", "Profile updated successfully.");
     } catch (err: any) {
       Alert.alert("Error", err?.message ?? "Failed to update profile.");
@@ -185,7 +330,31 @@ export const ProfileScreen = () => {
   const avatarUri = localImageUri ?? (profilePictureUrl || null);
   const initials = (name || dbUser?.name || "?").charAt(0).toUpperCase();
 
-  // Not logged in — show a sign-in prompt instead of an empty profile form.
+  // Legal & About links — public; shown whether or not the user is logged in.
+  const legalSection = (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Legal & About</Text>
+      {LEGAL_LINKS.map((link, i) => (
+        <React.Fragment key={link.path}>
+          {i > 0 && <View style={styles.linkDivider} />}
+          <Pressable
+            onPress={() => router.push(link.path as Href)}
+            style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}
+          >
+            <View style={styles.linkLeft}>
+              <View style={styles.linkIcon}>
+                <Ionicons name={link.icon} size={18} color={colors.primary} />
+              </View>
+              <Text style={styles.linkTitle}>{link.label}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+          </Pressable>
+        </React.Fragment>
+      ))}
+    </View>
+  );
+
+  // Not logged in — show a sign-in prompt plus the public legal/about links.
   // Signing in returns the user here (see redirect param).
   if (!user) {
     return (
@@ -193,25 +362,31 @@ export const ProfileScreen = () => {
         <View style={styles.gateHeader}>
           <Text style={styles.screenTitle}>My Profile</Text>
         </View>
-        <View style={styles.signInGate}>
-          <Ionicons name="person-circle-outline" size={56} color={colors.mutedForeground} />
-          <Text style={styles.signInTitle}>Sign in to your account</Text>
-          <Text style={styles.signInDesc}>
-            Sign in to manage your profile and see your details.
-          </Text>
-          <Button
-            size="lg"
-            style={styles.signInButton}
-            onPress={() =>
-              router.push({
-                pathname: "/(auth)/customer-login",
-                params: { redirect: "/(tabs)/profile" },
-              })
-            }
-          >
-            Sign In
-          </Button>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.gateScroll}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.signInGate}>
+            <Ionicons name="person-circle-outline" size={56} color={colors.mutedForeground} />
+            <Text style={styles.signInTitle}>Sign in to your account</Text>
+            <Text style={styles.signInDesc}>
+              Sign in to manage your profile and see your details.
+            </Text>
+            <Button
+              size="lg"
+              style={styles.signInButton}
+              onPress={() =>
+                router.push({
+                  pathname: "/(auth)/customer-login",
+                  params: { redirect: "/(tabs)/profile" },
+                })
+              }
+            >
+              Sign In
+            </Button>
+          </View>
+          <View style={styles.gateLegal}>{legalSection}</View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -291,6 +466,20 @@ export const ProfileScreen = () => {
               numberOfLines={2}
               style={{ textAlignVertical: "top", minHeight: 60 }}
             />
+
+            <Input
+              label="City"
+              placeholder="Your city"
+              value={city}
+              onChangeText={setCity}
+            />
+
+            <Input
+              label="ZIP / Postal Code"
+              placeholder="ZIP code"
+              value={zip}
+              onChangeText={setZip}
+            />
           </View>
 
           {/* Customer quick links */}
@@ -344,10 +533,27 @@ export const ProfileScreen = () => {
                 label="Profile Picture URL"
                 placeholder="https://example.com/photo.jpg"
                 value={profilePictureUrl}
-                onChangeText={(v) => { setProfilePictureUrl(v); setLocalImageUri(null); }}
+                onChangeText={(v) => {
+                  setProfilePictureUrl(v);
+                  setLocalImageUri(null);
+                  setProfilePictureTouched(true);
+                  setProfilePictureError(validateProfilePictureUrl(v));
+                }}
                 autoCapitalize="none"
                 keyboardType="url"
+                error={profilePictureError ?? undefined}
               />
+
+              {(profilePictureUrl.trim().length > 0 || localImageUri) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onPress={removeProfilePicture}
+                  style={styles.removePictureBtn}
+                >
+                  Remove Picture
+                </Button>
+              )}
 
               <Input
                 label="Kitchen Description (Bio)"
@@ -365,8 +571,59 @@ export const ProfileScreen = () => {
                 value={specialties}
                 onChangeText={setSpecialties}
               />
+
+              <Input
+                label="Cuisine / Dietary Tags (comma-separated)"
+                placeholder="Halal, Vegetarian, Gluten-Free"
+                value={cuisineTypes}
+                onChangeText={setCuisineTypes}
+              />
+
+              <Input
+                label="Years of Experience"
+                placeholder="e.g. 5 years"
+                value={experience}
+                onChangeText={setExperience}
+              />
+
+              <Input
+                label="Kitchen Address"
+                placeholder="Where you cook from"
+                value={kitchenAddress}
+                onChangeText={setKitchenAddress}
+                multiline
+                numberOfLines={2}
+                style={{ textAlignVertical: "top", minHeight: 60 }}
+              />
+
+              <Input
+                label="Delivery Radius"
+                placeholder="e.g. 10 km"
+                value={deliveryRadius}
+                onChangeText={setDeliveryRadius}
+              />
             </View>
           )}
+
+          {/* Customer delivery preferences */}
+          {!isChef && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Delivery Preferences</Text>
+
+              <Input
+                label="Delivery Instructions"
+                placeholder="Gate code, landmarks, drop-off notes…"
+                value={deliveryInstructions}
+                onChangeText={setDeliveryInstructions}
+                multiline
+                numberOfLines={3}
+                style={{ textAlignVertical: "top", minHeight: 80 }}
+              />
+            </View>
+          )}
+
+          {/* Legal & About */}
+          {legalSection}
 
           {/* Save button */}
           <Button onPress={handleSave} loading={saving} style={styles.saveBtn}>
@@ -391,7 +648,9 @@ const styles = StyleSheet.create({
 
   headerSection: { gap: 4 },
   gateHeader: { paddingHorizontal: spacing.md, paddingTop: spacing.md, gap: 4 },
-  signInGate: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl, gap: spacing.md },
+  gateScroll: { paddingBottom: 40 },
+  gateLegal: { paddingHorizontal: spacing.md },
+  signInGate: { alignItems: "center", paddingHorizontal: spacing.xl, paddingTop: spacing["2xl"], paddingBottom: spacing.lg, gap: spacing.md },
   signInTitle: { ...typography.xl, fontFamily: fonts.display, fontWeight: "700", color: colors.foreground, textAlign: "center" },
   signInDesc: { ...typography.base, fontFamily: fonts.sans, color: colors.mutedForeground, textAlign: "center" },
   signInButton: { marginTop: spacing.sm, alignSelf: "stretch" },
@@ -438,6 +697,7 @@ const styles = StyleSheet.create({
   sectionTitle: { ...typography.base, fontFamily: fonts.sansBold, fontWeight: "700", color: colors.foreground },
   readOnly: { backgroundColor: colors.muted, color: colors.mutedForeground },
 
+  removePictureBtn: { alignSelf: "flex-start" },
   saveBtn: { marginTop: spacing.sm },
   signOutBtn: { borderColor: colors.destructive },
 

@@ -9,7 +9,7 @@ import {
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
   DateTimePickerEvent,
@@ -27,6 +27,10 @@ import { colors, spacing, typography, radius } from "@/constants/theme";
 export default function PostRequestScreen() {
   const { dbUser, loading } = useAuth();
 
+  // Optional chefId query param — when present, this is a targeted request
+  // posted from a chef's profile.
+  const { chefId } = useLocalSearchParams<{ chefId?: string }>();
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [eventDate, setEventDate] = useState<Date | null>(null);
@@ -34,11 +38,24 @@ export default function PostRequestScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [availableTags, setAvailableTags] = useState<DietaryTag[]>([]);
+  const [locationId, setLocationId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const savedLocations = dbUser?.locations ?? [];
 
   useEffect(() => {
     menuService.getDietaryTags().then(setAvailableTags).catch(() => {});
   }, []);
+
+  // Default to the customer's primary saved location when available.
+  useEffect(() => {
+    if (locationId === null && savedLocations.length > 0) {
+      const primary =
+        savedLocations.find((l) => l.is_primary) ?? savedLocations[0];
+      setLocationId(primary.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedLocations]);
 
   const toggleTag = (id: number) => {
     setSelectedTagIds((prev) =>
@@ -104,7 +121,9 @@ export default function PostRequestScreen() {
         title: title.trim(),
         description: description.trim() || undefined,
         event_time: eventDate ? eventDate.toISOString() : undefined,
+        preferred_location_id: locationId ?? undefined,
         dietary_tag_ids: selectedTagIds,
+        chef_id: chefId ? Number(chefId) : undefined,
       });
       Alert.alert("Request posted!", "Chefs will respond soon.", [
         {
@@ -244,6 +263,72 @@ export default function PostRequestScreen() {
             </Pressable>
           </View>
 
+          {/* Preferred location */}
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>
+              Where do you need it?{" "}
+              <Text style={styles.fieldOptional}>(optional)</Text>
+            </Text>
+            {savedLocations.length > 0 ? (
+              <View style={styles.locationList}>
+                <Pressable
+                  style={[
+                    styles.locationRow,
+                    locationId === null && styles.locationRowSelected,
+                  ]}
+                  onPress={() => setLocationId(null)}
+                >
+                  <Ionicons
+                    name={
+                      locationId === null
+                        ? "radio-button-on"
+                        : "radio-button-off"
+                    }
+                    size={18}
+                    color={
+                      locationId === null
+                        ? colors.primary
+                        : colors.mutedForeground
+                    }
+                  />
+                  <Text style={styles.locationText}>No preferred location</Text>
+                </Pressable>
+                {savedLocations.map((loc) => {
+                  const selected = locationId === loc.id;
+                  return (
+                    <Pressable
+                      key={loc.id}
+                      style={[
+                        styles.locationRow,
+                        selected && styles.locationRowSelected,
+                      ]}
+                      onPress={() => setLocationId(loc.id)}
+                    >
+                      <Ionicons
+                        name={
+                          selected ? "radio-button-on" : "radio-button-off"
+                        }
+                        size={18}
+                        color={
+                          selected ? colors.primary : colors.mutedForeground
+                        }
+                      />
+                      <Text style={styles.locationText} numberOfLines={2}>
+                        {loc.address || `Location #${loc.id}`}
+                        {loc.is_primary ? " (primary)" : ""}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : (
+              <Text style={styles.locationEmpty}>
+                No saved addresses yet. You can add one from your profile, or
+                just describe the location in the details above.
+              </Text>
+            )}
+          </View>
+
           {/* Dietary tags */}
           {availableTags.length > 0 && (
             <View style={styles.field}>
@@ -299,6 +384,8 @@ export default function PostRequestScreen() {
             value={eventDate ?? new Date()}
             mode="datetime"
             display="spinner"
+            themeVariant="light"
+            textColor={colors.foreground}
             onChange={(e, d) => {
               if (d) setEventDate(d);
             }}
@@ -409,6 +496,33 @@ const styles = StyleSheet.create({
     color: colors.foreground,
   },
   datePlaceholder: { color: colors.mutedForeground },
+
+  locationList: { gap: spacing.sm },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 11,
+    backgroundColor: colors.surface,
+  },
+  locationRowSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.accent,
+  },
+  locationText: {
+    flex: 1,
+    ...typography.base,
+    color: colors.foreground,
+  },
+  locationEmpty: {
+    ...typography.sm,
+    color: colors.mutedForeground,
+    lineHeight: 20,
+  },
 
   tagsRow: {
     flexDirection: "row",

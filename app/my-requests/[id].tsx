@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { FullScreenLoader } from "@/components/ui/LoadingSpinner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n/context";
@@ -55,6 +56,13 @@ export default function RequestDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+
+  // Mirror the latest request into a ref so loadData can tell whether the
+  // request is already available (passed via nav param or fetched earlier)
+  // without adding `request` to its dependency list and re-running on focus.
+  const requestRef = useRef(request);
+  requestRef.current = request;
 
   // Reject flow state
   const [pendingRejectOfferId, setPendingRejectOfferId] = useState<
@@ -70,6 +78,25 @@ export default function RequestDetailScreen() {
         setFetchError(null);
       }
       try {
+        // Fallback for cold load / deep link: when the request wasn't passed
+        // via the navigation param, fetch the customer's requests and locate
+        // this one by id (there is no GET /requests/{id} endpoint we rely on).
+        if (!requestRef.current && dbUser) {
+          const page = await requestService.getCustomerRequests(
+            dbUser.id as number,
+            0,
+            200
+          );
+          const found = page.items.find((r) => r.id === requestId);
+          if (found) {
+            setRequest(found);
+            setNotFound(false);
+          } else {
+            setNotFound(true);
+            return;
+          }
+        }
+
         // Fetch offers (the list screen passes request data, so no GET /requests/{id} call needed)
         const offersData = await requestService.getRequestOffers(requestId);
         setOffers(offersData);
@@ -98,7 +125,7 @@ export default function RequestDetailScreen() {
         setIsRefreshing(false);
       }
     },
-    [requestId]
+    [requestId, dbUser]
   );
 
   const hasLoadedRef = useRef(false);
@@ -164,6 +191,26 @@ export default function RequestDetailScreen() {
 
   if (isLoading) {
     return <FullScreenLoader message="Loading request details..." />;
+  }
+
+  if (notFound && !request) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <View style={styles.navHeader}>
+          <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
+            <Ionicons name="arrow-back" size={22} color={colors.foreground} />
+          </Pressable>
+          <Text style={styles.navTitle}>Request Detail</Text>
+        </View>
+        <EmptyState
+          icon="🔍"
+          title="Request not found"
+          description="We couldn't find this request. It may have been deleted, or it isn't one of yours."
+          actionLabel="Back to My Requests"
+          onAction={() => router.back()}
+        />
+      </SafeAreaView>
+    );
   }
 
   if (fetchError && !request) {

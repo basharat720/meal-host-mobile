@@ -67,6 +67,12 @@ export interface UserUpdate {
   email?: string;
   phone?: string;
   chef_profile?: Partial<ChefProfile>;
+  location?: {
+    latitude: number;
+    longitude: number;
+    address?: string;
+    is_primary?: boolean;
+  };
 }
 
 export interface DietaryTag {
@@ -118,6 +124,7 @@ export interface FoodListingCreate {
   status: "ACTIVE" | "INACTIVE";
   pickup_location_id: number;
   dietary_tag_ids?: number[];
+  cuisine_type_ids?: number[];
   image_url: string;
   preparation_time_minutes?: number;
 }
@@ -130,6 +137,7 @@ export interface FoodListingUpdate {
   status?: "ACTIVE" | "INACTIVE";
   pickup_location_id?: number;
   dietary_tag_ids?: number[];
+  cuisine_type_ids?: number[];
   preparation_time_minutes?: number;
 }
 
@@ -143,9 +151,12 @@ export interface Order {
   food_listing_id?: number;
   food_request_id?: number;
   created_at: string;
+  delivery_type?: "pickup" | "delivery";
   delivery_address?: string;
   delivery_phone?: string;
   special_instructions?: string;
+  order_notes?: string;          // Notes from chef to customer
+  cancellation_reason?: string;  // If cancelled, why?
   tentative_eta_min_minutes?: number;
   tentative_eta_max_minutes?: number;
   confirmed_eta_at?: string;
@@ -161,6 +172,7 @@ export interface OrderCreate {
   chef_id: string;     // Changed to string (firebase_uid)
   food_listing_id?: number;
   food_request_id?: number;
+  delivery_type?: "pickup" | "delivery";
   delivery_address?: string;
   delivery_phone?: string;
   special_instructions?: string;
@@ -212,7 +224,9 @@ export interface FoodRequestCreate {
   title: string;
   description?: string;
   event_time?: string;
+  preferred_location_id?: number;
   dietary_tag_ids: number[];
+  chef_id?: number;
 }
 
 export interface Offer {
