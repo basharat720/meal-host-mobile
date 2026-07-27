@@ -27,6 +27,8 @@ function statusBadgeVariant(
   return status === "OPEN" ? "success" : "default";
 }
 
+type FilterType = "all" | "OPEN" | "CLOSED";
+
 export default function MyRequestsScreen() {
   const { dbUser, loading: authLoading } = useAuth();
 
@@ -39,6 +41,7 @@ export default function MyRequestsScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const hasLoadedRef = useRef(false);
 
   const hasMore = requests.length < total;
@@ -188,6 +191,99 @@ export default function MyRequestsScreen() {
     );
   }
 
+  const openCount = requests.filter((r) => r.status === "OPEN").length;
+  const closedCount = requests.filter((r) => r.status === "CLOSED").length;
+  const totalOffers = Array.from(offerCounts.values()).reduce(
+    (sum, count) => sum + count,
+    0
+  );
+
+  const filteredRequests = requests.filter((r) =>
+    activeFilter === "all" ? true : r.status === activeFilter
+  );
+
+  const stats: {
+    key: string;
+    label: string;
+    value: number;
+    icon: keyof typeof Ionicons.glyphMap;
+    color: string;
+  }[] = [
+    {
+      key: "total",
+      label: "Total",
+      value: requests.length,
+      icon: "documents-outline",
+      color: colors.mutedForeground,
+    },
+    {
+      key: "open",
+      label: "Open",
+      value: openCount,
+      icon: "trending-up-outline",
+      color: colors.success,
+    },
+    {
+      key: "closed",
+      label: "Closed",
+      value: closedCount,
+      icon: "checkmark-done-outline",
+      color: colors.mutedForeground,
+    },
+    {
+      key: "offers",
+      label: "Offers",
+      value: totalOffers,
+      icon: "restaurant-outline",
+      color: colors.accent,
+    },
+  ];
+
+  const filterTabs: { key: FilterType; label: string; count: number }[] = [
+    { key: "all", label: "All", count: requests.length },
+    { key: "OPEN", label: "Open", count: openCount },
+    { key: "CLOSED", label: "Closed", count: closedCount },
+  ];
+
+  const listHeader =
+    requests.length > 0 ? (
+      <View style={styles.headerBlock}>
+        <View style={styles.statsRow}>
+          {stats.map((stat) => (
+            <View key={stat.key} style={styles.statCard}>
+              <View style={styles.statLabelRow}>
+                <Ionicons name={stat.icon} size={13} color={stat.color} />
+                <Text style={[styles.statLabel, { color: stat.color }]}>
+                  {stat.label}
+                </Text>
+              </View>
+              <Text style={styles.statValue}>{stat.value}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.tabsRow}>
+          {filterTabs.map((tab) => {
+            const isActive = activeFilter === tab.key;
+            return (
+              <Pressable
+                key={tab.key}
+                onPress={() => setActiveFilter(tab.key)}
+                style={[styles.tab, isActive && styles.tabActive]}
+              >
+                <Text
+                  style={[styles.tabText, isActive && styles.tabTextActive]}
+                  numberOfLines={1}
+                >
+                  {tab.label} ({tab.count})
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    ) : null;
+
   const renderItem = ({ item }: { item: FoodRequest }) => {
     const offerCount = offerCounts.get(item.id) ?? 0;
     return (
@@ -293,11 +389,12 @@ export default function MyRequestsScreen() {
       </View>
 
       <FlatList
-        data={requests}
+        data={filteredRequests}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={listHeader}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -308,13 +405,21 @@ export default function MyRequestsScreen() {
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}
         ListEmptyComponent={
-          <EmptyState
-            icon="📋"
-            title="No requests yet"
-            description="Post a food request and chefs will respond with offers."
-            actionLabel="Post a Request"
-            onAction={() => router.push("/(tabs)/post-request")}
-          />
+          requests.length === 0 ? (
+            <EmptyState
+              icon="📋"
+              title="No requests yet"
+              description="Post a food request and chefs will respond with offers."
+              actionLabel="Post a Request"
+              onAction={() => router.push("/(tabs)/post-request")}
+            />
+          ) : (
+            <View style={styles.filteredEmpty}>
+              <Text style={styles.filteredEmptyText}>
+                No {activeFilter === "OPEN" ? "open" : "closed"} requests.
+              </Text>
+            </View>
+          )
         }
         ListFooterComponent={
           isLoadingMore ? (
@@ -361,6 +466,79 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     paddingBottom: spacing["2xl"],
     flexGrow: 1,
+  },
+
+  headerBlock: {
+    marginBottom: spacing.md,
+  },
+
+  statsRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    ...shadow.sm,
+  },
+  statLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginBottom: 2,
+  },
+  statLabel: {
+    ...typography.xs,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  statValue: {
+    ...typography.xl,
+    fontWeight: "800",
+    color: colors.foreground,
+  },
+
+  tabsRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  tab: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.muted,
+  },
+  tabActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  tabText: {
+    ...typography.sm,
+    fontWeight: "600",
+    color: colors.mutedForeground,
+  },
+  tabTextActive: {
+    color: colors.primaryForeground,
+  },
+
+  filteredEmpty: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.xl,
+  },
+  filteredEmptyText: {
+    ...typography.base,
+    color: colors.mutedForeground,
   },
 
   requestCard: {

@@ -14,6 +14,8 @@ import {
   TextInput,
   Alert,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -27,6 +29,7 @@ import { dishService } from "@/services/dishService";
 import { requestService } from "@/services/requestService";
 import { userService } from "@/services/userService";
 import { Order, FoodRequest } from "@/services/types";
+import { formatDurationRange } from "@/lib/duration";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -52,6 +55,16 @@ const STEP_LABELS: Record<Order["status"], string> = {
   RECEIVED: "Received",
   COMPLETED: "Completed",
   CANCELLED: "Cancelled",
+};
+
+const STEP_DESCRIPTIONS: Record<Order["status"], string> = {
+  PENDING: "Waiting for chef confirmation",
+  CONFIRMED: "Your delicious meal is being prepared",
+  READY_FOR_PICKUP: "Your order is ready!",
+  DELIVERED: "On its way to you",
+  RECEIVED: "Enjoy your meal!",
+  COMPLETED: "Hope you enjoyed it!",
+  CANCELLED: "This order was cancelled",
 };
 
 const ACTIVE_STATUSES = new Set<Order["status"]>([
@@ -94,7 +107,7 @@ const formatTentativeEta = (order: Order): string | null => {
   if (order.tentative_eta_min_minutes == null) return null;
   const min = order.tentative_eta_min_minutes;
   const max = order.tentative_eta_max_minutes ?? min;
-  return min === max ? `~${min} min` : `${min}–${max} min`;
+  return formatDurationRange(min, max);
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -148,7 +161,10 @@ function ReviewModal({ order, customerId, onClose, onSubmitted }: ReviewModalPro
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={modalStyles.overlay}>
+      <KeyboardAvoidingView
+        style={modalStyles.overlay}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <View style={modalStyles.sheet}>
           <View style={modalStyles.handle} />
 
@@ -198,7 +214,7 @@ function ReviewModal({ order, customerId, onClose, onSubmitted }: ReviewModalPro
             </Button>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -297,6 +313,7 @@ function OrderCard({
 
   const address = order.delivery_address || chefInfo?.address;
   const phone = order.delivery_phone || chefInfo?.phone;
+  const isDelivery = order.delivery_type === "delivery";
 
   return (
     <View style={cardStyles.container}>
@@ -406,17 +423,30 @@ function OrderCard({
             </View>
           </View>
 
-          {/* Pickup Details */}
+          {/* Delivery / Pickup Details */}
           {(address || phone) ? (
             <View style={cardStyles.detailSection}>
               <Text style={cardStyles.detailSectionTitle}>
-                {"  PICKUP DETAILS"}
+                {isDelivery ? "  DELIVERY INFORMATION" : "  PICKUP DETAILS"}
               </Text>
-              <View style={cardStyles.detailBox}>
+              <View style={isDelivery ? cardStyles.deliveryBox : cardStyles.detailBox}>
+                {isDelivery ? (
+                  <View style={cardStyles.detailRow}>
+                    <Ionicons name="cube-outline" size={14} color={colors.primary} />
+                    <Text style={cardStyles.deliveryNote}>
+                      Will be delivered to your address
+                    </Text>
+                  </View>
+                ) : null}
                 {address ? (
                   <View style={cardStyles.detailRow}>
                     <Ionicons name="location" size={14} color={colors.primary} />
-                    <Text style={cardStyles.detailText}>{address}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={cardStyles.detailText}>{address}</Text>
+                      {!isDelivery ? (
+                        <Text style={cardStyles.detailSubText}>Chef's location</Text>
+                      ) : null}
+                    </View>
                   </View>
                 ) : null}
                 {phone ? (
@@ -439,6 +469,32 @@ function OrderCard({
                 <Text style={cardStyles.instructionsText}>
                   "{order.special_instructions}"
                 </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {/* Note from chef */}
+          {order.order_notes ? (
+            <View style={cardStyles.detailSection}>
+              <Text style={cardStyles.detailSectionTitle}>
+                {"  NOTE FROM CHEF"}
+              </Text>
+              <View style={cardStyles.noteBox}>
+                <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.primary} />
+                <Text style={cardStyles.noteText}>"{order.order_notes}"</Text>
+              </View>
+            </View>
+          ) : null}
+
+          {/* Cancellation reason */}
+          {order.status === "CANCELLED" && order.cancellation_reason ? (
+            <View style={cardStyles.detailSection}>
+              <Text style={cardStyles.detailSectionTitle}>
+                {"  CANCELLATION REASON"}
+              </Text>
+              <View style={cardStyles.cancelBox}>
+                <Ionicons name="alert-circle" size={14} color={colors.destructive} />
+                <Text style={cardStyles.cancelText}>{order.cancellation_reason}</Text>
               </View>
             </View>
           ) : null}
@@ -479,17 +535,24 @@ function OrderCard({
                       ) : (
                         <View style={cardStyles.stepDotInactive} />
                       )}
-                      <Text
-                        style={
-                          isPast
-                            ? cardStyles.stepLabelDone
-                            : isCurrent
-                            ? cardStyles.stepLabelCurrent
-                            : cardStyles.stepLabelInactive
-                        }
-                      >
-                        {STEP_LABELS[step]}
-                      </Text>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={
+                            isPast
+                              ? cardStyles.stepLabelDone
+                              : isCurrent
+                              ? cardStyles.stepLabelCurrent
+                              : cardStyles.stepLabelInactive
+                          }
+                        >
+                          {STEP_LABELS[step]}
+                        </Text>
+                        {isCurrent && STEP_DESCRIPTIONS[step] ? (
+                          <Text style={cardStyles.stepDescription}>
+                            {STEP_DESCRIPTIONS[step]}
+                          </Text>
+                        ) : null}
+                      </View>
                     </View>
                   );
                 })
@@ -636,6 +699,16 @@ const cardStyles = StyleSheet.create({
     paddingVertical: spacing.sm,
     gap: spacing.xs,
   },
+  deliveryBox: {
+    backgroundColor: `${colors.primary}0F`,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: `${colors.primary}33`,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+  deliveryNote: { ...typography.xs, fontWeight: "600", color: colors.primary, flex: 1 },
   detailRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.xs },
   detailText: { ...typography.sm, color: colors.foreground, flex: 1 },
   detailSubText: { ...typography.xs, color: colors.mutedForeground, marginTop: 2 },
@@ -648,6 +721,30 @@ const cardStyles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   instructionsText: { ...typography.sm, color: colors.foreground, fontStyle: "italic" },
+  noteBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.xs,
+    backgroundColor: colors.muted,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  noteText: { ...typography.sm, color: colors.foreground, flex: 1, fontStyle: "italic" },
+  cancelBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.xs,
+    backgroundColor: `${colors.destructive}14`,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: `${colors.destructive}40`,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  cancelText: { ...typography.sm, color: colors.foreground, flex: 1 },
   stepperContainer: {
     paddingLeft: spacing.md,
     borderLeftWidth: 2,
@@ -700,6 +797,7 @@ const cardStyles = StyleSheet.create({
   stepLabelDone: { ...typography.sm, color: colors.success, fontWeight: "600" },
   stepLabelCurrent: { ...typography.sm, color: colors.primary, fontWeight: "700" },
   stepLabelInactive: { ...typography.sm, color: colors.mutedForeground },
+  stepDescription: { ...typography.xs, color: colors.mutedForeground, marginTop: 2 },
   stepLabelCancelled: { ...typography.sm, color: colors.destructive, fontWeight: "600" },
   actionSection: {
     paddingHorizontal: spacing.md,
@@ -746,10 +844,14 @@ export default function OrdersScreen() {
   const [reviewedOrderIds, setReviewedOrderIds] = useState<Set<number>>(new Set());
   const [receivingOrderId, setReceivingOrderId] = useState<number | null>(null);
   const [reviewTarget, setReviewTarget] = useState<Order | null>(null);
+  const [activeTab, setActiveTab] = useState<"active" | "past">("active");
 
   const hasMore = orders.length < total;
   const isMounted = useRef(true);
   const hasLoadedRef = useRef(false);
+  // Reviews are pre-fetched once per session so already-reviewed orders show
+  // "Thanks for your review!" instead of re-prompting (prevents duplicates).
+  const reviewsFetched = useRef(false);
   // Mirror the current order count in a ref so `fetchOrders` can preserve the
   // loaded page size without depending on `orders.length` (which would make the
   // focus effect re-run on every data change).
@@ -883,6 +985,30 @@ export default function OrdersScreen() {
         await enrichDishes(sorted, new Map());
         await enrichRequests(sorted, new Map(), dbUser.id as number);
         await enrichChefs(sorted, new Map());
+
+        // Pre-fetch reviews once per session: seed reviewedOrderIds with every
+        // order already reviewed so prior/past-session reviews don't re-prompt.
+        if (!reviewsFetched.current) {
+          const receivedOrders = sorted.filter((o) => o.status === "RECEIVED");
+          const uniqueChefIds = [
+            ...new Set(receivedOrders.map((o) => o.chef_id)),
+          ];
+          if (uniqueChefIds.length > 0) {
+            const reviewResults = await Promise.allSettled(
+              uniqueChefIds.map((cid) => reviewService.getChefReviews(Number(cid)))
+            );
+            const alreadyReviewed = new Set<number>();
+            reviewResults.forEach((result) => {
+              if (result.status === "fulfilled") {
+                result.value.forEach((r) => alreadyReviewed.add(r.order_id));
+              }
+            });
+            if (isMounted.current) {
+              setReviewedOrderIds((prev) => new Set([...prev, ...alreadyReviewed]));
+            }
+            reviewsFetched.current = true;
+          }
+        }
       } catch {
         if (isInitial && isMounted.current) {
           setFetchError("Couldn't load your orders. Check your connection and try again.");
@@ -1012,13 +1138,18 @@ export default function OrdersScreen() {
     );
   }
 
+  // Split into Active / Past for the tabbed view.
+  const activeOrders = orders.filter((o) => ACTIVE_STATUSES.has(o.status));
+  const pastOrders = orders.filter((o) => !ACTIVE_STATUSES.has(o.status));
+  const displayedOrders = activeTab === "active" ? activeOrders : pastOrders;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Orders</Text>
         {total > 0 && (
           <Text style={styles.headerSubtitle}>
-            Showing {orders.length} of {total} order{total !== 1 ? "s" : ""}
+            Track and manage your food orders
           </Text>
         )}
       </View>
@@ -1032,8 +1163,73 @@ export default function OrdersScreen() {
           onAction={() => router.push("/(tabs)/chefs")}
         />
       ) : (
+        <>
+          {/* Stats + Tabs */}
+          <View style={styles.controls}>
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Ionicons name="flash" size={14} color={colors.primary} />
+                <Text style={styles.statText}>
+                  <Text style={styles.statNumber}>{activeOrders.length}</Text> active
+                </Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Ionicons name="time-outline" size={14} color={colors.mutedForeground} />
+                <Text style={styles.statText}>
+                  <Text style={styles.statNumber}>{pastOrders.length}</Text> completed
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.tabsRow}>
+              <Pressable
+                style={[styles.tab, activeTab === "active" && styles.tabActive]}
+                onPress={() => setActiveTab("active")}
+              >
+                <Ionicons
+                  name="flash"
+                  size={15}
+                  color={activeTab === "active" ? colors.primary : colors.mutedForeground}
+                />
+                <Text style={activeTab === "active" ? styles.tabTextActive : styles.tabText}>
+                  Active
+                </Text>
+                {activeOrders.length > 0 && (
+                  <View style={styles.tabCountBadge}>
+                    <Text style={styles.tabCountText}>{activeOrders.length}</Text>
+                  </View>
+                )}
+              </Pressable>
+              <Pressable
+                style={[styles.tab, activeTab === "past" && styles.tabActive]}
+                onPress={() => setActiveTab("past")}
+              >
+                <Ionicons
+                  name="time-outline"
+                  size={15}
+                  color={activeTab === "past" ? colors.primary : colors.mutedForeground}
+                />
+                <Text style={activeTab === "past" ? styles.tabTextActive : styles.tabText}>
+                  Past
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {displayedOrders.length === 0 ? (
+            <EmptyState
+              icon={activeTab === "active" ? "⚡" : "🗂️"}
+              title={activeTab === "active" ? "No active orders" : "No past orders"}
+              description={
+                activeTab === "active"
+                  ? "You don't have any orders in progress right now."
+                  : "Your completed orders will appear here."
+              }
+            />
+          ) : (
         <FlatList
-          data={orders}
+          data={displayedOrders}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
           refreshControl={
@@ -1084,6 +1280,8 @@ export default function OrdersScreen() {
             ) : null
           }
         />
+          )}
+        </>
       )}
 
       {reviewTarget && dbUser && (
@@ -1117,6 +1315,55 @@ const styles = StyleSheet.create({
     color: colors.mutedForeground,
     marginTop: 2,
   },
+  controls: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  statsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    backgroundColor: colors.muted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  statItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  statText: { ...typography.xs, color: colors.mutedForeground },
+  statNumber: { fontWeight: "700", color: colors.foreground },
+  statDivider: { width: 1, height: 14, backgroundColor: colors.border },
+  tabsRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  tab: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+  },
+  tabActive: { borderBottomColor: colors.primary },
+  tabText: { ...typography.sm, fontWeight: "600", color: colors.mutedForeground },
+  tabTextActive: { ...typography.sm, fontWeight: "700", color: colors.primary },
+  tabCountBadge: {
+    minWidth: 18,
+    paddingHorizontal: 5,
+    height: 18,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabCountText: { ...typography.xs, fontWeight: "700", color: colors.primaryForeground },
   listContent: {
     padding: spacing.md,
     paddingBottom: spacing.xl,

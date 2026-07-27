@@ -1,11 +1,21 @@
 import React from "react";
-import { Tabs } from "expo-router";
+import { Tabs, Redirect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, typography } from "@/constants/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function ChefTabsLayout() {
   const insets = useSafeAreaInsets();
+  const { loading, user, dbUser } = useAuth();
+
+  // Role guard: the chef area is chef-only. Redirect a confirmed non-chef
+  // (logged-in customer) back to the customer home. Wait for a resolved backend
+  // role before acting so we don't bounce a chef out during initial load.
+  if (!loading && user && dbUser && dbUser.is_chef === false) {
+    return <Redirect href="/(tabs)/home" />;
+  }
+
   return (
     <Tabs
       screenOptions={{

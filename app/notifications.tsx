@@ -25,7 +25,13 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { colors, fonts, radius, spacing, typography } from "@/constants/theme";
 
 function timeAgo(dateStr: string): string {
-  const parsed = Date.parse(dateStr);
+  // The backend serializes created_at without a timezone suffix (naive UTC,
+  // e.g. "2026-07-27T10:00:00"). JS Date.parse treats a suffix-less datetime as
+  // LOCAL time, which skews the result by the device's UTC offset. Normalize a
+  // timezone-less string to UTC by appending "Z" so it parses correctly.
+  const hasTimezone = /(Z|[+-]\d{2}:?\d{2})$/.test(dateStr);
+  const normalized = hasTimezone ? dateStr : `${dateStr}Z`;
+  const parsed = Date.parse(normalized);
   if (Number.isNaN(parsed)) return "";
   const diff = Date.now() - parsed;
   const mins = Math.floor(diff / 60000);

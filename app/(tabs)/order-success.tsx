@@ -1,13 +1,25 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Button } from "@/components/ui/Button";
 import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
 
 export default function OrderSuccessScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    orderIds?: string;
+    eta?: string;
+    chefName?: string;
+  }>();
+
+  const orderIds = (params.orderIds ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id.length > 0);
+  const etaLabel = params.eta?.trim() || null;
+  const chefName = params.chefName?.trim() || null;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -25,14 +37,40 @@ export default function OrderSuccessScreen() {
 
         {/* Info Card */}
         <View style={styles.infoCard}>
+          {orderIds.length > 0 ? (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>
+                {orderIds.length === 1 ? "Order ID" : "Order IDs"}
+              </Text>
+              <Text style={styles.infoValue}>
+                {orderIds.map((id) => `#${id}`).join(", ")}
+              </Text>
+            </View>
+          ) : null}
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Order Status</Text>
-            <Text style={styles.infoStatus}>Confirmed</Text>
+            <Text style={styles.infoStatus}>Awaiting chef confirmation</Text>
           </View>
+
+          {etaLabel ? (
+            <View style={styles.etaBlock}>
+              <Text style={styles.infoLabel}>Estimated ready</Text>
+              <Text style={styles.etaValue}>{etaLabel}</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.divider} />
+
           <View style={styles.progressBarBg}>
             <View style={styles.progressBarFill} />
           </View>
-          <Text style={styles.progressNote}>Chef is preparing your food</Text>
+          <Text style={styles.progressNote}>
+            {chefName
+              ? `${chefName} will confirm your order shortly`
+              : "Waiting for the chef to confirm your order"}
+            {etaLabel ? ` · ready in about ${etaLabel}` : ""}
+          </Text>
         </View>
 
         {/* Action Buttons */}
@@ -98,28 +136,52 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     width: "100%",
     ...shadow.md,
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
+    gap: spacing.md,
   },
   infoLabel: {
     ...typography.base,
     color: colors.mutedForeground,
+    flexShrink: 0,
   },
   infoStatus: {
     ...typography.base,
     fontWeight: "700",
     color: colors.success,
+    flex: 1,
+    textAlign: "right",
+  },
+  infoValue: {
+    ...typography.base,
+    fontWeight: "700",
+    color: colors.foreground,
+    flex: 1,
+    textAlign: "right",
+  },
+  etaBlock: {
+    gap: 2,
+  },
+  etaValue: {
+    ...typography.base,
+    fontWeight: "700",
+    color: colors.foreground,
+    flexWrap: "wrap",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.xs,
   },
   progressBarBg: {
     height: 8,
     backgroundColor: colors.muted,
     borderRadius: radius.full,
     overflow: "hidden",
-    marginTop: spacing.xs,
   },
   progressBarFill: {
     width: "25%",

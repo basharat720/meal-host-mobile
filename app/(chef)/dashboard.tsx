@@ -12,9 +12,11 @@ import { Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useAuth } from "@/contexts/AuthContext";
+import { useI18n } from "@/i18n/context";
 import { chefService, ChefDashboardStats } from "@/services/chefService";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { NotificationBell } from "@/components/NotificationBell";
+import { isChefActive, getActivationBlockers } from "@/lib/chefStatus";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 
 interface StatCardProps {
@@ -40,6 +42,7 @@ const StatCard = ({ label, value, icon, loading }: StatCardProps) => (
 
 export default function DashboardScreen() {
   const { dbUser } = useAuth();
+  const { formatPrice } = useI18n();
   const [stats, setStats] = useState<ChefDashboardStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -77,6 +80,9 @@ export default function DashboardScreen() {
   const profilePictureUrl = dbUser?.chef_profile?.profile_picture_url ?? null;
   const chefName = dbUser?.name ?? "Chef";
 
+  const accountActive = isChefActive(dbUser);
+  const activationBlockers = getActivationBlockers(dbUser);
+
   const statCards: { label: string; value: string | null; icon: keyof typeof Ionicons.glyphMap }[] = [
     {
       label: "Today's Orders",
@@ -85,7 +91,7 @@ export default function DashboardScreen() {
     },
     {
       label: "Today's Earnings",
-      value: stats ? `$${(stats.todays_earnings ?? 0).toFixed(2)}` : null,
+      value: stats ? formatPrice(stats.todays_earnings ?? 0) : null,
       icon: "cash-outline",
     },
     {
@@ -134,6 +140,42 @@ export default function DashboardScreen() {
           <NotificationBell color={colors.foreground} />
         </View>
 
+        {/* Inactive-account banner */}
+        {!accountActive && (
+          <View style={styles.banner}>
+            <View style={styles.bannerHeader}>
+              <Ionicons
+                name="alert-circle"
+                size={20}
+                color={colors.destructive}
+              />
+              <Text style={styles.bannerTitle}>Account Inactive</Text>
+            </View>
+            {activationBlockers.length > 0 ? (
+              <>
+                <Text style={styles.bannerText}>
+                  You can&apos;t add menu items or accept orders yet. To activate
+                  your account:
+                </Text>
+                <View style={styles.bannerList}>
+                  {activationBlockers.map((blocker) => (
+                    <View key={blocker} style={styles.bannerListItem}>
+                      <Text style={styles.bannerBullet}>{"•"}</Text>
+                      <Text style={styles.bannerText}>{blocker}</Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : (
+              <Text style={styles.bannerText}>
+                Your chef account is currently inactive or pending approval. You
+                cannot add menu items or accept orders until your account is
+                approved.
+              </Text>
+            )}
+          </View>
+        )}
+
         {/* Stats Grid */}
         <View style={styles.grid}>
           {statCards.map((card) => (
@@ -176,7 +218,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.lightSage,
     borderRadius: radius.lg,
     padding: spacing.md,
   },
@@ -210,6 +252,44 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
+  banner: {
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.destructive,
+    borderLeftWidth: 4,
+    padding: spacing.md,
+    gap: spacing.sm,
+    ...shadow.sm,
+  },
+  bannerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  bannerTitle: {
+    ...typography.base,
+    fontWeight: "700",
+    color: colors.destructive,
+  },
+  bannerText: {
+    ...typography.sm,
+    color: colors.foreground,
+    flexShrink: 1,
+  },
+  bannerList: {
+    gap: 4,
+  },
+  bannerListItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  bannerBullet: {
+    ...typography.sm,
+    color: colors.foreground,
+  },
+
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -228,7 +308,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: radius.sm,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.lightSage,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: spacing.sm,
@@ -267,7 +347,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: radius.md,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.lightSage,
     alignItems: "center",
     justifyContent: "center",
   },

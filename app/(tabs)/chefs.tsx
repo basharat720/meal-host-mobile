@@ -118,7 +118,7 @@ export default function ChefsScreen() {
       <View style={{ width: columnWidth }}>
         <ChefCard
           {...item}
-          onPress={() => router.push(`/chef/${item.id}`)}
+          onPress={() => router.push(`/chef/${item.id}/menu`)}
         />
       </View>
     ),

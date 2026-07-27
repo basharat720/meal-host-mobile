@@ -15,9 +15,11 @@ import {
 } from "@expo-google-fonts/nunito";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { ToastProvider } from "@/components/ui/Toast";
 import { I18nProvider } from "@/i18n/context";
 import { colors } from "@/constants/theme";
 import { AnimatedSplash } from "@/components/AnimatedSplash";
+import { FloatingCart } from "@/components/FloatingCart";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { configureNotificationHandler } from "@/lib/pushNotifications";
 
@@ -70,6 +72,7 @@ export default function RootLayout() {
           <I18nProvider>
             <AuthProvider>
               <CartProvider>
+               <ToastProvider>
                 <StatusBar
                   style={splashDone ? "dark" : "light"}
                   backgroundColor={splashDone ? colors.background : colors.primary}
@@ -85,9 +88,11 @@ export default function RootLayout() {
                     <Stack.Screen name="notifications" options={{ headerShown: false }} />
                   </Stack>
                 )}
+                {fontsLoaded && <FloatingCart />}
                 {fontsLoaded && !splashDone && (
                   <AnimatedSplash onComplete={handleSplashComplete} />
                 )}
+               </ToastProvider>
               </CartProvider>
             </AuthProvider>
           </I18nProvider>

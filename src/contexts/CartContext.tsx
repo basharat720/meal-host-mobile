@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
+import { Alert } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface CartItem {
   id: string;
@@ -8,12 +10,13 @@ export interface CartItem {
   image: string;
   chefId: string;
   chefName: string;
+  availableQuantity?: number;
 }
 
 interface CartContextType {
   items: CartItem[];
   addItem: (item: Omit<CartItem, "quantity">, availableQty?: number) => { success: boolean; message?: string; requiresSwitch?: boolean; pendingItem?: Omit<CartItem, "quantity"> };
-  switchChefAndAdd: (item: Omit<CartItem, "quantity">) => void;
+  switchChefAndAdd: (item: Omit<CartItem, "quantity">, availableQty?: number) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
@@ -22,8 +25,42 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+const CART_STORAGE_KEY = "mealhost.cart";
+
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>([]);
+  // Track hydration so we don't overwrite the persisted cart with the
+  // initial empty state before the stored value has been loaded.
+  const hydrated = useRef(false);
+
+  // Load persisted cart on mount
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(CART_STORAGE_KEY);
+        if (active && raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) setItems(parsed);
+        }
+      } catch {
+        // ignore load / parse errors
+      } finally {
+        hydrated.current = true;
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Persist cart on every change (after hydration)
+  useEffect(() => {
+    if (!hydrated.current) return;
+    AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items)).catch(() => {
+      // ignore write errors
+    });
+  }, [items]);
 
   const addItem = (newItem: Omit<CartItem, "quantity">, availableQty?: number) => {
     const cartChefId = items.length > 0 ? items[0].chefId : null;
@@ -40,15 +77,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
     setItems(prev => {
       const existing = prev.find(i => i.id === newItem.id);
-      if (existing) return prev.map(i => i.id === newItem.id ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { ...newItem, quantity: 1 }];
+      if (existing) return prev.map(i => i.id === newItem.id ? { ...i, quantity: i.quantity + 1, availableQuantity: availableQty ?? i.availableQuantity } : i);
+      return [...prev, { ...newItem, quantity: 1, availableQuantity: availableQty }];
     });
 
     return { success: true };
   };
 
-  const switchChefAndAdd = (newItem: Omit<CartItem, "quantity">) => {
-    setItems([{ ...newItem, quantity: 1 }]);
+  const switchChefAndAdd = (newItem: Omit<CartItem, "quantity">, availableQty?: number) => {
+    setItems([{ ...newItem, quantity: 1, availableQuantity: availableQty }]);
   };
 
   const removeItem = (id: string) => {
@@ -57,7 +94,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const updateQuantity = (id: string, quantity: number) => {
     if (quantity <= 0) { removeItem(id); return; }
-    setItems(prev => prev.map(i => i.id === id ? { ...i, quantity } : i));
+    setItems(prev => prev.map(i => {
+      if (i.id !== id) return i;
+      // Guard: never exceed the dish's available quantity
+      if (i.availableQuantity !== undefined && quantity > i.availableQuantity) {
+        Alert.alert("Can't Add", `Only ${i.availableQuantity} available — can't add more.`);
+        return { ...i, quantity: i.availableQuantity };
+      }
+      return { ...i, quantity };
+    }));
   };
 
   const clearCart = () => setItems([]);

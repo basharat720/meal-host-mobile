@@ -21,12 +21,21 @@ import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n/context";
 import { menuService } from "@/services/menuService";
-import { DietaryTag, FoodListing } from "@/services/types";
+import { cuisineService } from "@/services/cuisineService";
+import {
+  DietaryTag,
+  FoodListing,
+  FoodListingCreate,
+  FoodListingUpdate,
+  CuisineType,
+  UserLocationResponse,
+} from "@/services/types";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { isChefActive } from "@/lib/chefStatus";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 
 // ---------------------------------------------------------------------------
@@ -37,20 +46,33 @@ interface DishForm {
   description: string;
   price: string;
   available_quantity: string;
-  preparation_time_minutes: string;
+  preparation_time_hours: string;
   dietary_tag_ids: number[];
+  cuisine_type_ids: number[];
+  pickup_location_id: number | null;
   imageUri: string | null;   // local URI from image picker
   imageUrl: string;          // remote URL (fallback / after upload)
   isAvailable: boolean;
 }
+
+// Prep time is entered/edited in HOURS (matching the availability screen) but
+// stored in minutes. These convert between the two.
+const prepHoursToMinutes = (hours: string): number | undefined => {
+  const h = parseFloat(hours);
+  return Number.isFinite(h) && h > 0 ? Math.round(h * 60) : undefined;
+};
+const prepMinutesToHours = (minutes?: number | null): string =>
+  minutes != null ? (minutes / 60).toFixed(2).replace(/\.?0+$/, "") : "";
 
 const EMPTY_FORM: DishForm = {
   title: "",
   description: "",
   price: "",
   available_quantity: "",
-  preparation_time_minutes: "",
+  preparation_time_hours: "",
   dietary_tag_ids: [],
+  cuisine_type_ids: [],
+  pickup_location_id: null,
   imageUri: null,
   imageUrl: "",
   isAvailable: true,
@@ -115,13 +137,23 @@ function DishRow({
 
   return (
     <View style={styles.row}>
-      {primaryImage ? (
-        <Image source={{ uri: primaryImage }} style={styles.rowImage} contentFit="cover" />
-      ) : (
-        <View style={[styles.rowImage, styles.rowImageFallback]}>
-          <Ionicons name="restaurant-outline" size={28} color={colors.mutedForeground} />
+      <Pressable
+        onPress={() => onEdit(item)}
+        style={({ pressed }) => pressed && styles.rowImagePressed}
+        accessibilityRole="button"
+        accessibilityLabel={`Edit ${item.title}`}
+      >
+        {primaryImage ? (
+          <Image source={{ uri: primaryImage }} style={styles.rowImage} contentFit="cover" />
+        ) : (
+          <View style={[styles.rowImage, styles.rowImageFallback]}>
+            <Ionicons name="restaurant-outline" size={28} color={colors.mutedForeground} />
+          </View>
+        )}
+        <View style={styles.rowImageEditBadge}>
+          <Ionicons name="pencil" size={11} color={colors.primaryForeground} />
         </View>
-      )}
+      </Pressable>
 
       <View style={styles.rowInfo}>
         <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
@@ -143,11 +175,14 @@ function DishRow({
           trackColor={{ true: colors.primary, false: colors.border }}
           thumbColor={colors.surface}
         />
-        <Pressable onPress={() => onEdit(item)} style={styles.iconBtn} hitSlop={8}>
-          <Ionicons name="pencil-outline" size={18} color={colors.primary} />
-        </Pressable>
-        <Pressable onPress={() => onDelete(item.id)} style={styles.iconBtn} hitSlop={8}>
-          <Ionicons name="trash-outline" size={18} color={colors.destructive} />
+        <Pressable
+          onPress={() => onDelete(item.id)}
+          style={({ pressed }) => [styles.actionBtn, styles.deleteBtn, pressed && styles.actionBtnPressed]}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={`Delete ${item.title}`}
+        >
+          <Ionicons name="trash" size={16} color={colors.destructive} />
         </Pressable>
       </View>
     </View>
@@ -162,6 +197,8 @@ function DishModal({
   form,
   setForm,
   dietaryTags,
+  cuisineTypes,
+  locations,
   saving,
   onClose,
   onSave,
@@ -171,6 +208,8 @@ function DishModal({
   form: DishForm;
   setForm: React.Dispatch<React.SetStateAction<DishForm>>;
   dietaryTags: DietaryTag[];
+  cuisineTypes: CuisineType[];
+  locations: UserLocationResponse[];
   saving: boolean;
   onClose: () => void;
   onSave: () => void;
@@ -198,6 +237,22 @@ function DishModal({
           : [...f.dietary_tag_ids, tagId],
       };
     });
+  };
+
+  const toggleCuisine = (cuisineId: number) => {
+    setForm((f) => {
+      const has = f.cuisine_type_ids.includes(cuisineId);
+      return {
+        ...f,
+        cuisine_type_ids: has
+          ? f.cuisine_type_ids.filter((id) => id !== cuisineId)
+          : [...f.cuisine_type_ids, cuisineId],
+      };
+    });
+  };
+
+  const selectLocation = (locationId: number) => {
+    setForm((f) => ({ ...f, pickup_location_id: locationId }));
   };
 
   const previewUri = form.imageUri ?? (form.imageUrl ? form.imageUrl : null);
@@ -271,12 +326,66 @@ function DishModal({
               keyboardType="number-pad"
             />
             <Input
-              label="Preparation Time (minutes)"
-              placeholder="30"
-              value={form.preparation_time_minutes}
-              onChangeText={(v) => setForm((f) => ({ ...f, preparation_time_minutes: v }))}
-              keyboardType="number-pad"
+              label="Preparation Time (hours)"
+              placeholder="0.5"
+              value={form.preparation_time_hours}
+              onChangeText={(v) => setForm((f) => ({ ...f, preparation_time_hours: v }))}
+              keyboardType="decimal-pad"
             />
+
+            {/* Pickup location picker */}
+            <View>
+              <Text style={styles.fieldLabel}>Pickup Location *</Text>
+              {locations.length === 0 ? (
+                <Text style={styles.helperError}>
+                  No pickup locations found. Add a location in your profile first.
+                </Text>
+              ) : (
+                <View style={styles.tagsWrap}>
+                  {locations.map((loc) => {
+                    const selected = form.pickup_location_id === loc.id;
+                    const label = `${loc.address || `Location #${loc.id}`}${loc.is_primary ? " (Primary)" : ""}`;
+                    return (
+                      <Pressable
+                        key={loc.id}
+                        onPress={() => selectLocation(loc.id)}
+                        style={[styles.tagChip, selected && styles.tagChipSelected]}
+                      >
+                        <Text
+                          style={[styles.tagChipText, selected && styles.tagChipTextSelected]}
+                          numberOfLines={1}
+                        >
+                          {label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+
+            {/* Cuisine types */}
+            {cuisineTypes.length > 0 && (
+              <View>
+                <Text style={styles.fieldLabel}>Cuisine Types</Text>
+                <View style={styles.tagsWrap}>
+                  {cuisineTypes.map((cuisine) => {
+                    const selected = form.cuisine_type_ids.includes(cuisine.id);
+                    return (
+                      <Pressable
+                        key={cuisine.id}
+                        onPress={() => toggleCuisine(cuisine.id)}
+                        style={[styles.tagChip, selected && styles.tagChipSelected]}
+                      >
+                        <Text style={[styles.tagChipText, selected && styles.tagChipTextSelected]}>
+                          {cuisine.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
 
             {/* Active toggle */}
             <View style={styles.toggleRow}>
@@ -334,6 +443,7 @@ export default function MenuScreen() {
   const { dbUser, user } = useAuth();
   const [listings, setListings] = useState<FoodListing[]>([]);
   const [dietaryTags, setDietaryTags] = useState<DietaryTag[]>([]);
+  const [cuisineTypes, setCuisineTypes] = useState<CuisineType[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -350,12 +460,14 @@ export default function MenuScreen() {
       // Keep the current list on screen while refetching silently
       // (refocus / pull-to-refresh) instead of flashing the loader.
       if (!silent) setLoading(true);
-      const [data, tags] = await Promise.all([
+      const [data, tags, cuisines] = await Promise.all([
         menuService.getChefListings(dbUser.id.toString()),
         menuService.getDietaryTags(),
+        cuisineService.getCuisineTypes(),
       ]);
       setListings(Array.isArray(data) ? data : []);
       setDietaryTags(Array.isArray(tags) ? tags : []);
+      setCuisineTypes(Array.isArray(cuisines) ? cuisines : []);
     } catch (err) {
       console.error("Failed to fetch menu:", err);
     } finally {
@@ -380,9 +492,32 @@ export default function MenuScreen() {
   }, [fetchMenu]);
 
   // ------------------------------------------------------------------
+  // Chef-status gating helpers
+  // ------------------------------------------------------------------
+  const chefActive = isChefActive(dbUser);
+
+  const requireActiveChef = (action: string): boolean => {
+    if (!chefActive) {
+      Alert.alert(
+        "Account not active",
+        `You must be an active chef to ${action}.`
+      );
+      return false;
+    }
+    return true;
+  };
+
+  const defaultLocationId = (): number | null => {
+    const locs = dbUser?.locations ?? [];
+    const primary = locs.find((l) => l.is_primary) ?? locs[0];
+    return primary?.id ?? null;
+  };
+
+  // ------------------------------------------------------------------
   // Toggle active/inactive
   // ------------------------------------------------------------------
   const handleToggle = async (id: number, current: FoodListing["status"]) => {
+    if (!requireActiveChef("update dishes")) return;
     const newStatus: FoodListing["status"] = current === "ACTIVE" ? "INACTIVE" : "ACTIVE";
     // Optimistic update
     setListings((prev) =>
@@ -403,6 +538,7 @@ export default function MenuScreen() {
   // Delete
   // ------------------------------------------------------------------
   const handleDelete = (id: number) => {
+    if (!requireActiveChef("delete dishes")) return;
     Alert.alert("Delete Dish", "Are you sure you want to delete this dish?", [
       { text: "Cancel", style: "cancel" },
       {
@@ -424,6 +560,7 @@ export default function MenuScreen() {
   // Open edit modal
   // ------------------------------------------------------------------
   const openEdit = (item: FoodListing) => {
+    if (!requireActiveChef("edit dishes")) return;
     const primaryImg = item.images?.find((i) => i.is_primary)?.image_url ?? item.images?.[0]?.image_url ?? "";
     setEditingId(item.id);
     setEditForm({
@@ -431,8 +568,10 @@ export default function MenuScreen() {
       description: item.description ?? "",
       price: item.price.toString(),
       available_quantity: item.available_quantity.toString(),
-      preparation_time_minutes: item.preparation_time_minutes?.toString() ?? "",
+      preparation_time_hours: prepMinutesToHours(item.preparation_time_minutes),
       dietary_tag_ids: item.dietary_tags?.map((t) => t.id) ?? [],
+      cuisine_type_ids: item.cuisine_types?.map((c) => c.id) ?? [],
+      pickup_location_id: item.pickup_location_id ?? defaultLocationId(),
       imageUri: null,
       imageUrl: primaryImg,
       isAvailable: item.status === "ACTIVE",
@@ -451,7 +590,21 @@ export default function MenuScreen() {
     return form.imageUrl.trim();
   };
 
+  // Open the add-dish modal, pre-filling prep time from the chef's saved
+  // default and defaulting the pickup location to the chef's primary location.
+  const openAdd = () => {
+    if (!requireActiveChef("add dishes")) return;
+    const savedPrep = dbUser?.chef_profile?.default_prep_time_minutes;
+    setAddForm({
+      ...EMPTY_FORM,
+      preparation_time_hours: prepMinutesToHours(savedPrep),
+      pickup_location_id: defaultLocationId(),
+    });
+    setShowAddModal(true);
+  };
+
   const handleAdd = async () => {
+    if (!requireActiveChef("add dishes")) return;
     if (!addForm.title.trim()) {
       Alert.alert("Validation", "Title is required.");
       return;
@@ -464,6 +617,15 @@ export default function MenuScreen() {
     const qty = parseInt(addForm.available_quantity);
     if (isNaN(qty) || qty < 0) {
       Alert.alert("Validation", "Enter a valid quantity.");
+      return;
+    }
+    if (!dbUser?.locations || dbUser.locations.length === 0) {
+      Alert.alert("Validation", "Add a pickup location in your profile first.");
+      return;
+    }
+    const pickupLocationId = addForm.pickup_location_id;
+    if (pickupLocationId == null) {
+      Alert.alert("Validation", "Please select a pickup location.");
       return;
     }
 
@@ -482,19 +644,19 @@ export default function MenuScreen() {
 
     setSaving(true);
     try {
-      const listing = await menuService.createListing({
+      const createPayload: FoodListingCreate & { cuisine_type_ids?: number[] } = {
         title: addForm.title.trim(),
         description: addForm.description.trim() || undefined,
         price,
         available_quantity: qty,
         status: addForm.isAvailable ? "ACTIVE" : "INACTIVE",
-        pickup_location_id: dbUser?.locations?.[0]?.id ?? 0,
+        pickup_location_id: pickupLocationId,
         dietary_tag_ids: addForm.dietary_tag_ids,
+        cuisine_type_ids: addForm.cuisine_type_ids,
         image_url: imageUrl,
-        preparation_time_minutes: addForm.preparation_time_minutes
-          ? parseInt(addForm.preparation_time_minutes)
-          : undefined,
-      });
+        preparation_time_minutes: prepHoursToMinutes(addForm.preparation_time_hours),
+      };
+      const listing = await menuService.createListing(createPayload);
       setListings((prev) => [listing, ...prev]);
       setShowAddModal(false);
       setAddForm(EMPTY_FORM);
@@ -507,8 +669,14 @@ export default function MenuScreen() {
 
   const handleEdit = async () => {
     if (!editingId) return;
+    if (!requireActiveChef("edit dishes")) return;
     if (!editForm.title.trim()) {
       Alert.alert("Validation", "Title is required.");
+      return;
+    }
+    const pickupLocationId = editForm.pickup_location_id;
+    if (pickupLocationId == null) {
+      Alert.alert("Validation", "Please select a pickup location.");
       return;
     }
 
@@ -523,17 +691,18 @@ export default function MenuScreen() {
 
     setSaving(true);
     try {
-      const updated = await menuService.updateListing(editingId, {
+      const updatePayload: FoodListingUpdate & { cuisine_type_ids?: number[] } = {
         title: editForm.title.trim(),
         description: editForm.description.trim() || undefined,
         price: parseFloat(editForm.price) || 0,
         available_quantity: parseInt(editForm.available_quantity) || 0,
         status: editForm.isAvailable ? "ACTIVE" : "INACTIVE",
+        pickup_location_id: pickupLocationId,
         dietary_tag_ids: editForm.dietary_tag_ids,
-        preparation_time_minutes: editForm.preparation_time_minutes
-          ? parseInt(editForm.preparation_time_minutes)
-          : undefined,
-      });
+        cuisine_type_ids: editForm.cuisine_type_ids,
+        preparation_time_minutes: prepHoursToMinutes(editForm.preparation_time_hours),
+      };
+      const updated = await menuService.updateListing(editingId, updatePayload);
       setListings((prev) =>
         prev.map((l) => (l.id === editingId ? updated : l))
       );
@@ -597,13 +766,7 @@ export default function MenuScreen() {
       )}
 
       {/* FAB */}
-      <Pressable
-        style={styles.fab}
-        onPress={() => {
-          setAddForm(EMPTY_FORM);
-          setShowAddModal(true);
-        }}
-      >
+      <Pressable style={styles.fab} onPress={openAdd}>
         <Ionicons name="add" size={28} color="#fff" />
       </Pressable>
 
@@ -613,6 +776,8 @@ export default function MenuScreen() {
         form={addForm}
         setForm={setAddForm}
         dietaryTags={dietaryTags}
+        cuisineTypes={cuisineTypes}
+        locations={dbUser?.locations ?? []}
         saving={saving}
         onClose={() => setShowAddModal(false)}
         onSave={handleAdd}
@@ -625,6 +790,8 @@ export default function MenuScreen() {
         form={editForm}
         setForm={setEditForm}
         dietaryTags={dietaryTags}
+        cuisineTypes={cuisineTypes}
+        locations={dbUser?.locations ?? []}
         saving={saving}
         onClose={() => { setShowEditModal(false); setEditingId(null); }}
         onSave={handleEdit}
@@ -675,13 +842,39 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  rowImagePressed: { opacity: 0.7 },
+  rowImageEditBadge: {
+    position: "absolute",
+    right: 4,
+    bottom: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: colors.surface,
+  },
   rowInfo: { flex: 1, gap: 3 },
   rowTitle: { ...typography.base, fontWeight: "600", color: colors.foreground },
   rowPrice: { ...typography.sm, color: colors.primary, fontWeight: "700" },
   rowQty: { ...typography.xs, color: colors.mutedForeground },
   rowTags: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 3 },
-  rowActions: { alignItems: "center", gap: spacing.xs },
-  iconBtn: { padding: 4 },
+  rowActions: { alignItems: "center", justifyContent: "center", gap: spacing.sm },
+  actionBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  actionBtnPressed: { opacity: 0.6 },
+  deleteBtn: {
+    backgroundColor: "rgba(224, 34, 34, 0.08)",
+    borderColor: "rgba(224, 34, 34, 0.25)",
+  },
 
   fab: {
     position: "absolute",
@@ -719,6 +912,7 @@ const styles = StyleSheet.create({
   },
 
   fieldLabel: { ...typography.sm, fontWeight: "600", color: colors.foreground, marginBottom: 4 },
+  helperError: { ...typography.xs, color: colors.destructive },
 
   imagePicker: {
     width: "100%",

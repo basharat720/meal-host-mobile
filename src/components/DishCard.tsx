@@ -4,8 +4,11 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useCart } from "@/contexts/CartContext";
+import { useToast } from "@/components/ui/Toast";
 import { useI18n } from "@/i18n/context";
+import { CuisineType } from "@/services/types";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
+import { formatDuration } from "@/lib/duration";
 
 interface DishCardProps {
   id: string;
@@ -20,39 +23,58 @@ interface DishCardProps {
   availableQty?: number;
   preparationTimeMinutes?: number;
   isChefOffline?: boolean;
+  /** Optional cuisine chips shown under the dish name. */
+  cuisineTypes?: CuisineType[];
+  /** When true, shows a "Popular" badge (hidden while the dish is unavailable). */
+  isPopular?: boolean;
+  /** Optional message shown when the chef is offline, e.g. "Opens Saturday 09:00". */
+  offlineMessage?: string;
 }
 
 export const DishCard = ({
   id, name, description, price, image, chefId, chefName,
   isVeg = false, rating, availableQty, preparationTimeMinutes,
-  isChefOffline = false,
+  isChefOffline = false, cuisineTypes = [], isPopular = false, offlineMessage,
 }: DishCardProps) => {
   const { addItem, switchChefAndAdd } = useCart();
+  const { showToast } = useToast();
   const { formatPrice } = useI18n();
   const { width } = useWindowDimensions();
   const cardWidth = (width - spacing.md * 2 - spacing.sm) / 2;
 
   const isOutOfStock = typeof availableQty === "number" && availableQty === 0;
+  const isLowStock =
+    typeof availableQty === "number" && availableQty > 0 && availableQty <= 3;
   const orderDisabled = isOutOfStock || isChefOffline;
+  const displayedCuisines = cuisineTypes.slice(0, 2);
 
   const handleAddToCart = () => {
     if (orderDisabled) return;
     const result = addItem({ id, name, price, image, chefId, chefName }, availableQty);
-    if (!result.success) {
-      if (result.requiresSwitch && result.pendingItem) {
-        Alert.alert("Switch Chef?", result.message, [
-          { text: "Cancel", style: "cancel" },
-          { text: "Switch", style: "destructive", onPress: () => switchChefAndAdd(result.pendingItem!) },
-        ]);
-      } else if (result.message) {
-        Alert.alert("Can't Add", result.message);
-      }
+    if (result.success) {
+      showToast({ message: `${name} added to cart`, variant: "success" });
+      return;
+    }
+    if (result.requiresSwitch && result.pendingItem) {
+      Alert.alert("Switch Chef?", result.message, [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Switch",
+          style: "destructive",
+          onPress: () => {
+            switchChefAndAdd(result.pendingItem!, availableQty);
+            showToast({ message: `${name} added to cart`, variant: "success" });
+          },
+        },
+      ]);
+    } else if (result.message) {
+      Alert.alert("Can't Add", result.message);
     }
   };
 
   return (
     <Pressable
-      onPress={() => router.push(`/chef/${chefId}`)}
+      onPress={() => router.push(`/dish/${id}`)}
       style={[styles.card, { width: cardWidth }, isChefOffline && { opacity: 0.7 }]}
     >
       <View style={styles.imageContainer}>
@@ -71,6 +93,14 @@ export const DishCard = ({
           <View style={styles.offlineBadge}>
             <Text style={styles.offlineText}>Chef offline</Text>
           </View>
+        ) : isOutOfStock ? (
+          <View style={styles.soldOutBadge}>
+            <Text style={styles.offlineText}>Sold out</Text>
+          </View>
+        ) : isPopular ? (
+          <View style={styles.popularBadge}>
+            <Text style={styles.popularText}>Popular</Text>
+          </View>
         ) : null}
         <Pressable
           onPress={(e) => { e.stopPropagation?.(); handleAddToCart(); }}
@@ -85,7 +115,24 @@ export const DishCard = ({
       <View style={styles.content}>
         <Text style={styles.name} numberOfLines={1}>{name}</Text>
         {description ? <Text style={styles.description} numberOfLines={1}>{description}</Text> : null}
+
+        {displayedCuisines.length > 0 && (
+          <View style={styles.cuisineRow}>
+            {displayedCuisines.map((c) => (
+              <View key={c.id} style={styles.cuisineChip}>
+                <Text style={styles.cuisineText} numberOfLines={1}>{c.name}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         <Text style={styles.chefName} numberOfLines={1}>{chefName}</Text>
+
+        {isChefOffline ? (
+          <Text style={styles.offlineNote} numberOfLines={1}>{offlineMessage || "Chef offline"}</Text>
+        ) : isLowStock ? (
+          <Text style={styles.lowStock} numberOfLines={1}>Only {availableQty} left!</Text>
+        ) : null}
 
         <View style={styles.footer}>
           <Text style={styles.price}>{formatPrice(price)}</Text>
@@ -99,7 +146,7 @@ export const DishCard = ({
             {!!preparationTimeMinutes && (
               <View style={styles.metaItem}>
                 <Ionicons name="time-outline" size={11} color={colors.mutedForeground} />
-                <Text style={styles.metaText}>{preparationTimeMinutes}m</Text>
+                <Text style={styles.metaText}>{formatDuration(preparationTimeMinutes, { compact: true })}</Text>
               </View>
             )}
           </View>
@@ -127,11 +174,22 @@ const styles = StyleSheet.create({
   },
   vegText: { fontSize: 10, fontWeight: "600", color: "#166534" },
   offlineBadge: {
-    position: "absolute", top: 6, left: 6,
+    position: "absolute", top: 6, right: 6,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: radius.full, paddingHorizontal: 7, paddingVertical: 3,
+  },
+  soldOutBadge: {
+    position: "absolute", top: 6, right: 6,
     backgroundColor: "rgba(0,0,0,0.55)",
     borderRadius: radius.full, paddingHorizontal: 7, paddingVertical: 3,
   },
   offlineText: { fontSize: 10, fontWeight: "600", color: "#fff" },
+  popularBadge: {
+    position: "absolute", top: 6, right: 6,
+    backgroundColor: colors.accent,
+    borderRadius: radius.full, paddingHorizontal: 7, paddingVertical: 3,
+  },
+  popularText: { fontSize: 10, fontWeight: "700", color: "#fff" },
   addButton: {
     position: "absolute", bottom: 6, right: 6,
     width: 30, height: 30, borderRadius: 15,
@@ -145,7 +203,18 @@ const styles = StyleSheet.create({
   content: { padding: spacing.sm },
   name: { ...typography.sm, fontWeight: "700", color: colors.foreground },
   description: { ...typography.xs, color: colors.mutedForeground, marginTop: 2 },
+  cuisineRow: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 },
+  cuisineChip: {
+    backgroundColor: colors.secondary,
+    borderRadius: radius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    maxWidth: "100%",
+  },
+  cuisineText: { fontSize: 10, fontWeight: "600", color: colors.primary },
   chefName: { ...typography.xs, color: colors.mutedForeground, marginTop: 2 },
+  offlineNote: { ...typography.xs, fontWeight: "600", color: colors.mutedForeground, marginTop: 2 },
+  lowStock: { ...typography.xs, fontWeight: "600", color: colors.destructive, marginTop: 2 },
   footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.xs, paddingTop: spacing.xs, borderTopWidth: 1, borderTopColor: colors.border },
   price: { ...typography.sm, fontWeight: "800", color: colors.foreground },
   meta: { flexDirection: "row", gap: 6 },
