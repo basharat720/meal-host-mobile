@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { colors, spacing, typography, radius, fonts } from "@/constants/theme";
+import { SOCIAL_AUTH_ENABLED } from "@/constants/config";
 import { Logo } from "@/components/Logo";
 
 export default function CustomerLoginScreen() {
@@ -111,15 +112,19 @@ export default function CustomerLoginScreen() {
               Sign In
             </Button>
 
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
-            </View>
+            {SOCIAL_AUTH_ENABLED && (
+              <>
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>or</Text>
+                  <View style={styles.dividerLine} />
+                </View>
 
-            <Button variant="outline" onPress={handleGoogleLogin} loading={isGoogleLoading} style={styles.googleButton}>
-              Continue with Google
-            </Button>
+                <Button variant="outline" onPress={handleGoogleLogin} loading={isGoogleLoading} style={styles.googleButton}>
+                  Continue with Google
+                </Button>
+              </>
+            )}
           </View>
 
           <View style={styles.footer}>

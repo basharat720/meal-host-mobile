@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { colors, spacing, typography, fonts, radius } from "@/constants/theme";
+import { SOCIAL_AUTH_ENABLED } from "@/constants/config";
 
 // Web's gradient-secondary: hsl(12 85% 62%) → hsl(18 90% 55%)
 const CHEF_GRADIENT: [string, string] = ["#F06D4C", "#F36325"];
@@ -141,15 +142,19 @@ export default function ChefLoginScreen() {
               Sign In
             </Button>
 
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
-            </View>
+            {SOCIAL_AUTH_ENABLED && (
+              <>
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>or</Text>
+                  <View style={styles.dividerLine} />
+                </View>
 
-            <Button variant="outline" onPress={handleGoogleLogin} loading={isGoogleLoading}>
-              Continue with Google
-            </Button>
+                <Button variant="outline" onPress={handleGoogleLogin} loading={isGoogleLoading}>
+                  Continue with Google
+                </Button>
+              </>
+            )}
 
             <View style={styles.footer}>
               <Text style={styles.footerText}>New chef? </Text>
