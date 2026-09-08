@@ -354,10 +354,13 @@ export default function HomeScreen() {
   const handleEndReached = () => {
     if (!hasMore || isLoadingMore) return;
     setIsLoadingMore(true);
+    // The next page is already in memory — this only slices further into
+    // sortedDishes, with no request behind it — so the delay exists purely to
+    // let the spinner register. Web cut the same one to 200ms in 1da7c68.
     setTimeout(() => {
       setDisplayedCount((prev) => Math.min(prev + PAGE_SIZE, sortedDishes.length));
       setIsLoadingMore(false);
-    }, 400);
+    }, 200);
   };
 
   const renderItem = useCallback(({ item, index }: { item: any; index: number }) => {
