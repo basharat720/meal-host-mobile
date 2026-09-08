@@ -205,17 +205,25 @@ export default function AvailabilityScreen() {
     }
   };
 
+  // A window that closes earlier than it opens runs past midnight.
+  const isOvernight = (d: DayState) =>
+    toMinutes(d.close_time) < toMinutes(d.open_time);
+
   const saveAvailability = async () => {
     if (!dbUser?.id) return;
 
-    // Validate enabled days have a close time after the open time.
+    // A day's hours are only invalid when open and close are the same instant —
+    // a zero-length window. A close time earlier than the open time is a
+    // legitimate overnight slot (e.g. 18:00–01:00): the backend spans it from
+    // the start day, see availability_service.is_within_slot(). Rejecting those
+    // stopped any chef who cooks into the night from setting their hours.
     const invalid = days.find(
-      (d) => d.enabled && toMinutes(d.close_time) <= toMinutes(d.open_time)
+      (d) => d.enabled && toMinutes(d.close_time) === toMinutes(d.open_time)
     );
     if (invalid) {
       Alert.alert(
         "Invalid hours",
-        "For every open day, the closing time must be after the opening time."
+        "For every open day, the closing time must differ from the opening time."
       );
       return;
     }
@@ -376,6 +384,9 @@ export default function AvailabilityScreen() {
                         {displayTime(days[i].close_time)}
                       </Text>
                     </Pressable>
+                    {isOvernight(days[i]) && (
+                      <Text style={styles.overnightHint}>next day</Text>
+                    )}
                   </View>
                 ) : (
                   <Text style={styles.closedText}>Closed</Text>
@@ -551,6 +562,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
   },
   timeChipText: { ...typography.sm, color: colors.foreground, fontWeight: "600" },
+  overnightHint: {
+    ...typography.xs,
+    color: colors.mutedForeground,
+    fontStyle: "italic",
+  },
   closedText: { ...typography.sm, color: colors.mutedForeground },
 
   saveBtn: { marginTop: spacing.sm },
