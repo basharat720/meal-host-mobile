@@ -7,12 +7,13 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export default function ChefTabsLayout() {
   const insets = useSafeAreaInsets();
-  const { loading, user, dbUser } = useAuth();
+  const { loading, user, dbUser, activeRole } = useAuth();
 
-  // Role guard: the chef area is chef-only. Redirect a confirmed non-chef
-  // (logged-in customer) back to the customer home. Wait for a resolved backend
-  // role before acting so we don't bounce a chef out during initial load.
-  if (!loading && user && dbUser && dbUser.is_chef === false) {
+  // Role guard: the chef area is for accounts that hold the chef role and are
+  // currently acting as one. A confirmed non-chef is sent out, and so is a
+  // dual-role account that has switched to customer mode. Wait for a resolved
+  // backend role before acting so we don't bounce a chef out during load.
+  if (!loading && user && dbUser && (dbUser.is_chef === false || activeRole === "customer")) {
     return <Redirect href="/(tabs)/chefs" />;
   }
 

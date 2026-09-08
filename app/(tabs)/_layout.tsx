@@ -9,12 +9,15 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
-  const { dbUser } = useAuth();
+  const { dbUser, activeRole } = useAuth();
 
   // Role guard: the customer tabs are public for browsing (logged-out users land
-  // here), but a logged-in chef must never enter the customer experience. Only
-  // act on a confirmed backend role (dbUser), never a stale cached role.
-  if (dbUser?.is_chef === true) return <Redirect href="/(chef)/dashboard" />;
+  // here), but someone acting as a chef belongs in the chef portal. Keyed on
+  // activeRole so a dual-role account can browse as a customer; activeRole is
+  // restored from storage asynchronously, so fall back to the confirmed backend
+  // role until it resolves. Never act on a stale cached role.
+  const actingAsChef = activeRole ? activeRole === "chef" : dbUser?.is_chef === true;
+  if (actingAsChef) return <Redirect href="/(chef)/dashboard" />;
 
   return (
     <View style={styles.root}>

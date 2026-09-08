@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
 import { User as FirebaseUser, onAuthStateChanged, onIdTokenChanged, reload } from "firebase/auth";
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -17,6 +17,9 @@ import { userService, User as DbUser, UserRegisterRequest } from "@/services/api
 
 const TOKEN_KEY = "firebase_token";
 const ROLE_KEY = "user_role";
+// Which role a dual-role user is currently acting as. Distinct from
+// ROLE_KEY, which caches the role resolved at sign-in.
+const ACTIVE_ROLE_KEY = "active_role";
 const FCM_KEY = "fcm_registered";
 // Set when user logs in, cleared on sign-out.
 // Lets us know we should WAIT for Firebase to restore the session instead of
@@ -95,6 +98,10 @@ interface AuthContextType {
   user: User | null;
   dbUser: DbUser | null;
   role: UserRole | null;
+  /** The role the user is acting as right now. Drives the route guards. */
+  activeRole: UserRole | null;
+  /** Every role this account holds — a dual-role user has both. */
+  availableRoles: UserRole[];
   loading: boolean;
   token: string | null;
   emailVerified: boolean | null;
@@ -115,6 +122,8 @@ interface AuthContextType {
   signInWithGoogle: (role: UserRole) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   setRole: (role: UserRole | null) => void;
+  /** Act as one of `availableRoles`. A role the account lacks is ignored. */
+  switchRole: (role: UserRole) => void;
   getFreshToken: () => Promise<string | null>;
   refreshDbUser: () => Promise<DbUser | null>;
   sendPasswordReset: (email: string) => Promise<{ error: Error | null }>;
@@ -140,6 +149,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [dbUser, setDbUser] = useState<DbUser | null>(null);
   const [role, setRoleState] = useState<UserRole | null>(null);
+  const [activeRole, setActiveRoleState] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
@@ -165,6 +175,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (r) await AsyncStorage.setItem(ROLE_KEY, r);
     else await AsyncStorage.removeItem(ROLE_KEY);
   };
+
+  // Chef first, so an account holding both lands in the chef portal by default
+  // — the behaviour before role switching existed. Same order as web.
+  const availableRoles = React.useMemo<UserRole[]>(() => {
+    const roles: UserRole[] = [];
+    if (dbUser?.is_chef) roles.push("chef");
+    if (dbUser?.is_customer) roles.push("customer");
+    return roles;
+  }, [dbUser?.is_chef, dbUser?.is_customer]);
+
+  // Restore the last chosen mode so it survives a restart.
+  useEffect(() => {
+    AsyncStorage.getItem(ACTIVE_ROLE_KEY)
+      .then((stored) => {
+        if (stored === "chef" || stored === "customer") setActiveRoleState(stored);
+      })
+      .catch(() => {});
+  }, []);
+
+  const switchRole = useCallback(
+    (newRole: UserRole) => {
+      if (!availableRoles.includes(newRole)) return;
+      setActiveRoleState(newRole);
+      setRoleState(newRole);
+      AsyncStorage.setItem(ACTIVE_ROLE_KEY, newRole).catch(() => {});
+      AsyncStorage.setItem(ROLE_KEY, newRole).catch(() => {});
+    },
+    [availableRoles]
+  );
+
+  // No enableRole here, unlike web. Its version PATCHes is_chef/is_customer,
+  // but the backend's UserUpdate schema declares neither and the handler does
+  // model_dump(exclude_unset=True), so Pydantic drops both and the call is a
+  // silent no-op that still returns 200. Adding a role needs a backend
+  // endpoint first; switching between roles the account already holds works.
+
+  // Keep activeRole pointing at a role the account actually holds. Also covers
+  // first sign-in, where nothing is stored yet.
+  useEffect(() => {
+    if (availableRoles.length === 0) {
+      if (activeRole !== null) setActiveRoleState(null);
+      return;
+    }
+    if (!activeRole || !availableRoles.includes(activeRole)) {
+      const next = availableRoles[0];
+      setActiveRoleState(next);
+      AsyncStorage.setItem(ACTIVE_ROLE_KEY, next).catch(() => {});
+    }
+  }, [availableRoles, activeRole]);
 
   useEffect(() => {
     // Load stored token on mount
@@ -426,7 +485,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setEmailVerified(null);
     setAuthError(null);
     await removeToken();
+    setActiveRoleState(null);
     await AsyncStorage.removeItem(ROLE_KEY);
+    await AsyncStorage.removeItem(ACTIVE_ROLE_KEY);
     await AsyncStorage.removeItem(FCM_KEY);
   };
 
@@ -475,6 +536,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         dbUser,
         role,
+        activeRole,
+        availableRoles,
         loading,
         token,
         emailVerified,
@@ -486,6 +549,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signInWithGoogle: handleGoogleSignIn,
         signOut: handleSignOut,
         setRole: (r) => { setRoleState(r); if (r) AsyncStorage.setItem(ROLE_KEY, r); else AsyncStorage.removeItem(ROLE_KEY); },
+        switchRole,
         getFreshToken,
         refreshDbUser,
         sendPasswordReset,
@@ -500,8 +564,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
           return result;
         },
-        isChef: dbUser ? dbUser.is_chef : role === "chef",
-        isCustomer: dbUser ? (dbUser.is_customer || role === "customer") : role === "customer",
+        // "Acting as", not "holds the role" — so a dual-role account browsing in
+        // customer mode gets the customer experience (cart, logo, post-verify
+        // routing, profile fields). For the single-role accounts that make up
+        // almost everyone, activeRole is their only role and nothing changes.
+        // Falls back to the account flags while activeRole is still resolving.
+        isChef: activeRole ? activeRole === "chef" : dbUser ? dbUser.is_chef : role === "chef",
+        isCustomer: activeRole
+          ? activeRole === "customer"
+          : dbUser
+            ? dbUser.is_customer || role === "customer"
+            : role === "customer",
       }}
     >
       {children}

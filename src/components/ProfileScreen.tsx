@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { LocationAutocomplete } from "@/components/ui/LocationAutocomplete";
+import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { validatePhoneNumber } from "@/lib/phone";
 import {
   fieldToNumber,
@@ -709,6 +710,9 @@ export const ProfileScreen = () => {
               />
             </View>
           )}
+
+          {/* Chef/customer mode — only for accounts holding both roles */}
+          <RoleSwitcher />
 
           {/* Legal & About */}
           {legalSection}

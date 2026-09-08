@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { FullScreenLoader } from "@/components/ui/LoadingSpinner";
 
 export default function Root() {
-  const { loading, user, dbUser } = useAuth();
+  const { loading, user, dbUser, activeRole } = useAuth();
 
   if (loading) return <FullScreenLoader message="Loading..." />;
 
@@ -12,9 +12,13 @@ export default function Root() {
   // actions.
   if (!user) return <Redirect href="/(tabs)/chefs" />;
 
-  // Only route to the chef dashboard when the backend user explicitly confirms is_chef.
-  // Avoids acting on a stale AsyncStorage role when dbUser hasn't loaded yet.
-  if (dbUser?.is_chef === true) return <Redirect href="/(chef)/dashboard" />;
+  // Route to the chef dashboard only when the backend confirms is_chef, and
+  // only while the user is acting as a chef — a dual-role account that last
+  // chose customer mode should reopen on the customer tabs. Avoids acting on a
+  // stale AsyncStorage role when dbUser hasn't loaded yet.
+  if (dbUser?.is_chef === true && activeRole !== "customer") {
+    return <Redirect href="/(chef)/dashboard" />;
+  }
 
   return <Redirect href="/(tabs)/chefs" />;
 }
