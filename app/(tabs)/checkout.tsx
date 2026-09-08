@@ -25,7 +25,9 @@ import type { OrderCreate } from "@/services/types";
 import { requestService } from "@/services/requestService";
 import { userService } from "@/services/userService";
 import { dishService } from "@/services/dishService";
+import * as Location from "expo-location";
 import { formatDuration, formatDurationRange } from "@/lib/duration";
+import { calculateDistance, maskAddressEnhanced } from "@/lib/addressPrivacy";
 
 interface OfferCheckout {
   offerId: number;
@@ -71,6 +73,7 @@ export default function CheckoutScreen() {
   const [instructions, setInstructions] = useState("");
   const [pickupAddress, setPickupAddress] = useState("");
   const [isPickupLoading, setIsPickupLoading] = useState(false);
+  const [distanceToChef, setDistanceToChef] = useState<number | undefined>(undefined);
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -126,15 +129,39 @@ export default function CheckoutScreen() {
     let cancelled = false;
     setIsPickupLoading(true);
 
-    userService.getUserById(chefId).then((chef) => {
+    userService.getUserById(chefId).then(async (chef) => {
       if (cancelled) return;
-      const address =
-        chef.locations?.find((l) => l.is_primary)?.address ??
-        chef.locations?.[0]?.address ??
-        "";
-      setPickupAddress(address);
+      const primary = chef.locations?.find((l) => l.is_primary) ?? chef.locations?.[0];
+      setPickupAddress(primary?.address ?? "");
+
+      // Distance is a nice-to-have beside the masked area, so this must never
+      // prompt: only read the position if the user has already granted access
+      // (for the dish feed's location filter). Unlike the web app, asking here
+      // would put a system permission dialog in the middle of checkout.
+      if (primary?.latitude == null || primary?.longitude == null) return;
+      try {
+        const { granted } = await Location.getForegroundPermissionsAsync();
+        if (!granted || cancelled) return;
+        const position = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        if (cancelled) return;
+        setDistanceToChef(
+          calculateDistance(
+            position.coords.latitude,
+            position.coords.longitude,
+            primary.latitude,
+            primary.longitude
+          )
+        );
+      } catch {
+        // Non-fatal: the area is still shown, just without a distance.
+      }
     }).catch(() => {
-      if (!cancelled) setPickupAddress("");
+      if (!cancelled) {
+        setPickupAddress("");
+        setDistanceToChef(undefined);
+      }
     }).finally(() => {
       if (!cancelled) setIsPickupLoading(false);
     });
@@ -467,7 +494,11 @@ export default function CheckoutScreen() {
                 ) : pickupAddress ? (
                   <View style={styles.addressRow}>
                     <Ionicons name="location" size={16} color={colors.primary} />
-                    <Text style={styles.addressText}>{pickupAddress}</Text>
+                    {/* Masked until the order is confirmed — the customer sees
+                        the area, not the chef's door. */}
+                    <Text style={styles.addressText}>
+                      {maskAddressEnhanced(pickupAddress, distanceToChef)}
+                    </Text>
                   </View>
                 ) : (
                   <Text style={styles.addressUnavailable}>
@@ -476,7 +507,7 @@ export default function CheckoutScreen() {
                 )}
               </View>
               <Text style={styles.pickupNote}>
-                Please collect your order from this chef location.
+                📍 Exact pickup address will be shared after order confirmation
               </Text>
             </>
           ) : (
