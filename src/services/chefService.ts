@@ -2,11 +2,63 @@ import { userService } from "./userService";
 import { Chef, ChefListItem, ChefSearchParams, ChefSearchResult } from "./types";
 import { apiRequest } from "./client";
 
+export interface ChefEarningsSummary {
+  total_orders: number;
+  earning_orders: number;
+  cancelled_orders: number;
+  gross_sales: number;
+  platform_fees: number;
+  processor_fees: number;
+  total_earnings: number;
+  average_order_value: number;
+}
+
+export interface ChefEarningsOrder {
+  id: number;
+  created_at: string;
+  status: string;
+  payment_method: "cash" | "card" | null;
+  customer_name: string | null;
+  item_title: string | null;
+  quantity: number;
+  delivery_type: string;
+  total_amount: number;
+  /** null while the order has not reached an earning status. */
+  chef_earnings: number | null;
+  platform_fee: number | null;
+  processor_fee: number | null;
+  counts_towards_earnings: boolean;
+  delivery_address: string | null;
+  delivery_phone: string | null;
+  special_instructions: string | null;
+  cancellation_reason: string | null;
+}
+
+export interface ChefEarningsResponse {
+  summary: ChefEarningsSummary;
+  orders: ChefEarningsOrder[];
+  total: number;
+  skip: number;
+  limit: number;
+  start_date: string | null;
+  end_date: string | null;
+}
+
+export interface ChefEarningsParams {
+  /** Inclusive YYYY-MM-DD bounds; omit both for all time. */
+  start_date?: string;
+  end_date?: string;
+  skip?: number;
+  limit?: number;
+}
+
 export interface ChefDashboardStats {
   todays_orders: number;
   todays_earnings: number;
   happy_customers: number;
   rating: number;
+  /** How many reviews the rating average is based on (backend 3ded2bc). */
+  review_count: number;
 }
 
 export const chefService = {
@@ -67,6 +119,21 @@ export const chefService = {
    */
   getDashboardStats: async (): Promise<ChefDashboardStats> => {
     return apiRequest<ChefDashboardStats>("chefs/dashboard/stats");
+  },
+
+  /**
+   * Earnings and order history for the signed-in chef, for a date range.
+   *
+   * `summary` always covers the whole range; `orders` is one page of it, so
+   * paging can load more without the totals moving.
+   */
+  getEarnings: async (params: ChefEarningsParams = {}): Promise<ChefEarningsResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params.start_date) queryParams.append("start_date", params.start_date);
+    if (params.end_date) queryParams.append("end_date", params.end_date);
+    queryParams.append("skip", String(params.skip ?? 0));
+    queryParams.append("limit", String(params.limit ?? 20));
+    return apiRequest<ChefEarningsResponse>(`chefs/earnings?${queryParams.toString()}`);
   },
 
   /**
