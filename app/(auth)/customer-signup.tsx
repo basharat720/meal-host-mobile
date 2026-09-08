@@ -9,18 +9,17 @@ import * as Location from "expo-location";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PhoneInput } from "@/components/ui/PhoneInput";
+import { validatePhoneNumber } from "@/lib/phone";
 import { colors, spacing, typography, fonts, radius } from "@/constants/theme";
 import { Logo } from "@/components/Logo";
 
 type Coords = { latitude: number; longitude: number };
 
 // Phone is optional for customers; validate format only when provided.
-const validatePhone = (phone: string): string | null => {
-  const digits = phone.replace(/[^\d]/g, "");
-  if (digits.length < 10) return "Phone number must be at least 10 digits";
-  if (digits.length > 15) return "Phone number is too long";
-  return null;
-};
+// Optional for customers, but validated against its own country when given.
+const validatePhone = (phone: string): string | null =>
+  validatePhoneNumber(phone, false).error ?? null;
 
 export default function CustomerSignupScreen() {
   const { signUp, signInWithGoogle } = useAuth();
@@ -46,10 +45,8 @@ export default function CustomerSignupScreen() {
     if (!password) e.password = "Password is required";
     else if (password.length < 6) e.password = "Password must be at least 6 characters";
     if (password !== confirmPassword) e.confirmPassword = "Passwords do not match";
-    if (phone.trim()) {
-      const phoneError = validatePhone(phone);
-      if (phoneError) e.phone = phoneError;
-    }
+    const phoneError = validatePhone(phone);
+    if (phoneError) e.phone = phoneError;
     if (!address.trim()) e.address = "Address is required";
     else if (address.trim().length < 5) e.address = "Address is too short";
     setErrors(e);
@@ -115,7 +112,7 @@ export default function CustomerSignupScreen() {
       // The backend only persists acceptance on a chef record, but record it
       // here too so customer acceptance isn't lost if that ever changes.
       { terms_accepted: acceptedTerms, terms_accepted_at: new Date().toISOString() },
-      phone.trim() || undefined,
+      phone || undefined,
       { latitude: resolved.latitude, longitude: resolved.longitude, address: address.trim() },
     );
     setIsLoading(false);
@@ -149,7 +146,7 @@ export default function CustomerSignupScreen() {
             <Input label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="you@example.com" error={errors.email} containerStyle={{ marginTop: spacing.md }} />
             <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry placeholder="••••••••" error={errors.password} containerStyle={{ marginTop: spacing.md }} />
             <Input label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry placeholder="••••••••" error={errors.confirmPassword} containerStyle={{ marginTop: spacing.md }} />
-            <Input label="Phone Number (optional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+92 300 1234567" error={errors.phone} containerStyle={{ marginTop: spacing.md }} />
+            <PhoneInput label="Phone Number (optional)" value={phone} onChangeText={setPhone} error={errors.phone} containerStyle={{ marginTop: spacing.md }} />
 
             <Input
               label="Address"

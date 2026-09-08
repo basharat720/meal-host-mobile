@@ -9,6 +9,8 @@ import * as Location from "expo-location";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PhoneInput } from "@/components/ui/PhoneInput";
+import { validatePhoneNumber } from "@/lib/phone";
 import { colors, spacing, typography, fonts, radius } from "@/constants/theme";
 import { Logo } from "@/components/Logo";
 
@@ -52,14 +54,9 @@ const uploadImageToCloudinary = async (uri: string, uploaderId: string): Promise
   return url as string;
 };
 
-// Phone is required for chefs; validate format.
-const validatePhone = (phone: string): string | null => {
-  if (!phone.trim()) return "Phone number is required for chefs";
-  const digits = phone.replace(/[^\d]/g, "");
-  if (digits.length < 10) return "Phone number must be at least 10 digits";
-  if (digits.length > 15) return "Phone number is too long";
-  return null;
-};
+// Phone is required for chefs; validated against the rules of its own country.
+const validatePhone = (phone: string): string | null =>
+  validatePhoneNumber(phone, true).error ?? null;
 
 export default function ChefSignupScreen() {
   const { signUp, signInWithGoogle } = useAuth();
@@ -203,7 +200,7 @@ export default function ChefSignupScreen() {
           documents: [],
         },
       },
-      phone.trim(),
+      phone,
       { latitude: resolved.latitude, longitude: resolved.longitude, address: address.trim() },
       profilePictureUrl || localImageUri || undefined,
     );
@@ -239,7 +236,7 @@ export default function ChefSignupScreen() {
               <Input label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="chef@example.com" containerStyle={{ marginTop: spacing.md }} />
               <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry placeholder="••••••••" containerStyle={{ marginTop: spacing.md }} />
               <Input label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry placeholder="••••••••" containerStyle={{ marginTop: spacing.md }} />
-              <Input label="Phone Number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+92 300 1234567" containerStyle={{ marginTop: spacing.md }} />
+              <PhoneInput label="Phone Number" value={phone} onChangeText={setPhone} containerStyle={{ marginTop: spacing.md }} />
               <Text style={styles.helpText}>Required for chefs. Include country code (e.g., +92 for Pakistan).</Text>
 
               <Button onPress={() => { if (validateStep1()) setStep(2); }} style={styles.button}>Next</Button>

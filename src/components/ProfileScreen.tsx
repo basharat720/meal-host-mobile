@@ -21,6 +21,8 @@ import { userService } from "@/services/userService";
 import type { UserLocationInput } from "@/services/types";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PhoneInput } from "@/components/ui/PhoneInput";
+import { validatePhoneNumber } from "@/lib/phone";
 import {
   fieldToNumber,
   numberToField,
@@ -272,6 +274,13 @@ export const ProfileScreen = () => {
       }
     }
 
+    // Optional here, but validated against its own country when given.
+    const phoneResult = validatePhoneNumber(phone, false);
+    if (!phoneResult.isValid) {
+      Alert.alert("Invalid Value", phoneResult.error!);
+      return;
+    }
+
     setSaving(true);
     try {
       // updateData allows an optional `location` alongside UserUpdate; the
@@ -283,7 +292,7 @@ export const ProfileScreen = () => {
 
       const updateData: UpdatePayload = {
         name: name.trim(),
-        phone: phone.trim() || undefined,
+        phone: phone || undefined,
         city: city.trim(),
         zip_code: zip.trim(),
       };
@@ -508,12 +517,10 @@ export const ProfileScreen = () => {
               style={styles.readOnly}
             />
 
-            <Input
+            <PhoneInput
               label="Phone"
-              placeholder="+1 555 000 0000"
               value={phone}
               onChangeText={setPhone}
-              keyboardType="phone-pad"
             />
 
             <Input

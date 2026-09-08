@@ -17,6 +17,8 @@ import { useI18n } from "@/i18n/context";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PhoneInput } from "@/components/ui/PhoneInput";
+import { validatePhoneNumber } from "@/lib/phone";
 import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
 import { orderService } from "@/services/orderService";
 import type { OrderCreate } from "@/services/types";
@@ -192,8 +194,9 @@ export default function CheckoutScreen() {
       Alert.alert("Missing Info", "Please enter your full name.");
       return;
     }
-    if (!phone.trim()) {
-      Alert.alert("Missing Info", "Please enter a phone number.");
+    const phoneResult = validatePhoneNumber(phone, true);
+    if (!phoneResult.isValid) {
+      Alert.alert("Missing Info", phoneResult.error!);
       return;
     }
     if (deliveryType === "pickup" && !pickupAddress) {
@@ -253,7 +256,7 @@ export default function CheckoutScreen() {
             chef_id: chefId,
             food_listing_id: foodListingId,
             delivery_address: finalAddress,
-            delivery_phone: phone.trim(),
+            delivery_phone: phone,
             delivery_type: deliveryType,
             special_instructions: instructions.trim() || undefined,
           };
@@ -377,13 +380,10 @@ export default function CheckoutScreen() {
             autoCapitalize="words"
           />
 
-          <Input
+          <PhoneInput
             label="Phone Number *"
-            placeholder="Enter phone number"
             value={phone}
             onChangeText={setPhone}
-            keyboardType="phone-pad"
-            autoComplete="tel"
           />
 
           <View style={styles.textAreaContainer}>
