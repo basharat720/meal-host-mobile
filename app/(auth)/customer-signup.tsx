@@ -128,7 +128,7 @@ export default function CustomerSignupScreen() {
     const { error } = await signInWithGoogle("customer");
     setIsGoogleLoading(false);
     if (error) Alert.alert("Google Sign-Up Failed", error.message);
-    else router.replace("/(tabs)/home");
+    else router.replace("/(tabs)/chefs");
   };
 
   return (

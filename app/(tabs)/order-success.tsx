@@ -87,7 +87,7 @@ export default function OrderSuccessScreen() {
             variant="outline"
             size="lg"
             style={styles.actionButton}
-            onPress={() => router.replace("/(tabs)/home")}
+            onPress={() => router.replace("/(tabs)/chefs")}
           >
             Back to Home
           </Button>

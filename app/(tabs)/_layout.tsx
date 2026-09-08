@@ -38,17 +38,20 @@ export default function TabsLayout() {
         },
       }}
     >
+      {/* Find Chefs leads, and is the tab the app opens on — it's the landing
+          page on web too, where its nav item is likewise labelled "Home".
+          The dish feed follows as "Dishes". Declaration order is tab order. */}
       <Tabs.Screen
-        name="home"
+        name="chefs"
         options={{
-          title: "Discover",
+          title: "Home",
           tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="chefs"
+        name="home"
         options={{
-          title: "Chefs",
+          title: "Dishes",
           tabBarIcon: ({ color, size }) => <Ionicons name="restaurant-outline" size={size} color={color} />,
         }}
       />

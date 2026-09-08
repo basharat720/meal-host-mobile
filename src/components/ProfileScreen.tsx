@@ -397,9 +397,9 @@ export const ProfileScreen = () => {
         style: "destructive",
         onPress: async () => {
           await signOut();
-          // Browse-first: after logout, return to the public home/discover feed
-          // (not the login screen), matching the web app.
-          router.replace("/(tabs)/home");
+          // Browse-first: after logout, return to the public landing tab (not
+          // the login screen), matching the web app.
+          router.replace("/(tabs)/chefs");
         },
       },
     ]);

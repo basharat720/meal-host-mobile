@@ -51,7 +51,7 @@ export default function MyRequestsScreen() {
   // when there's nothing on the stack to return to.
   const goBack = useCallback(() => {
     if (router.canGoBack()) router.back();
-    else router.replace("/(tabs)/home");
+    else router.replace("/(tabs)/chefs");
   }, []);
 
   const fetchData = useCallback(

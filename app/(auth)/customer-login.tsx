@@ -16,11 +16,11 @@ export default function CustomerLoginScreen() {
   // Where to go after a successful login. Set by the gate that sent the user
   // here (e.g. checkout, profile); falls back to the home feed.
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
-  const destination = (redirect as string) || "/(tabs)/home";
+  const destination = (redirect as string) || "/(tabs)/chefs";
 
   const goBackOrHome = () => {
     if (router.canGoBack()) router.back();
-    else router.replace("/(tabs)/home");
+    else router.replace("/(tabs)/chefs");
   };
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

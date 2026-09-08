@@ -27,7 +27,7 @@ export default function VerifyEmailScreen() {
   useEffect(() => {
     if (emailVerified) {
       if (isChef) router.replace("/(chef)/dashboard");
-      else router.replace("/(tabs)/home");
+      else router.replace("/(tabs)/chefs");
     }
   }, [emailVerified, isChef]);
 
@@ -65,7 +65,7 @@ export default function VerifyEmailScreen() {
     if (error) { Alert.alert("Error", error.message); return; }
     if (isVerified) {
       if (isChef) router.replace("/(chef)/dashboard");
-      else router.replace("/(tabs)/home");
+      else router.replace("/(tabs)/chefs");
     } else {
       Alert.alert("Not Yet Verified", "Your email hasn't been verified yet. Please check your inbox and click the link.");
     }

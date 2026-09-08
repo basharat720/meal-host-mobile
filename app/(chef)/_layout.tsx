@@ -13,7 +13,7 @@ export default function ChefTabsLayout() {
   // (logged-in customer) back to the customer home. Wait for a resolved backend
   // role before acting so we don't bounce a chef out during initial load.
   if (!loading && user && dbUser && dbUser.is_chef === false) {
-    return <Redirect href="/(tabs)/home" />;
+    return <Redirect href="/(tabs)/chefs" />;
   }
 
   return (

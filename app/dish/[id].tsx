@@ -116,7 +116,7 @@ export default function DishDetailScreen() {
           <Ionicons name="alert-circle-outline" size={48} color={colors.destructive} />
           <Text style={styles.errorTitle}>{fetchError ?? "Dish not found"}</Text>
           <View style={styles.errorActions}>
-            <Button variant="outline" onPress={() => router.push("/(tabs)/home")} style={styles.errorBtn}>
+            <Button variant="outline" onPress={() => router.push("/(tabs)/chefs")} style={styles.errorBtn}>
               Back to Home
             </Button>
             <Button onPress={() => load()} style={styles.errorBtn}>
