@@ -331,6 +331,32 @@ export interface ChefListItem {
   distance_km?: number | null;
 }
 
+/** Query parameters accepted by the Find Chefs search endpoint. */
+export interface ChefSearchParams {
+  query?: string;
+  cuisine_type_codes?: string[];
+  dietary_tag_codes?: string[];
+  min_price?: number;
+  max_price?: number;
+  min_rating?: number;
+  available_only?: boolean;
+  /**
+   * Whatever is chosen, chefs nearest the supplied lat/lon lead the results —
+   * there is deliberately no "nearest" option (web 5b58190, backend 62dd409).
+   */
+  sort?: "relevance" | "topRated" | "priceLow" | "priceHigh";
+  lat?: number;
+  lon?: number;
+  radius_km?: number;
+  skip?: number;
+  limit?: number;
+}
+
+export interface ChefSearchResult {
+  chefs: ChefListItem[];
+  total: number;
+}
+
 export interface PaymentIntentOut {
   payment_id: number;
   client_secret: string;

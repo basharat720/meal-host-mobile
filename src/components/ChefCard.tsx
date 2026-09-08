@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useI18n } from "@/i18n/context";
+import { MatchedDish } from "@/services/types";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 
 export interface ChefCardProps {
@@ -17,7 +18,10 @@ export interface ChefCardProps {
   isVerified?: boolean;
   isVeg?: boolean;
   isOpenNow?: boolean;
-  location?: string;
+  /** Dishes that matched the search term, shown so the user sees why this chef surfaced. */
+  matchedDishes?: MatchedDish[];
+  /** Distance from the customer in km, when their location is known. */
+  distanceKm?: number | null;
   onPress: () => void;
 }
 
@@ -32,7 +36,8 @@ export const ChefCard = ({
   isVerified,
   isVeg,
   isOpenNow = true,
-  location,
+  matchedDishes = [],
+  distanceKm,
   onPress,
 }: ChefCardProps) => {
   const { formatPrice } = useI18n();
@@ -108,10 +113,12 @@ export const ChefCard = ({
       <View style={styles.content}>
         <Text style={styles.name} numberOfLines={1}>{name}</Text>
 
-        {!!location && (
+        {typeof distanceKm === "number" && (
           <View style={styles.locationRow}>
             <Ionicons name="location-outline" size={11} color={colors.mutedForeground} />
-            <Text style={styles.locationText} numberOfLines={1}>{location}</Text>
+            <Text style={styles.locationText} numberOfLines={1}>
+              {distanceKm.toFixed(1)} km away
+            </Text>
           </View>
         )}
 
@@ -128,6 +135,24 @@ export const ChefCard = ({
                 <Text style={styles.tagText}>+{specialties.length - 3}</Text>
               </View>
             )}
+          </View>
+        )}
+
+        {/* Why this chef matched: the dishes on their menu that hit the search term. */}
+        {matchedDishes.length > 0 && (
+          <View style={styles.matchedBlock}>
+            <View style={styles.matchedHeader}>
+              <Ionicons name="restaurant-outline" size={10} color={colors.mutedForeground} />
+              <Text style={styles.matchedLabel}>Matching dishes</Text>
+            </View>
+            {matchedDishes.map((dish) => (
+              <View key={dish.id} style={styles.matchedRow}>
+                <Text style={styles.matchedTitle} numberOfLines={1}>
+                  {dish.title}
+                </Text>
+                <Text style={styles.matchedPrice}>{formatPrice(dish.price)}</Text>
+              </View>
+            ))}
           </View>
         )}
 
@@ -299,6 +324,35 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: "600",
   },
+
+  matchedBlock: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.xs,
+    marginBottom: spacing.xs,
+    gap: 2,
+  },
+  matchedHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginBottom: 2,
+  },
+  matchedLabel: {
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    color: colors.mutedForeground,
+  },
+  matchedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.xs,
+  },
+  matchedTitle: { ...typography.xs, color: colors.foreground, flex: 1 },
+  matchedPrice: { ...typography.xs, color: colors.mutedForeground },
 
   footer: {
     flexDirection: "row",
