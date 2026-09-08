@@ -67,6 +67,7 @@ export default function ChefSignupScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [phone, setPhone] = useState("");
+  const [kitchenName, setKitchenName] = useState("");
   const [kitchenDescription, setKitchenDescription] = useState("");
   const [specialties, setSpecialties] = useState("");
   const [profilePictureUrl, setProfilePictureUrl] = useState("");
@@ -96,6 +97,8 @@ export default function ChefSignupScreen() {
 
   const validateStep2 = () => {
     const e: Record<string, string> = {};
+    if (!kitchenName.trim()) e.kitchenName = "Kitchen name is required for chefs";
+    else if (kitchenName.trim().length < 3) e.kitchenName = "Kitchen name must be at least 3 characters";
     if (!kitchenDescription.trim()) e.kitchenDescription = "Kitchen description is required for chefs";
     else if (kitchenDescription.trim().length < 20) e.kitchenDescription = "Kitchen description must be at least 20 characters";
     if (!profilePictureUrl && !localImageUri) e.profilePicture = "Profile picture is required for chefs";
@@ -194,6 +197,9 @@ export default function ChefSignupScreen() {
         terms_accepted: acceptedTerms,
         terms_accepted_at: new Date().toISOString(),
         chef_profile: {
+          // Required, but never send a blank value — the backend would then
+          // fall back to the chef's own name.
+          kitchen_name: kitchenName.trim() || name,
           kitchen_description: kitchenDescription.trim(),
           specialties: specialties.split(",").map((s) => s.trim()).filter(Boolean),
           dietary_tags: [],
@@ -251,7 +257,20 @@ export default function ChefSignupScreen() {
           ) : (
             <View>
               <Input
+                label="Kitchen Name"
+                value={kitchenName}
+                onChangeText={setKitchenName}
+                placeholder="e.g. Ammi's Kitchen"
+                autoCapitalize="words"
+                error={errors.kitchenName}
+              />
+              <Text style={styles.helpText}>
+                This is the name customers see instead of your own.
+              </Text>
+
+              <Input
                 label="Kitchen Description"
+                containerStyle={{ marginTop: spacing.md }}
                 value={kitchenDescription}
                 onChangeText={setKitchenDescription}
                 placeholder="Tell customers about your kitchen..."

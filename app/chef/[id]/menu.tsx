@@ -29,6 +29,7 @@ import {
   AvailabilitySlot,
 } from "@/services/types";
 import { useAuth } from "@/contexts/AuthContext";
+import { chefDisplayName } from "@/lib/chefName";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -83,7 +84,9 @@ function mapChefForDisplay(chef: Chef, listings: FoodListing[]): MappedChef {
   const dietaryTags = profile?.dietary_tags ?? chef.dietary_tags ?? [];
   return {
     id: chef.firebase_uid,
-    name: chef.name,
+    // Every name shown on this screen flows from here, so resolving the
+    // kitchen name once covers the header, the dish cards and the CTA.
+    name: chefDisplayName(chef),
     image: profile?.profile_picture_url ?? null,
     cuisine: specialties.join(", ") || "Diverse",
     rating: profile?.rating_avg ?? 0,

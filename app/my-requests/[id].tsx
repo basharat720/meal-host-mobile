@@ -23,6 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n/context";
 import { requestService, userService } from "@/services/api";
 import { FoodRequest, Offer } from "@/services/types";
+import { chefDisplayName } from "@/lib/chefName";
 import { colors, spacing, typography, radius, shadow } from "@/constants/theme";
 
 function offerBadgeVariant(
@@ -111,7 +112,7 @@ export default function RequestDetailScreen() {
           if (result.status === "fulfilled") {
             map.set(
               uniqueChefIds[i],
-              result.value.name ?? `Chef #${uniqueChefIds[i]}`
+              chefDisplayName(result.value, `Chef #${uniqueChefIds[i]}`)
             );
           } else {
             map.set(uniqueChefIds[i], `Chef #${uniqueChefIds[i]}`);

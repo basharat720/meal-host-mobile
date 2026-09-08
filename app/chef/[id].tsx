@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/Badge";
 import { FullScreenLoader } from "@/components/ui/LoadingSpinner";
 import { chefService, reviewService, availabilityService } from "@/services/api";
 import { Chef, Review, AvailabilitySlot, ChefAvailabilityStatus } from "@/services/types";
+import { chefDisplayName } from "@/lib/chefName";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -136,7 +137,8 @@ export default function ChefProfileScreen() {
     chef.locations?.find((l) => l.is_primary) ?? chef.locations?.[0];
   const ratingAvg = profile?.rating_avg ?? 0;
   const profilePictureUrl = profile?.profile_picture_url;
-  const initials = chef.name
+  const displayName = chefDisplayName(chef);
+  const initials = displayName
     .split(" ")
     .map((w) => w[0])
     .join("")
@@ -192,7 +194,7 @@ export default function ChefProfileScreen() {
             )}
 
             <View style={styles.headerInfo}>
-              <Text style={styles.chefName}>{chef.name}</Text>
+              <Text style={styles.chefName}>{displayName}</Text>
 
               {primaryLocation?.address && (
                 <View style={styles.locationRow}>
@@ -380,7 +382,7 @@ export default function ChefProfileScreen() {
           onPress={() => router.push(`/chef/${id}/menu`)}
           style={styles.menuButton}
         >
-          Browse {chef.name.split(" ")[0]}'s Menu
+          Browse {displayName.split(" ")[0]}'s Menu
         </Button>
       </ScrollView>
     </SafeAreaView>

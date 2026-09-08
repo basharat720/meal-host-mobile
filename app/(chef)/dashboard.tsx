@@ -17,6 +17,7 @@ import { chefService, ChefDashboardStats } from "@/services/chefService";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { NotificationBell } from "@/components/NotificationBell";
 import { isChefActive, getActivationBlockers } from "@/lib/chefStatus";
+import { chefDisplayName } from "@/lib/chefName";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 
 interface StatCardProps {
@@ -78,7 +79,8 @@ export default function DashboardScreen() {
   );
 
   const profilePictureUrl = dbUser?.chef_profile?.profile_picture_url ?? null;
-  const chefName = dbUser?.name ?? "Chef";
+  // The chef's own portal is branded with their kitchen, not their personal name.
+  const chefName = chefDisplayName(dbUser, "My Kitchen");
 
   const accountActive = isChefActive(dbUser);
   const activationBlockers = getActivationBlockers(dbUser);

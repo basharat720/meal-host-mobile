@@ -139,6 +139,9 @@ export const ProfileScreen = () => {
   const [address, setAddress] = useState(primaryLocation?.address ?? "");
   const [city, setCity] = useState(dbUser?.city ?? "");
   const [zip, setZip] = useState(dbUser?.zip_code ?? "");
+  const [kitchenName, setKitchenName] = useState(
+    dbUser?.chef_profile?.kitchen_name ?? dbUser?.name ?? ""
+  );
   const [bio, setBio] = useState(dbUser?.chef_profile?.kitchen_description ?? "");
   const [specialties, setSpecialties] = useState(
     dbUser?.chef_profile?.specialties?.join(", ") ?? ""
@@ -185,6 +188,7 @@ export const ProfileScreen = () => {
       primary ? { lat: primary.latitude, lon: primary.longitude } : null
     );
     if (isChef && dbUser.chef_profile) {
+      setKitchenName(dbUser.chef_profile.kitchen_name ?? dbUser.name ?? "");
       setBio(dbUser.chef_profile.kitchen_description ?? "");
       setSpecialties(dbUser.chef_profile.specialties?.join(", ") ?? "");
       setCuisineTypes(dbUser.chef_profile.dietary_tags?.join(", ") ?? "");
@@ -274,6 +278,13 @@ export const ProfileScreen = () => {
       }
     }
 
+    // A blank kitchen name falls back to the chef's own name on save, so only
+    // a too-short value is worth blocking.
+    if (isChef && kitchenName.trim() && kitchenName.trim().length < 3) {
+      Alert.alert("Invalid Value", "Kitchen name must be at least 3 characters");
+      return;
+    }
+
     // Optional here, but validated against its own country when given.
     const phoneResult = validatePhoneNumber(phone, false);
     if (!phoneResult.isValid) {
@@ -333,6 +344,8 @@ export const ProfileScreen = () => {
         const deliveryRadiusKm = fieldToNumber(deliveryRadius);
 
         updateData.chef_profile = {
+          // Blank falls back to the chef's own name rather than blocking a save.
+          kitchen_name: kitchenName.trim() || name.trim(),
           kitchen_description: bio.trim(),
           ...(yearsOfExperience !== undefined
             ? { years_of_experience: yearsOfExperience }
@@ -622,6 +635,17 @@ export const ProfileScreen = () => {
               )}
 
               <Input
+                label="Kitchen Name"
+                placeholder="e.g. Ammi's Kitchen"
+                value={kitchenName}
+                onChangeText={setKitchenName}
+                autoCapitalize="words"
+              />
+              <Text style={styles.fieldHint}>
+                Shown to customers instead of your own name.
+              </Text>
+
+              <Input
                 label="Kitchen Description (Bio)"
                 placeholder="Tell customers about your cooking style…"
                 value={bio}
@@ -714,6 +738,7 @@ export default ProfileScreen;
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
+  fieldHint: { ...typography.xs, color: colors.mutedForeground, marginTop: -4 },
   content: { padding: spacing.md, gap: spacing.lg, paddingBottom: 40 },
 
   headerSection: { gap: 4 },

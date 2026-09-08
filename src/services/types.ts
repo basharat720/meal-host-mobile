@@ -10,6 +10,8 @@ export interface UserLocationResponse {
 
 export interface ChefProfile {
   id?: number;
+  /** Public-facing kitchen name. Falls back to the chef's own name server-side. */
+  kitchen_name?: string;
   kitchen_description?: string;
   specialties: string[];
   dietary_tags: string[];
@@ -205,6 +207,8 @@ export interface PaymentBase {
 }
 
 export interface Chef extends User {
+    /** Resolved display name from the chefs endpoint (kitchen name, or the chef's name). */
+    kitchen_name?: string;
     kitchen_description?: string;
     specialties: string[];
     dietary_tags: string[];
@@ -286,13 +290,24 @@ export interface ChefAvailabilityStatus {
 }
 
 /** Summary shape returned by the optimized GET /chefs list endpoint. */
+/** A dish that caused its chef to match the search term on the Find Chefs page. */
+export interface MatchedDish {
+  id: number;
+  title: string;
+  price: number;
+  image_url?: string | null;
+}
+
 export interface ChefListItem {
   id: number;
   firebase_uid: string;
   name: string;
+  /** Public display name resolved by the backend (kitchen name, else the chef's name). */
+  kitchen_name?: string;
   email: string;
   chef_profile?: {
     profile_picture_url?: string | null;
+    kitchen_name?: string | null;
     rating_avg?: number;
     review_count?: number;
     specialties?: string[];
@@ -310,6 +325,10 @@ export interface ChefListItem {
   max_price?: number | null;
   active_listings_count?: number;
   is_available?: boolean;
+  /** Dishes that matched the search term; empty when the kitchen itself matched. */
+  matched_dishes?: MatchedDish[];
+  /** Distance from the customer, present only when the search sent lat/lon. */
+  distance_km?: number | null;
 }
 
 export interface PaymentIntentOut {

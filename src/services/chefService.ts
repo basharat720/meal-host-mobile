@@ -40,6 +40,7 @@ export const chefService = {
     const user = await userService.getUserById(chefId);
     return {
       ...user,
+      kitchen_name: user.chef_profile?.kitchen_name,
       kitchen_description: user.chef_profile?.kitchen_description,
       specialties: user.chef_profile?.specialties ?? [],
       dietary_tags: user.chef_profile?.dietary_tags ?? [],

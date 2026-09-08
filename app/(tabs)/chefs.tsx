@@ -18,6 +18,7 @@ import { FullScreenLoader } from "@/components/ui/LoadingSpinner";
 import { Button } from "@/components/ui/Button";
 import { chefService } from "@/services/api";
 import { ChefListItem } from "@/services/types";
+import { chefDisplayName } from "@/lib/chefName";
 import { colors, fonts, radius, spacing, typography, shadow } from "@/constants/theme";
 import { Logo } from "@/components/Logo";
 
@@ -42,7 +43,7 @@ function mapChef(chef: ChefListItem): MappedChef {
     chef.locations?.find((l) => l.is_primary) ?? chef.locations?.[0];
   return {
     id: String(chef.id),
-    name: chef.name,
+    name: chefDisplayName(chef),
     image: chef.chef_profile?.profile_picture_url ?? null,
     specialties: chef.chef_profile?.specialties ?? [],
     rating: chef.chef_profile?.rating_avg ?? 0,

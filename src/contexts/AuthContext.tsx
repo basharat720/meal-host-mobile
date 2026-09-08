@@ -374,6 +374,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         is_chef: userRole === "chef",
         status: "active",
         chef_profile: {
+          // Defaults to the chef's own name when signup didn't collect one
+          // (the Google path). additionalData overrides it below.
+          kitchen_name: fullName || email.split("@")[0],
           kitchen_description: "",
           specialties: [],
           dietary_tags: [],
