@@ -112,7 +112,9 @@ export default function CustomerSignupScreen() {
       password,
       "customer",
       name.trim(),
-      undefined,
+      // The backend only persists acceptance on a chef record, but record it
+      // here too so customer acceptance isn't lost if that ever changes.
+      { terms_accepted: acceptedTerms, terms_accepted_at: new Date().toISOString() },
       phone.trim() || undefined,
       { latitude: resolved.latitude, longitude: resolved.longitude, address: address.trim() },
     );

@@ -13,7 +13,7 @@ import {
   checkEmailVerification,
   UserRole,
 } from "@/integrations/firebase/auth";
-import { userService, User as DbUser } from "@/services/api";
+import { userService, User as DbUser, UserRegisterRequest } from "@/services/api";
 
 const TOKEN_KEY = "firebase_token";
 const ROLE_KEY = "user_role";
@@ -106,7 +106,7 @@ interface AuthContextType {
     password: string,
     role: UserRole,
     fullName?: string,
-    additionalData?: any,
+    additionalData?: Partial<UserRegisterRequest>,
     phone?: string,
     location?: SignUpLocationInput,
     profilePictureUrl?: string,
@@ -354,7 +354,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     password: string,
     userRole: UserRole,
     fullName?: string,
-    additionalData?: any,
+    additionalData?: Partial<UserRegisterRequest>,
     phone?: string,
     location?: SignUpLocationInput,
     profilePictureUrl?: string,

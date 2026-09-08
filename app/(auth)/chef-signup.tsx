@@ -191,6 +191,11 @@ export default function ChefSignupScreen() {
       "chef",
       name.trim(),
       {
+        // The submit button is gated on acceptedTerms, so this is always true
+        // here — recorded explicitly because the backend stores the agreement
+        // on the chef record and a missing value reads as "never agreed".
+        terms_accepted: acceptedTerms,
+        terms_accepted_at: new Date().toISOString(),
         chef_profile: {
           kitchen_description: kitchenDescription.trim(),
           specialties: specialties.split(",").map((s) => s.trim()).filter(Boolean),
@@ -305,9 +310,11 @@ export default function ChefSignupScreen() {
                   {acceptedTerms && <Ionicons name="checkmark" size={14} color={colors.primaryForeground} />}
                 </View>
                 <Text style={styles.termsText}>
-                  I agree to the{" "}
+                  By signing up as a Chef, I agree to the{" "}
+                  <Text style={styles.termsLink} onPress={() => router.push("/chef-agreement" as any)}>Pakwanhus Partner Terms and Conditions</Text>
+                  {", the "}
                   <Text style={styles.termsLink} onPress={() => router.push("/terms" as any)}>Terms & Conditions</Text>
-                  {" "}and{" "}
+                  {" and the "}
                   <Text style={styles.termsLink} onPress={() => router.push("/privacy")}>Privacy Policy</Text>
                 </Text>
               </TouchableOpacity>

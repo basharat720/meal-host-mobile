@@ -50,6 +50,14 @@ export interface UserRegisterRequest {
   is_chef?: boolean;
   status?: string;
   firebase_uid?: string;
+  /**
+   * Whether the chef ticked the Partner Agreement box at signup, and when.
+   * Sent at the top level; the backend moves both onto the chef record and
+   * ignores them for customer-only signups.
+   */
+  terms_accepted?: boolean;
+  /** ISO 8601 timestamp. */
+  terms_accepted_at?: string;
   chef_profile?: ChefProfile;
   location?: {
     latitude: number;
