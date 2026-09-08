@@ -19,7 +19,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n/context";
@@ -846,6 +846,14 @@ export default function OrdersScreen() {
   const [reviewTarget, setReviewTarget] = useState<Order | null>(null);
   const [activeTab, setActiveTab] = useState<"active" | "past">("active");
 
+  // Order notifications and emails point here as ?order=<id> — there is no
+  // standalone order-detail screen. Applied once, after the order actually
+  // shows up in the loaded page.
+  const { order: orderParam } = useLocalSearchParams<{ order?: string }>();
+  const deepLinkedOrderId = Number(orderParam) || null;
+  const deepLinkApplied = useRef(false);
+  const listRef = useRef<FlatList<Order>>(null);
+
   const hasMore = orders.length < total;
   const isMounted = useRef(true);
   const hasLoadedRef = useRef(false);
@@ -1143,6 +1151,35 @@ export default function OrdersScreen() {
   const pastOrders = orders.filter((o) => !ACTIVE_STATUSES.has(o.status));
   const displayedOrders = activeTab === "active" ? activeOrders : pastOrders;
 
+  // Take the deep link to its order: switch to the tab holding it, expand it,
+  // and scroll it into view.
+  useEffect(() => {
+    if (deepLinkedOrderId === null || deepLinkApplied.current) return;
+    const target = orders.find((o) => o.id === deepLinkedOrderId);
+    // Not in the loaded page yet — leave the flag unset so a later page can
+    // still satisfy the link.
+    if (!target) return;
+
+    deepLinkApplied.current = true;
+    const targetTab = ACTIVE_STATUSES.has(target.status) ? "active" : "past";
+    setActiveTab(targetTab);
+    setExpandedOrderId(target.id);
+
+    // The tab switch has to render the new list before there is a row to
+    // scroll to, so the index is resolved on the next frame.
+    requestAnimationFrame(() => {
+      const list = targetTab === "active" ? activeOrders : pastOrders;
+      const index = list.findIndex((o) => o.id === target.id);
+      if (index >= 0) {
+        listRef.current?.scrollToIndex({
+          index,
+          viewPosition: 0.5,
+          animated: true,
+        });
+      }
+    });
+  }, [deepLinkedOrderId, orders, activeOrders, pastOrders]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -1229,9 +1266,19 @@ export default function OrdersScreen() {
             />
           ) : (
         <FlatList
+          ref={listRef}
           data={displayedOrders}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
+          // Order cards vary in height and there is no getItemLayout, so a
+          // scroll to a row that hasn't been measured yet can fail. Nudge the
+          // list to the offset it does know, then retry once it has rendered.
+          onScrollToIndexFailed={({ index, averageItemLength }) => {
+            listRef.current?.scrollToOffset({
+              offset: index * averageItemLength,
+              animated: true,
+            });
+          }}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
