@@ -64,7 +64,8 @@ const validatePhone = (phone: string): string | null => {
 export default function ChefSignupScreen() {
   const { signUp, signInWithGoogle } = useAuth();
   const [step, setStep] = useState(1);
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -82,8 +83,12 @@ export default function ChefSignupScreen() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // The API takes a single name field, so the CNIC first/last names are joined.
+  const name = `${firstName.trim()} ${lastName.trim()}`.trim();
+
   const validateStep1 = () => {
-    if (!name.trim()) { Alert.alert("Please enter your name"); return false; }
+    if (!firstName.trim()) { Alert.alert("Please enter your first name as per CNIC"); return false; }
+    if (!lastName.trim()) { Alert.alert("Please enter your last name as per CNIC"); return false; }
     if (!/\S+@\S+\.\S+/.test(email)) { Alert.alert("Invalid email address"); return false; }
     if (password.length < 6) { Alert.alert("Password must be at least 6 characters"); return false; }
     if (password !== confirmPassword) { Alert.alert("Passwords do not match"); return false; }
@@ -217,14 +222,15 @@ export default function ChefSignupScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <Logo size="lg" showText={true} />
+            <Logo size="lg" showText={true} variant="chef" />
             <Text style={styles.title}>Become a Chef</Text>
             <Text style={styles.subtitle}>Step {step} of 2</Text>
           </View>
 
           {step === 1 ? (
             <View>
-              <Input label="Full Name" value={name} onChangeText={setName} placeholder="Chef's name" autoCapitalize="words" />
+              <Input label="First name as per CNIC" value={firstName} onChangeText={setFirstName} placeholder="First name" autoCapitalize="words" />
+              <Input label="Last name as per CNIC" value={lastName} onChangeText={setLastName} placeholder="Last name" autoCapitalize="words" containerStyle={{ marginTop: spacing.md }} />
               <Input label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="chef@example.com" containerStyle={{ marginTop: spacing.md }} />
               <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry placeholder="••••••••" containerStyle={{ marginTop: spacing.md }} />
               <Input label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry placeholder="••••••••" containerStyle={{ marginTop: spacing.md }} />

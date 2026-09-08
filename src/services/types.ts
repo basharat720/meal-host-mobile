@@ -16,6 +16,8 @@ export interface ChefProfile {
   documents: string[];
   profile_picture_url?: string | null;
   default_prep_time_minutes?: number;
+  years_of_experience?: number | null;
+  delivery_radius_km?: number | null;
   rating_avg?: number;
   review_count?: number;
   status?: string;
@@ -28,6 +30,9 @@ export interface User {
   name: string;
   email: string;
   phone?: string;
+  city?: string | null;
+  zip_code?: string | null;
+  delivery_instructions?: string | null;
   is_customer: boolean;
   is_chef: boolean;
   status: string;
@@ -66,6 +71,9 @@ export interface UserUpdate {
   name?: string;
   email?: string;
   phone?: string;
+  city?: string | null;
+  zip_code?: string | null;
+  delivery_instructions?: string | null;
   chef_profile?: Partial<ChefProfile>;
   location?: {
     latitude: number;

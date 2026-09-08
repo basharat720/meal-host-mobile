@@ -21,6 +21,12 @@ import { userService } from "@/services/userService";
 import type { UserLocationInput } from "@/services/types";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import {
+  fieldToNumber,
+  numberToField,
+  sanitizeNumericInput,
+  validateNumericField,
+} from "@/lib/profileFields";
 import { colors, fonts, radius, shadow, spacing, typography } from "@/constants/theme";
 
 // ---------------------------------------------------------------------------
@@ -121,7 +127,7 @@ const uploadImageToCloudinary = async (uri: string, uid: string): Promise<string
 // ProfileScreen component
 // ---------------------------------------------------------------------------
 export const ProfileScreen = () => {
-  const { dbUser, user, isChef, signOut } = useAuth();
+  const { dbUser, user, isChef, signOut, refreshDbUser } = useAuth();
 
   const primaryLocation =
     dbUser?.locations?.find((l) => l.is_primary) ?? dbUser?.locations?.[0];
@@ -129,19 +135,25 @@ export const ProfileScreen = () => {
   const [name, setName] = useState(dbUser?.name ?? "");
   const [phone, setPhone] = useState(dbUser?.phone ?? "");
   const [address, setAddress] = useState(primaryLocation?.address ?? "");
-  const [city, setCity] = useState("");
-  const [zip, setZip] = useState("");
+  const [city, setCity] = useState(dbUser?.city ?? "");
+  const [zip, setZip] = useState(dbUser?.zip_code ?? "");
   const [bio, setBio] = useState(dbUser?.chef_profile?.kitchen_description ?? "");
   const [specialties, setSpecialties] = useState(
     dbUser?.chef_profile?.specialties?.join(", ") ?? ""
   );
-  const [experience, setExperience] = useState("");
+  const [experience, setExperience] = useState(
+    numberToField(dbUser?.chef_profile?.years_of_experience)
+  );
   const [kitchenAddress, setKitchenAddress] = useState(primaryLocation?.address ?? "");
-  const [deliveryRadius, setDeliveryRadius] = useState("");
+  const [deliveryRadius, setDeliveryRadius] = useState(
+    numberToField(dbUser?.chef_profile?.delivery_radius_km)
+  );
   const [cuisineTypes, setCuisineTypes] = useState(
     dbUser?.chef_profile?.dietary_tags?.join(", ") ?? ""
   );
-  const [deliveryInstructions, setDeliveryInstructions] = useState("");
+  const [deliveryInstructions, setDeliveryInstructions] = useState(
+    dbUser?.delivery_instructions ?? ""
+  );
   const [profilePictureUrl, setProfilePictureUrl] = useState(
     dbUser?.chef_profile?.profile_picture_url ?? ""
   );
@@ -164,6 +176,9 @@ export const ProfileScreen = () => {
     setName(dbUser.name ?? "");
     setPhone(dbUser.phone ?? "");
     setAddress(primary?.address ?? "");
+    setCity(dbUser.city ?? "");
+    setZip(dbUser.zip_code ?? "");
+    setDeliveryInstructions(dbUser.delivery_instructions ?? "");
     setLocationCoords(
       primary ? { lat: primary.latitude, lon: primary.longitude } : null
     );
@@ -171,6 +186,8 @@ export const ProfileScreen = () => {
       setBio(dbUser.chef_profile.kitchen_description ?? "");
       setSpecialties(dbUser.chef_profile.specialties?.join(", ") ?? "");
       setCuisineTypes(dbUser.chef_profile.dietary_tags?.join(", ") ?? "");
+      setExperience(numberToField(dbUser.chef_profile.years_of_experience));
+      setDeliveryRadius(numberToField(dbUser.chef_profile.delivery_radius_km));
       setKitchenAddress(primary?.address ?? "");
       setProfilePictureUrl(dbUser.chef_profile.profile_picture_url ?? "");
     }
@@ -234,6 +251,25 @@ export const ProfileScreen = () => {
         Alert.alert("Invalid Image URL", picError);
         return;
       }
+
+      // Bounds mirror the backend schema, so a bad value is caught here
+      // instead of coming back as a 422.
+      const numericError =
+        validateNumericField(experience, {
+          label: "Years of experience",
+          min: 0,
+          max: 100,
+          integer: true,
+        }) ??
+        validateNumericField(deliveryRadius, {
+          label: "Delivery radius",
+          min: 0,
+          max: 500,
+        });
+      if (numericError) {
+        Alert.alert("Invalid Value", numericError);
+        return;
+      }
     }
 
     setSaving(true);
@@ -248,7 +284,13 @@ export const ProfileScreen = () => {
       const updateData: UpdatePayload = {
         name: name.trim(),
         phone: phone.trim() || undefined,
+        city: city.trim(),
+        zip_code: zip.trim(),
       };
+
+      if (!isChef) {
+        updateData.delivery_instructions = deliveryInstructions.trim();
+      }
 
       // BUG FIX: previously the edited address + coordinates were never sent,
       // so address changes were silently lost. Geocode the typed address to
@@ -276,8 +318,19 @@ export const ProfileScreen = () => {
       }
 
       if (isChef) {
+        // Blank text fields are sent as null (an explicit clear); a value the
+        // parser can make no number of is omitted so the stored one survives.
+        const yearsOfExperience = fieldToNumber(experience);
+        const deliveryRadiusKm = fieldToNumber(deliveryRadius);
+
         updateData.chef_profile = {
           kitchen_description: bio.trim(),
+          ...(yearsOfExperience !== undefined
+            ? { years_of_experience: yearsOfExperience }
+            : {}),
+          ...(deliveryRadiusKm !== undefined
+            ? { delivery_radius_km: deliveryRadiusKm }
+            : {}),
           specialties: specialties
             .split(",")
             .map((s) => s.trim())
@@ -286,7 +339,10 @@ export const ProfileScreen = () => {
             .split(",")
             .map((s) => s.trim())
             .filter(Boolean),
-          documents: dbUser.chef_profile?.documents ?? [],
+          // `documents` is write-only on the backend (it maps to
+          // food_safety_badge and is never echoed back), so echoing the read
+          // value here would clear the chef's uploaded documents. Omitting the
+          // key leaves them untouched.
           // When the picture has been touched, persist the change (clearing it
           // sends null so the removal sticks); otherwise leave it untouched.
           ...(profilePictureTouched
@@ -296,6 +352,9 @@ export const ProfileScreen = () => {
       }
 
       await userService.updateUser(dbUser.id, updateData);
+      // Pull the saved profile back so the form (and the rest of the app) shows
+      // what the server actually stored rather than stale context data.
+      await refreshDbUser();
       setProfilePictureTouched(false);
       Alert.alert("Saved", "Profile updated successfully.");
     } catch (err: any) {
@@ -581,9 +640,10 @@ export const ProfileScreen = () => {
 
               <Input
                 label="Years of Experience"
-                placeholder="e.g. 5 years"
+                placeholder="e.g. 5"
+                keyboardType="number-pad"
                 value={experience}
-                onChangeText={setExperience}
+                onChangeText={(v) => setExperience(sanitizeNumericInput(v))}
               />
 
               <Input
@@ -597,10 +657,13 @@ export const ProfileScreen = () => {
               />
 
               <Input
-                label="Delivery Radius"
-                placeholder="e.g. 10 km"
+                label="Delivery Radius (km)"
+                placeholder="e.g. 10"
+                keyboardType="decimal-pad"
                 value={deliveryRadius}
-                onChangeText={setDeliveryRadius}
+                onChangeText={(v) =>
+                  setDeliveryRadius(sanitizeNumericInput(v, { allowDecimal: true }))
+                }
               />
             </View>
           )}

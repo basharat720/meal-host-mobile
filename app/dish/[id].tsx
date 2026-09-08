@@ -128,7 +128,10 @@ export default function DishDetailScreen() {
     );
   }
 
-  const isChefOffline = dish.chef_is_available === false;
+  // The live availability status is authoritative; the listing flag is a
+  // fallback for when the status call fails. Either saying "offline" blocks
+  // ordering, so a missing/true listing flag can't re-enable the Add button.
+  const isChefOffline = dish.chef_is_available === false || status?.is_open === false;
   const isOutOfStock = dish.available_quantity <= 0;
   const isLowStock = dish.available_quantity > 0 && dish.available_quantity <= 3;
   const orderDisabled = isOutOfStock || isChefOffline;
@@ -375,7 +378,9 @@ export default function DishDetailScreen() {
                   rating={d.chef_rating_avg}
                   availableQty={d.available_quantity}
                   preparationTimeMinutes={d.preparation_time_minutes}
-                  isChefOffline={d.chef_is_available === false}
+                  // Same chef as the dish above, so it shares its offline state.
+                  isChefOffline={isChefOffline || d.chef_is_available === false}
+                  offlineMessage={offlineMessage}
                   cuisineTypes={d.cuisine_types}
                 />
               ))}

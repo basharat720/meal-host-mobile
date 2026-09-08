@@ -69,7 +69,7 @@ export default function CustomerLoginScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <Logo size="lg" showText={true} />
+            <Logo size="lg" showText={true} variant="customer" />
             <Text style={styles.title}>Welcome back</Text>
             <Text style={styles.subtitle}>Sign in to your customer account</Text>
           </View>

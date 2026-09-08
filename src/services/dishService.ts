@@ -11,10 +11,19 @@ export const dishService = {
     radius_km?: number;
     query?: string;
     dietary_tag_codes?: string[];
+    cuisine_type_codes?: string[];
     skip?: number;
     limit?: number;
+    /**
+     * When true, off-schedule chefs are omitted entirely. Defaults to false so
+     * discovery surfaces them (greyed out, sorted last) rather than hiding them —
+     * matching the web client. Hiding them server-side also made client-side
+     * filters (cuisine, price) silently miss those dishes.
+     */
+    enforce_availability?: boolean;
   }): Promise<FoodListing[]> => {
     const queryParams = new URLSearchParams();
+    queryParams.append("enforce_availability", String(filters.enforce_availability ?? false));
     if (filters.lat) queryParams.append("lat", String(filters.lat));
     if (filters.lon) queryParams.append("lon", String(filters.lon));
     if (filters.radius_km) queryParams.append("radius_km", String(filters.radius_km));
@@ -22,6 +31,9 @@ export const dishService = {
     if (filters.query !== undefined) queryParams.append("query", filters.query);
     if (filters.dietary_tag_codes) {
         filters.dietary_tag_codes.forEach(tag => queryParams.append("dietary_tag_codes", tag));
+    }
+    if (filters.cuisine_type_codes) {
+        filters.cuisine_type_codes.forEach(code => queryParams.append("cuisine_type_codes", code));
     }
     if (filters.skip !== undefined) queryParams.append("skip", String(filters.skip));
     if (filters.limit !== undefined) queryParams.append("limit", String(filters.limit));

@@ -46,3 +46,7 @@ firebase-service-account.json
 
 # local build/ship scripts (contain project config, kept out of git)
 /scripts
+
+# local preview builds
+*.apk
+*.aab

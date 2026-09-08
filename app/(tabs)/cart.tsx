@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -9,18 +9,58 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useCart, CartItem } from "@/contexts/CartContext";
 import { useI18n } from "@/i18n/context";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { availabilityService } from "@/services/api";
+import { ChefAvailabilityStatus } from "@/services/types";
 import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
+
+// "HH:MM" (24h) -> "9:00 AM" (12h) for display.
+function displayTime(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map((n) => parseInt(n, 10));
+  const hour = Number.isFinite(h) ? h : 0;
+  const min = Number.isFinite(m) ? m : 0;
+  const period = hour >= 12 ? "PM" : "AM";
+  const h12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${h12}:${String(min).padStart(2, "0")} ${period}`;
+}
 
 export default function CartScreen() {
   const { items, updateQuantity, removeItem, total } = useCart();
   const { formatPrice } = useI18n();
   const router = useRouter();
+
+  // A cart only ever holds one chef's dishes, so a single status check covers it.
+  const chefId = items[0]?.chefId;
+  const [chefStatus, setChefStatus] = useState<ChefAvailabilityStatus | null>(null);
+
+  // Re-check on focus: the chef may have gone off-schedule after the item was added.
+  useFocusEffect(
+    useCallback(() => {
+      if (!chefId) {
+        setChefStatus(null);
+        return;
+      }
+      let cancelled = false;
+      availabilityService
+        .getStatus(chefId)
+        .then((s) => !cancelled && setChefStatus(s))
+        .catch(() => !cancelled && setChefStatus(null)); // best-effort; backend still enforces
+      return () => {
+        cancelled = true;
+      };
+    }, [chefId])
+  );
+
+  const isChefOffline = chefStatus?.is_open === false;
+  const offlineMessage =
+    chefStatus && chefStatus.next_open_day_label && chefStatus.next_open_time
+      ? `${items[0]?.chefName ?? "This chef"} is currently offline. Opens ${chefStatus.next_open_day_label} at ${displayTime(chefStatus.next_open_time)}.`
+      : `${items[0]?.chefName ?? "This chef"} is currently offline. Ordering is unavailable right now.`;
 
   const handleRemove = (item: CartItem) => {
     Alert.alert("Remove Item", `Remove "${item.name}" from cart?`, [
@@ -122,13 +162,21 @@ export default function CartScreen() {
               <Text style={styles.totalValue}>{formatPrice(total)}</Text>
             </View>
 
+            {isChefOffline && (
+              <View style={styles.offlineBanner}>
+                <Ionicons name="moon-outline" size={16} color={colors.mutedForeground} />
+                <Text style={styles.offlineBannerText}>{offlineMessage}</Text>
+              </View>
+            )}
+
             <Button
               variant="primary"
               size="lg"
               style={styles.checkoutButton}
+              disabled={isChefOffline}
               onPress={() => router.push("/(tabs)/checkout")}
             >
-              Proceed to Checkout
+              {isChefOffline ? "Chef Not Available" : "Proceed to Checkout"}
             </Button>
 
             <Text style={styles.terms}>
@@ -284,6 +332,21 @@ const styles = StyleSheet.create({
     ...typography.xl,
     fontWeight: "700",
     color: colors.primary,
+  },
+  offlineBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    backgroundColor: colors.muted,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  offlineBannerText: {
+    ...typography.xs,
+    fontWeight: "600",
+    color: colors.mutedForeground,
+    flex: 1,
   },
   checkoutButton: {
     width: "100%",

@@ -137,7 +137,7 @@ export default function CustomerSignupScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <Logo size="lg" showText={true} />
+            <Logo size="lg" showText={true} variant="customer" />
             <Text style={styles.title}>Create account</Text>
             <Text style={styles.subtitle}>Join Pakwanhus as a customer</Text>
           </View>

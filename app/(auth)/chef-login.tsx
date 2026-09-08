@@ -7,7 +7,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Link, router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { ChefHatIcon } from "@/components/icons/BrandIcons";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -76,7 +76,7 @@ export default function ChefLoginScreen() {
           <LinearGradient colors={CHEF_GRADIENT} style={styles.hero} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }}>
             <View style={styles.heroInner}>
               <View style={styles.chefBadge}>
-                <MaterialCommunityIcons name="chef-hat" size={32} color="#fff" />
+                <ChefHatIcon size={32} color="#fff" />
               </View>
               <Text style={styles.heroTitle}>Chef Portal</Text>
               <Text style={styles.heroSub}>Sign in to manage your kitchen</Text>
