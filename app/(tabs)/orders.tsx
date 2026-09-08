@@ -35,6 +35,7 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FullScreenLoader } from "@/components/ui/LoadingSpinner";
 import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
+import { getUserFriendlyError } from "@/lib/errorMessages";
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 
@@ -148,7 +149,7 @@ function ReviewModal({ order, customerId, onClose, onSubmitted }: ReviewModalPro
       onSubmitted(order.id);
       onClose();
     } catch (err: any) {
-      setError(err?.message ?? "Failed to submit review. Please try again.");
+      setError(getUserFriendlyError(err, "Failed to submit review. Please try again."));
     } finally {
       setIsSubmitting(false);
     }
@@ -1089,7 +1090,7 @@ export default function OrdersScreen() {
       const updated = await orderService.updateOrderStatus(order.id, "RECEIVED");
       setOrders((prev) => prev.map((o) => (o.id === order.id ? updated : o)));
     } catch (err: any) {
-      Alert.alert("Error", err?.message ?? "Failed to update order status.");
+      Alert.alert("Error", getUserFriendlyError(err, "Failed to update order status."));
     } finally {
       setReceivingOrderId(null);
     }

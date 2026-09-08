@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { validatePhoneNumber } from "@/lib/phone";
 import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
+import { getCheckoutError } from "@/lib/errorMessages";
 import { orderService } from "@/services/orderService";
 import type { OrderCreate } from "@/services/types";
 import { requestService } from "@/services/requestService";
@@ -307,7 +308,7 @@ export default function CheckoutScreen() {
         },
       });
     } catch (err: any) {
-      Alert.alert("Order Failed", err?.message ?? "Failed to place order. Please try again.");
+      Alert.alert("Order Failed", getCheckoutError(err));
     } finally {
       setIsSubmitting(false);
     }

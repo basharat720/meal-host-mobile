@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { colors, spacing, typography } from "@/constants/theme";
+import { getUserFriendlyError } from "@/lib/errorMessages";
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
@@ -62,7 +63,7 @@ export default function VerifyEmailScreen() {
     setIsChecking(true);
     const { isVerified, error } = await checkEmailVerification();
     setIsChecking(false);
-    if (error) { Alert.alert("Error", error.message); return; }
+    if (error) { Alert.alert("Error", getUserFriendlyError(error)); return; }
     if (isVerified) {
       if (isChef) router.replace("/(chef)/dashboard");
       else router.replace("/(tabs)/chefs");

@@ -36,6 +36,7 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { isChefActive } from "@/lib/chefStatus";
+import { uploadFoodImage } from "@/services/imageService";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 
 // ---------------------------------------------------------------------------
@@ -90,54 +91,6 @@ const EMPTY_FORM: DishForm = {
   isAvailable: true,
 };
 
-// ---------------------------------------------------------------------------
-// Image upload helper (Cloudinary via env vars)
-// ---------------------------------------------------------------------------
-const CLOUDINARY_CLOUD_NAME =
-  process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? "";
-const CLOUDINARY_UPLOAD_PRESET =
-  process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? "";
-
-const uploadImageToCloudinary = async (
-  uri: string,
-  chefUid: string,
-): Promise<string> => {
-  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-    throw new Error(
-      "Cloudinary not configured. Set EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME and EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET.",
-    );
-  }
-  const safeUid = chefUid.replace(/[^a-zA-Z0-9]/g, "_");
-  const ext = uri.split(".").pop()?.toLowerCase() ?? "jpg";
-  const mimeMap: Record<string, string> = {
-    jpg: "image/jpeg",
-    jpeg: "image/jpeg",
-    png: "image/png",
-    webp: "image/webp",
-    gif: "image/gif",
-  };
-  const mimeType = mimeMap[ext] ?? "image/jpeg";
-
-  const formData = new FormData();
-  formData.append("file", { uri, name: `food.${ext}`, type: mimeType } as any);
-  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-  formData.append("folder", `food-images/${safeUid}`);
-
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-    { method: "POST", body: formData },
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(
-      `Cloudinary upload failed (${res.status}): ${err?.error?.message ?? ""}`,
-    );
-  }
-  const data = await res.json();
-  const url = data.secure_url || data.url;
-  if (!url) throw new Error("Cloudinary response missing URL");
-  return url as string;
-};
 
 // ---------------------------------------------------------------------------
 // Dish row component
@@ -685,7 +638,7 @@ export default function MenuScreen() {
   const resolveImageUrl = async (form: DishForm): Promise<string> => {
     if (form.imageUri) {
       const chefUid = user?.id ?? "anon";
-      return uploadImageToCloudinary(form.imageUri, chefUid);
+      return uploadFoodImage(form.imageUri, chefUid);
     }
     return form.imageUrl.trim();
   };

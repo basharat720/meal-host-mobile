@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { colors, spacing, typography, radius, fonts } from "@/constants/theme";
+import { getUserFriendlyError } from "@/lib/errorMessages";
 import { SOCIAL_AUTH_ENABLED } from "@/constants/config";
 import { Logo } from "@/components/Logo";
 
@@ -45,7 +46,7 @@ export default function CustomerLoginScreen() {
     const { error } = await signIn(email.trim(), password);
     setIsLoading(false);
     if (error) {
-      Alert.alert("Login Failed", error.message);
+      Alert.alert("Login Failed", getUserFriendlyError(error));
     } else {
       setRole("customer"); // pin role so 404-handler never creates a chef account
       router.replace(destination as any);

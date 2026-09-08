@@ -12,49 +12,14 @@ import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { LocationAutocomplete } from "@/components/ui/LocationAutocomplete";
 import { validatePhoneNumber } from "@/lib/phone";
+import { uploadProfilePicture } from "@/services/imageService";
 import { colors, spacing, typography, fonts, radius } from "@/constants/theme";
+import { getUserFriendlyError } from "@/lib/errorMessages";
 import { SOCIAL_AUTH_ENABLED } from "@/constants/config";
 import { Logo } from "@/components/Logo";
 
 type Coords = { latitude: number; longitude: number };
 
-// ---------------------------------------------------------------------------
-// Cloudinary upload helper (same pattern as menu.tsx / ProfileScreen.tsx)
-// ---------------------------------------------------------------------------
-const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? "";
-const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? "";
-
-const uploadImageToCloudinary = async (uri: string, uploaderId: string): Promise<string> => {
-  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-    throw new Error(
-      "Cloudinary not configured. Set EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME and EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET."
-    );
-  }
-  const safeId = uploaderId.replace(/[^a-zA-Z0-9]/g, "_") || "signup-user";
-  const ext = uri.split(".").pop()?.toLowerCase() ?? "jpg";
-  const mimeMap: Record<string, string> = {
-    jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif",
-  };
-  const mimeType = mimeMap[ext] ?? "image/jpeg";
-
-  const formData = new FormData();
-  formData.append("file", { uri, name: `profile.${ext}`, type: mimeType } as any);
-  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-  formData.append("folder", `profile-pictures/${safeId}`);
-
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-    { method: "POST", body: formData }
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`Cloudinary upload failed (${res.status}): ${err?.error?.message ?? ""}`);
-  }
-  const data = await res.json();
-  const url = data.secure_url || data.url;
-  if (!url) throw new Error("Cloudinary response missing URL");
-  return url as string;
-};
 
 // Phone is required for chefs; validated against the rules of its own country.
 const validatePhone = (phone: string): string | null =>
@@ -123,7 +88,7 @@ export default function ChefSignupScreen() {
 
     setUploadingImage(true);
     try {
-      const uploadedUrl = await uploadImageToCloudinary(uri, email || name || "signup-user");
+      const uploadedUrl = await uploadProfilePicture(uri, email || name || "signup-user");
       setProfilePictureUrl(uploadedUrl);
       setLocalImageUri(null);
     } catch {
@@ -185,7 +150,7 @@ export default function ChefSignupScreen() {
       profilePictureUrl || localImageUri || undefined,
     );
     setIsLoading(false);
-    if (error) Alert.alert("Sign Up Failed", error.message);
+    if (error) Alert.alert("Sign Up Failed", getUserFriendlyError(error));
     else router.replace("/(auth)/verify-email");
   };
 

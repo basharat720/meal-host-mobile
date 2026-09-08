@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { LocationAutocomplete } from "@/components/ui/LocationAutocomplete";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
+import { uploadProfilePicture } from "@/services/imageService";
 import { validatePhoneNumber } from "@/lib/phone";
 import {
   fieldToNumber,
@@ -89,43 +90,6 @@ const LEGAL_LINKS: { label: string; icon: keyof typeof Ionicons.glyphMap; path: 
   { label: "Refund Policy", icon: "cash-outline", path: "/refund-policy" },
 ];
 
-// ---------------------------------------------------------------------------
-// Cloudinary upload helper (same pattern as menu.tsx)
-// ---------------------------------------------------------------------------
-const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? "";
-const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? "";
-
-const uploadImageToCloudinary = async (uri: string, uid: string): Promise<string> => {
-  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-    throw new Error(
-      "Cloudinary not configured. Set EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME and EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET."
-    );
-  }
-  const safeUid = uid.replace(/[^a-zA-Z0-9]/g, "_");
-  const ext = uri.split(".").pop()?.toLowerCase() ?? "jpg";
-  const mimeMap: Record<string, string> = {
-    jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif",
-  };
-  const mimeType = mimeMap[ext] ?? "image/jpeg";
-
-  const formData = new FormData();
-  formData.append("file", { uri, name: `profile.${ext}`, type: mimeType } as any);
-  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-  formData.append("folder", `profile-pictures/${safeUid}`);
-
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-    { method: "POST", body: formData }
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`Cloudinary upload failed (${res.status}): ${err?.error?.message ?? ""}`);
-  }
-  const data = await res.json();
-  const url = data.secure_url || data.url;
-  if (!url) throw new Error("Cloudinary response missing URL");
-  return url as string;
-};
 
 // ---------------------------------------------------------------------------
 // ProfileScreen component
@@ -216,7 +180,7 @@ export const ProfileScreen = () => {
     setUploadingImage(true);
     try {
       const uid = user?.id ?? dbUser?.firebase_uid ?? "profile-user";
-      const uploadedUrl = await uploadImageToCloudinary(uri, uid);
+      const uploadedUrl = await uploadProfilePicture(uri, uid);
       setProfilePictureUrl(uploadedUrl);
       setProfilePictureTouched(true);
       setProfilePictureError(null);

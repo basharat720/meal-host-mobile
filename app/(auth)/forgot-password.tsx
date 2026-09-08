@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { colors, spacing, typography } from "@/constants/theme";
+import { getUserFriendlyError } from "@/lib/errorMessages";
 
 export default function ForgotPasswordScreen() {
   const { sendPasswordReset } = useAuth();
@@ -19,7 +20,7 @@ export default function ForgotPasswordScreen() {
     setIsLoading(true);
     const { error } = await sendPasswordReset(email.trim());
     setIsLoading(false);
-    if (error) Alert.alert("Error", error.message);
+    if (error) Alert.alert("Error", getUserFriendlyError(error));
     else setSent(true);
   };
 

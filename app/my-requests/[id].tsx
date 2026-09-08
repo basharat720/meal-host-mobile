@@ -25,6 +25,7 @@ import { requestService, userService } from "@/services/api";
 import { FoodRequest, Offer } from "@/services/types";
 import { chefDisplayName } from "@/lib/chefName";
 import { colors, spacing, typography, radius, shadow } from "@/constants/theme";
+import { getUserFriendlyError } from "@/lib/errorMessages";
 
 function offerBadgeVariant(
   status: Offer["status"]
@@ -184,7 +185,7 @@ export default function RequestDetailScreen() {
       setRejectReason("");
       Alert.alert("Offer declined.", "The chef's offer has been declined.");
     } catch (err: any) {
-      Alert.alert("Error", err?.message ?? "Failed to decline the offer.");
+      Alert.alert("Error", getUserFriendlyError(err, "Failed to decline the offer."));
     } finally {
       setIsRejecting(false);
     }

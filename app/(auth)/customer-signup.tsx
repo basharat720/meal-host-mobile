@@ -13,6 +13,7 @@ import { PhoneInput } from "@/components/ui/PhoneInput";
 import { LocationAutocomplete } from "@/components/ui/LocationAutocomplete";
 import { validatePhoneNumber } from "@/lib/phone";
 import { colors, spacing, typography, fonts, radius } from "@/constants/theme";
+import { getUserFriendlyError } from "@/lib/errorMessages";
 import { SOCIAL_AUTH_ENABLED } from "@/constants/config";
 import { Logo } from "@/components/Logo";
 
@@ -90,7 +91,7 @@ export default function CustomerSignupScreen() {
     );
     setIsLoading(false);
     if (error) {
-      Alert.alert("Sign Up Failed", error.message);
+      Alert.alert("Sign Up Failed", getUserFriendlyError(error));
     } else {
       router.replace("/(auth)/verify-email");
     }

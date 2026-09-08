@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { colors, spacing, typography, fonts, radius } from "@/constants/theme";
+import { getUserFriendlyError } from "@/lib/errorMessages";
 import { SOCIAL_AUTH_ENABLED } from "@/constants/config";
 
 // Web's gradient-secondary: hsl(12 85% 62%) → hsl(18 90% 55%)
@@ -50,7 +51,7 @@ export default function ChefLoginScreen() {
     const { error } = await signIn(email.trim(), password);
     setIsLoading(false);
     if (error) {
-      Alert.alert("Login Failed", error.message);
+      Alert.alert("Login Failed", getUserFriendlyError(error));
     } else {
       setRole("chef");
       router.replace(destination as any);
