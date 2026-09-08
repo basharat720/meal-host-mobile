@@ -22,6 +22,7 @@ import type { UserLocationInput } from "@/services/types";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/ui/PhoneInput";
+import { LocationAutocomplete } from "@/components/ui/LocationAutocomplete";
 import { validatePhoneNumber } from "@/lib/phone";
 import {
   fieldToNumber,
@@ -149,7 +150,6 @@ export const ProfileScreen = () => {
   const [experience, setExperience] = useState(
     numberToField(dbUser?.chef_profile?.years_of_experience)
   );
-  const [kitchenAddress, setKitchenAddress] = useState(primaryLocation?.address ?? "");
   const [deliveryRadius, setDeliveryRadius] = useState(
     numberToField(dbUser?.chef_profile?.delivery_radius_km)
   );
@@ -194,7 +194,6 @@ export const ProfileScreen = () => {
       setCuisineTypes(dbUser.chef_profile.dietary_tags?.join(", ") ?? "");
       setExperience(numberToField(dbUser.chef_profile.years_of_experience));
       setDeliveryRadius(numberToField(dbUser.chef_profile.delivery_radius_km));
-      setKitchenAddress(primary?.address ?? "");
       setProfilePictureUrl(dbUser.chef_profile.profile_picture_url ?? "");
     }
   }, [dbUser, isChef]);
@@ -536,14 +535,19 @@ export const ProfileScreen = () => {
               onChangeText={setPhone}
             />
 
-            <Input
-              label="Address"
-              placeholder="Your address"
-              value={address}
-              onChangeText={setAddress}
-              multiline
-              numberOfLines={2}
-              style={{ textAlignVertical: "top", minHeight: 60 }}
+            <LocationAutocomplete
+              label={isChef ? "Kitchen Address" : "Address"}
+              placeholder={
+                isChef ? "Search for where you cook from..." : "Search for your address..."
+              }
+              focusOnLahore
+              defaultValue={address}
+              onLocationSelect={(loc) => {
+                setAddress(loc.label);
+                // Selecting a suggestion gives exact coordinates, so the save
+                // no longer has to geocode the typed string.
+                setLocationCoords({ lat: loc.lat, lon: loc.lon });
+              }}
             />
 
             <Input
@@ -675,16 +679,6 @@ export const ProfileScreen = () => {
                 keyboardType="number-pad"
                 value={experience}
                 onChangeText={(v) => setExperience(sanitizeNumericInput(v))}
-              />
-
-              <Input
-                label="Kitchen Address"
-                placeholder="Where you cook from"
-                value={kitchenAddress}
-                onChangeText={setKitchenAddress}
-                multiline
-                numberOfLines={2}
-                style={{ textAlignVertical: "top", minHeight: 60 }}
               />
 
               <Input

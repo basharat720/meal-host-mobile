@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/ui/PhoneInput";
+import { LocationAutocomplete } from "@/components/ui/LocationAutocomplete";
 import { validatePhoneNumber } from "@/lib/phone";
 import { colors, spacing, typography, fonts, radius } from "@/constants/theme";
 import { Logo } from "@/components/Logo";
@@ -75,7 +76,6 @@ export default function ChefSignupScreen() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [address, setAddress] = useState("");
   const [coords, setCoords] = useState<Coords | null>(null);
-  const [locating, setLocating] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -133,33 +133,6 @@ export default function ChefSignupScreen() {
       Alert.alert("Upload Failed", "Could not upload to cloud. The selected image will be used locally.");
     } finally {
       setUploadingImage(false);
-    }
-  };
-
-  const useCurrentLocation = async () => {
-    setLocating(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permission needed", "Location permission is required to use your current location.");
-        return;
-      }
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const c = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
-      setCoords(c);
-      try {
-        const places = await Location.reverseGeocodeAsync(c);
-        const p = places?.[0];
-        if (p) {
-          const parts = [p.name, p.street, p.city, p.region, p.postalCode, p.country].filter(Boolean);
-          if (parts.length) setAddress(parts.join(", "));
-        }
-      } catch {}
-      setErrors((prev) => { const n = { ...prev }; delete n.address; return n; });
-    } catch {
-      Alert.alert("Location Error", "Could not get your current location. Please enter your address manually.");
-    } finally {
-      setLocating(false);
     }
   };
 
@@ -307,18 +280,20 @@ export default function ChefSignupScreen() {
               </TouchableOpacity>
               {errors.profilePicture && <Text style={styles.errorText}>{errors.profilePicture}</Text>}
 
-              <Input
-                label="Address"
-                value={address}
-                onChangeText={(t) => { setAddress(t); setCoords(null); }}
-                placeholder="Street, city, region..."
+              <LocationAutocomplete
+                label="Kitchen Address"
+                required
+                focusOnLahore
+                placeholder="Search for your kitchen address..."
+                defaultValue={address}
                 error={errors.address}
+                onLocationSelect={(loc) => {
+                  setAddress(loc.label);
+                  setCoords({ latitude: loc.lat, longitude: loc.lon });
+                  setErrors((prev) => { const n = { ...prev }; delete n.address; return n; });
+                }}
                 containerStyle={{ marginTop: spacing.md }}
               />
-              <TouchableOpacity style={styles.locationButton} onPress={useCurrentLocation} disabled={locating} activeOpacity={0.7}>
-                <Ionicons name="location-outline" size={16} color={colors.primary} />
-                <Text style={styles.locationButtonText}>{locating ? "Getting location..." : "Use current location"}</Text>
-              </TouchableOpacity>
               {coords && <Text style={styles.locationHint}>Location set ({coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)})</Text>}
 
               <TouchableOpacity style={styles.checkboxRow} onPress={() => setAcceptedTerms((v) => !v)} activeOpacity={0.7}>
@@ -372,8 +347,6 @@ const styles = StyleSheet.create({
   imagePlaceholder: { flex: 1, alignItems: "center", justifyContent: "center", gap: 4 },
   imagePlaceholderText: { ...typography.xs, color: colors.mutedForeground },
   imageOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.35)" },
-  locationButton: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.sm },
-  locationButtonText: { ...typography.sm, color: colors.primary, fontWeight: "600" },
   locationHint: { ...typography.xs, color: colors.mutedForeground, marginTop: 4 },
   checkboxRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, marginTop: spacing.lg },
   checkbox: {
