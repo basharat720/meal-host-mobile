@@ -12,7 +12,10 @@ export default function VerifyEmailScreen() {
   const { checkEmailVerification, resendEmailVerification, emailVerified, user, isChef } = useAuth();
   const [isChecking, setIsChecking] = useState(false);
   const [isResending, setIsResending] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
+  // Start the countdown already running: registration sends the verification
+  // email, and the backend enforces the same 60s per-address cooldown, so an
+  // immediate resend would only earn a 429.
+  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS);
 
   // Keep the latest verification status in a ref so the poll interval
   // (set up once) always reads the freshest value without re-subscribing.

@@ -2,17 +2,16 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
-  sendEmailVerification,
-  sendPasswordResetEmail,
   GoogleAuthProvider,
   signInWithCredential,
   User as FirebaseUser,
   updateProfile,
-  AuthError,
   reload,
 } from "firebase/auth";
 import { auth } from "./config";
 import { GoogleSignin } from "@/integrations/google-signin-stub";
+import { authEmailService } from "@/services/authEmailService";
+import { ApiError } from "@/lib/api";
 
 export type UserRole = "chef" | "customer";
 
@@ -30,7 +29,10 @@ export const signUpWithEmail = async (
     const credential = await createUserWithEmailAndPassword(auth, email, password);
     const user = credential.user;
     if (fullName) await updateProfile(user, { displayName: fullName });
-    await sendEmailVerification(user);
+    // Verification email is NOT sent from here. The backend sends a branded one
+    // when the account is registered (POST /users/), because Firebase's own
+    // template body can't be edited. Calling sendEmailVerification() here would
+    // send the unbranded Firebase email as well.
     const token = await user.getIdToken();
     return { user, token, error: null };
   } catch (error) {
@@ -72,21 +74,25 @@ export const signOut = async (): Promise<void> => {
   await firebaseSignOut(auth);
 };
 
+// Send password reset email (sent by our backend, not Firebase)
 export const sendPasswordReset = async (
   email: string
 ): Promise<{ error: Error | null }> => {
   try {
-    await sendPasswordResetEmail(auth, email);
+    await authEmailService.requestPasswordReset(email);
     return { error: null };
   } catch (error) {
-    const authError = error as AuthError;
-    if (authError.code === "auth/user-not-found") {
-      return { error: new Error("No account found with this email address.") };
+    console.error("Password reset error:", error);
+
+    // Note: there is deliberately no "no account found" case any more. The
+    // backend returns the same response for known and unknown addresses so it
+    // can't be used to test whether someone has an account.
+    if (error instanceof ApiError && error.status === 429) {
+      return { error: new Error("Too many password reset requests. Please try again later.") };
     }
-    if (authError.code === "auth/too-many-requests") {
-      return { error: new Error("Too many requests. Please try again later.") };
-    }
-    return { error: authError as Error };
+    return {
+      error: new Error("We couldn't send the reset email just now. Please try again shortly."),
+    };
   }
 };
 
@@ -96,10 +102,26 @@ export const resendEmailVerification = async (): Promise<{ error: Error | null }
     if (!user) return { error: new Error("No user is currently signed in.") };
     await reload(user);
     if (user.emailVerified) return { error: new Error("Email is already verified.") };
-    await sendEmailVerification(user);
+    // Sent by our backend so it carries Pakwanhus branding.
+    await authEmailService.sendEmailVerification();
     return { error: null };
   } catch (error) {
-    return { error: error as Error };
+    console.error("Resend email verification error:", error);
+
+    if (error instanceof ApiError) {
+      // The backend applies its own per-address cooldown on top of the
+      // screen's countdown, so 429 is reachable after a reinstall or a
+      // resend from the web app.
+      if (error.status === 429) {
+        return { error: new Error("Too many verification email requests. Please try again later.") };
+      }
+      if (error.status === 400) {
+        return { error: new Error("Email is already verified.") };
+      }
+    }
+    return {
+      error: new Error("We couldn't send the verification email just now. Please try again shortly."),
+    };
   }
 };
 

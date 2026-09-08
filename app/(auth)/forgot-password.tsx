@@ -36,7 +36,8 @@ export default function ForgotPasswordScreen() {
               <Text style={styles.emoji}>📧</Text>
               <Text style={styles.title}>Check your email</Text>
               <Text style={styles.subtitle}>
-                We sent a password reset link to {email}. Check your inbox and follow the instructions.
+                If an account exists for {email}, we've sent it a reset link. Check your inbox and
+                follow the instructions.
               </Text>
               <Button onPress={() => router.back()} style={styles.button}>Back to Login</Button>
             </View>
