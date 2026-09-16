@@ -12,6 +12,7 @@ import { useLocalSearchParams, router, useFocusEffect } from "expo-router";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { DishCard } from "@/components/DishCard";
+import { FavoriteButton } from "@/components/FavoriteButton";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { FullScreenLoader } from "@/components/ui/LoadingSpinner";
@@ -232,6 +233,12 @@ export default function DishDetailScreen() {
               <Text style={styles.vegText}>🌿 Veg</Text>
             </View>
           )}
+          <FavoriteButton
+            type="dish"
+            id={dish.id}
+            label={dish.title}
+            style={styles.favoriteButton}
+          />
         </View>
 
         {/* Title + chef */}
@@ -429,6 +436,8 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   vegText: { fontSize: 11, fontWeight: "600", color: "#166534" },
+  // Matches the veg badge's inset on the larger hero image.
+  favoriteButton: { top: 10, right: 10, width: 34, height: 34 },
 
   card: {
     backgroundColor: colors.card,

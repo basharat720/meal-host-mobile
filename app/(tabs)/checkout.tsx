@@ -267,31 +267,37 @@ export default function CheckoutScreen() {
         await orderService.payOrder(order.id, { method: "CASH" });
         createdOrderIds.push(order.id);
       } else {
+        // The cart is restricted to one kitchen, so it becomes ONE order
+        // carrying one line per dish — not an order per dish.
         const chefId = items[0].chefId;
         const finalAddress =
           deliveryType === "delivery" ? deliveryAddress.trim() : pickupAddress;
-        for (const item of items) {
+        const orderLines = items.map((item) => {
           const foodListingId = parseInt(item.id, 10);
           if (isNaN(foodListingId)) {
             throw new Error(`Invalid food listing ID: ${item.id}`);
           }
-          // delivery_type is accepted by the backend but not yet in the
-          // OrderCreate type; widen the payload so it is serialized.
-          const payload: OrderCreate & { delivery_type: "pickup" | "delivery" } = {
-            quantity: item.quantity,
-            total_amount: item.price * item.quantity,
-            customer_id: user.id,
-            chef_id: chefId,
-            food_listing_id: foodListingId,
-            delivery_address: finalAddress,
-            delivery_phone: phone,
-            delivery_type: deliveryType,
-            special_instructions: instructions.trim() || undefined,
-          };
-          const order = await orderService.createOrder(payload);
-          await orderService.payOrder(order.id, { method: "CASH" });
-          createdOrderIds.push(order.id);
-        }
+          return { food_listing_id: foodListingId, quantity: item.quantity };
+        });
+        // delivery_type is accepted by the backend but not yet in the
+        // OrderCreate type; widen the payload so it is serialized.
+        const payload: OrderCreate & { delivery_type: "pickup" | "delivery" } = {
+          quantity: items.reduce((sum, item) => sum + item.quantity, 0),
+          total_amount: items.reduce(
+            (sum, item) => sum + item.price * item.quantity,
+            0,
+          ),
+          customer_id: user.id,
+          chef_id: chefId,
+          items: orderLines,
+          delivery_address: finalAddress,
+          delivery_phone: phone,
+          delivery_type: deliveryType,
+          special_instructions: instructions.trim() || undefined,
+        };
+        const order = await orderService.createOrder(payload);
+        await orderService.payOrder(order.id, { method: "CASH" });
+        createdOrderIds.push(order.id);
         orderPlacedRef.current = true;
         clearCart();
       }

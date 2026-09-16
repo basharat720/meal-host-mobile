@@ -571,6 +571,30 @@ export const ProfileScreen = () => {
             </View>
           )}
 
+          {/* Favorites live in a customer tab, but the chef tab bar is full, so a
+              chef browsing other kitchens reaches the same screen from here. */}
+          {isChef && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>My Activity</Text>
+
+              <Pressable
+                onPress={() => router.push("/favorites")}
+                style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}
+              >
+                <View style={styles.linkLeft}>
+                  <View style={styles.linkIcon}>
+                    <Ionicons name="heart-outline" size={18} color={colors.primary} />
+                  </View>
+                  <View>
+                    <Text style={styles.linkTitle}>Favorites</Text>
+                    <Text style={styles.linkSubtitle}>Kitchens and dishes you've saved</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+          )}
+
           {/* Chef-specific fields */}
           {isChef && (
             <View style={styles.section}>

@@ -24,12 +24,19 @@ checking out, posting a request.
 | **Home** | Find Chefs — the list of kitchens, with search and filters. This is the tab the app opens on. |
 | **Dishes** | The dish feed, browsing individual dishes rather than kitchens |
 | **Orders** | Your orders, split into Active and Past |
+| **Favorites** | The kitchens and dishes you have saved, in two tabs |
 | **Profile** | Your details, addresses, legal pages, sign out |
 
 The cart, checkout, order confirmation, post-a-request and my-requests screens
 exist too, but have no tab of their own — you reach them from wherever they
 make sense, and a cart button floats above the tabs whenever you have
 something in it.
+
+**Favorites has a tab of its own in the customer area.** Saved kitchens and
+dishes are something you come back to often, so they get a tab with a heart
+icon rather than being buried in the profile. The chef tab bar is already full,
+so a chef who saves kitchens while browsing reaches the same screen from their
+**Profile** instead — the screen itself is identical either way.
 
 **Home is Find Chefs, not the dish feed.** The kitchen is the thing a customer
 is really choosing, so it leads. The website does the same, and its own
@@ -45,8 +52,9 @@ navigation labels that page "Home" too.
 | **Requests** | Customer requests you can bid on |
 | **Profile** | Your kitchen profile and account |
 
-Availability (weekly opening hours) and Earnings & Orders have no tab — both
-are reached from the Dashboard.
+Availability (weekly opening hours), Earnings & Orders and Favorites have no
+tab — Availability and Earnings are reached from the Dashboard, Favorites from
+the Profile.
 
 ## Being both a chef and a customer
 

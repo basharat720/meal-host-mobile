@@ -53,7 +53,6 @@ interface MappedChef {
   specialties: string[];
   rating: number;
   reviews: number;
-  isVerified: boolean;
   isVeg: boolean;
   isOpenNow: boolean;
   minPrice: number;
@@ -71,7 +70,6 @@ function mapChef(chef: ChefListItem): MappedChef {
     specialties: chef.chef_profile?.specialties ?? [],
     rating: chef.chef_profile?.rating_avg ?? 0,
     reviews: chef.chef_profile?.review_count ?? 0,
-    isVerified: chef.chef_profile?.status === "active",
     isVeg: tags.includes("VEG") || tags.includes("VEGETARIAN"),
     isOpenNow: chef.is_available !== false,
     minPrice: chef.min_price ?? 0,

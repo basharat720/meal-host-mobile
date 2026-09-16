@@ -159,13 +159,26 @@ export interface FoodListingUpdate {
   preparation_time_minutes?: number;
 }
 
+/** One dish line on an order. Title and price are snapshotted server-side. */
+export interface OrderItem {
+  food_listing_id: number;
+  item_title: string;
+  quantity: number;
+  unit_price: number;
+}
+
 export interface Order {
   id: number;
+  /** Total portions across every line. */
   quantity: number;
+  /** One entry per distinct dish. Empty for orders created from an offer. */
+  items: OrderItem[];
   total_amount: number;
   status: "PENDING" | "CONFIRMED" | "READY_FOR_PICKUP" | "DELIVERED" | "RECEIVED" | "COMPLETED" | "CANCELLED";
   customer_id: string; // Changed to string (firebase_uid)
   chef_id: string;     // Changed to string (firebase_uid)
+  /** The kitchen's name — who the customer is talking to in the order chat. */
+  chef_name?: string;
   food_listing_id?: number;
   food_request_id?: number;
   created_at: string;
@@ -180,6 +193,18 @@ export interface Order {
   confirmed_eta_at?: string;
   customer_name?: string;
   customer_phone?: string;
+  /** Unread chat messages on this order, for the signed-in user. */
+  unread_message_count?: number;
+  /** True once the chef has confirmed — the chat exists from then on. */
+  chat_available?: boolean;
+  /** False once the chat has been closed for more than 24 hours. */
+  chat_can_send?: boolean;
+}
+
+/** A requested dish line. The server resolves its price and title. */
+export interface OrderItemCreate {
+  food_listing_id: number;
+  quantity: number;
 }
 
 export interface OrderCreate {
@@ -188,6 +213,11 @@ export interface OrderCreate {
   status?: "PENDING";
   customer_id: string; // Changed to string (firebase_uid)
   chef_id: string;     // Changed to string (firebase_uid)
+  /**
+   * The whole basket, one entry per distinct dish — a cart is one order.
+   * `food_listing_id` below is the legacy single-dish form, still accepted.
+   */
+  items?: OrderItemCreate[];
   food_listing_id?: number;
   food_request_id?: number;
   delivery_type?: "pickup" | "delivery";

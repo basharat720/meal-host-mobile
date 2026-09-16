@@ -33,3 +33,4 @@ between the two.
 | [Notifications & Opening a Link](03-notifications-and-links.md) | Push notifications, the badge on the app icon, and what happens when a link points at the app |
 | [Location & Address Privacy](04-location-and-address-privacy.md) | When the app asks for your location, and how a chef's address is protected |
 | [Where the App Differs from the Website](05-parity-with-the-website.md) | A current, honest list of what the website does that the app does not yet |
+| [Order Chat in the App](06-order-chat.md) | The chat screen, keyboard handling, notification taps, and reconnecting after the app sleeps |

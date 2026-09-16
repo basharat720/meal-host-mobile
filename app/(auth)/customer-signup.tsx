@@ -30,6 +30,7 @@ export default function CustomerSignupScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [coords, setCoords] = useState<Coords | null>(null);
@@ -105,8 +106,20 @@ export default function CustomerSignupScreen() {
     else router.replace("/(tabs)/chefs");
   };
 
+  // Mirrors the login screens: the signup route can be reached from a gate
+  // deep in the app, so fall back to the home feed when there's no history.
+  const goBackOrHome = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)/chefs");
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
+      <View style={styles.topBar}>
+        <TouchableOpacity onPress={goBackOrHome} hitSlop={8} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={colors.foreground} />
+        </TouchableOpacity>
+      </View>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
@@ -118,8 +131,12 @@ export default function CustomerSignupScreen() {
           <View style={styles.form}>
             <Input label="Full Name" value={name} onChangeText={setName} placeholder="Your name" autoCapitalize="words" error={errors.name} />
             <Input label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="you@example.com" error={errors.email} containerStyle={{ marginTop: spacing.md }} />
-            <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry placeholder="••••••••" error={errors.password} containerStyle={{ marginTop: spacing.md }} />
-            <Input label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry placeholder="••••••••" error={errors.confirmPassword} containerStyle={{ marginTop: spacing.md }} />
+            <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} placeholder="••••••••" error={errors.password} containerStyle={{ marginTop: spacing.md }} />
+            <Input label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!showPassword} placeholder="••••••••" error={errors.confirmPassword} containerStyle={{ marginTop: spacing.md }} />
+            <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.showPassword}>
+              <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.mutedForeground} />
+              <Text style={styles.showPasswordText}>{showPassword ? "Hide" : "Show"} password</Text>
+            </TouchableOpacity>
             <PhoneInput label="Phone Number (optional)" value={phone} onChangeText={setPhone} error={errors.phone} containerStyle={{ marginTop: spacing.md }} />
 
             <LocationAutocomplete
@@ -190,6 +207,10 @@ export default function CustomerSignupScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
+  showPassword: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, alignSelf: "flex-end" },
+  showPasswordText: { ...typography.sm, color: colors.mutedForeground },
+  topBar: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  backButton: { width: 40, height: 40, alignItems: "flex-start", justifyContent: "center" },
   container: { flexGrow: 1, padding: spacing.lg },
   header: { alignItems: "center", marginVertical: spacing["2xl"], gap: spacing.md },
   title: { ...typography["3xl"], fontFamily: fonts.display, fontWeight: "700", color: colors.foreground },

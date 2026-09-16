@@ -9,6 +9,7 @@ import { useI18n } from "@/i18n/context";
 import { CuisineType } from "@/services/types";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 import { formatDuration } from "@/lib/duration";
+import { FavoriteButton } from "@/components/FavoriteButton";
 
 interface DishCardProps {
   id: string;
@@ -89,6 +90,7 @@ export const DishCard = ({
             <Text style={styles.vegText}>🌿 Veg</Text>
           </View>
         )}
+        <FavoriteButton type="dish" id={id} label={name} />
         {isChefOffline ? (
           <View style={styles.offlineBadge}>
             <Text style={styles.offlineText}>Chef offline</Text>
@@ -174,18 +176,18 @@ const styles = StyleSheet.create({
   },
   vegText: { fontSize: 10, fontWeight: "600", color: "#166534" },
   offlineBadge: {
-    position: "absolute", top: 6, right: 6,
+    position: "absolute", bottom: 6, left: 6,
     backgroundColor: "rgba(0,0,0,0.55)",
     borderRadius: radius.full, paddingHorizontal: 7, paddingVertical: 3,
   },
   soldOutBadge: {
-    position: "absolute", top: 6, right: 6,
+    position: "absolute", bottom: 6, left: 6,
     backgroundColor: "rgba(0,0,0,0.55)",
     borderRadius: radius.full, paddingHorizontal: 7, paddingVertical: 3,
   },
   offlineText: { fontSize: 10, fontWeight: "600", color: "#fff" },
   popularBadge: {
-    position: "absolute", top: 6, right: 6,
+    position: "absolute", bottom: 6, left: 6,
     backgroundColor: colors.accent,
     borderRadius: radius.full, paddingHorizontal: 7, paddingVertical: 3,
   },

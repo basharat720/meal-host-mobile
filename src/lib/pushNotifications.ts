@@ -150,7 +150,16 @@ export function mapNotificationUrlToRoute(url?: string | null): string {
   // payloads send a bare /my-orders today, but its order emails already carry
   // the id, so carry the parameter through rather than dropping the query.
   if (path.startsWith("/my-orders")) {
-    const orderId = new URLSearchParams(rawQuery ?? "").get("order");
+    const query = new URLSearchParams(rawQuery ?? "");
+
+    // A new-message push is /my-orders?chat=<id> on the web, which the app
+    // opens as the chat screen itself rather than the orders list.
+    const chatOrderId = query.get("chat");
+    if (chatOrderId && /^\d+$/.test(chatOrderId)) {
+      return `/order-chat/${chatOrderId}`;
+    }
+
+    const orderId = query.get("order");
     return orderId && /^\d+$/.test(orderId)
       ? `/(tabs)/orders?order=${orderId}`
       : "/(tabs)/orders";

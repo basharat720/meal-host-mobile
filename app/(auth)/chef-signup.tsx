@@ -33,6 +33,7 @@ export default function ChefSignupScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState("");
   const [kitchenName, setKitchenName] = useState("");
   const [kitchenDescription, setKitchenDescription] = useState("");
@@ -164,8 +165,21 @@ export default function ChefSignupScreen() {
 
   const previewUri = localImageUri || profilePictureUrl || null;
 
+  // Mirrors the login screens. On step 2 the arrow rewinds the form instead of
+  // leaving the screen, so a half-filled signup isn't lost by one tap.
+  const goBackOrHome = () => {
+    if (step === 2) setStep(1);
+    else if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)/chefs");
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
+      <View style={styles.topBar}>
+        <TouchableOpacity onPress={goBackOrHome} hitSlop={8} style={styles.navBackButton}>
+          <Ionicons name="arrow-back" size={24} color={colors.foreground} />
+        </TouchableOpacity>
+      </View>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
@@ -179,8 +193,12 @@ export default function ChefSignupScreen() {
               <Input label="First name as per CNIC" value={firstName} onChangeText={setFirstName} placeholder="First name" autoCapitalize="words" />
               <Input label="Last name as per CNIC" value={lastName} onChangeText={setLastName} placeholder="Last name" autoCapitalize="words" containerStyle={{ marginTop: spacing.md }} />
               <Input label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="chef@example.com" containerStyle={{ marginTop: spacing.md }} />
-              <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry placeholder="••••••••" containerStyle={{ marginTop: spacing.md }} />
-              <Input label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry placeholder="••••••••" containerStyle={{ marginTop: spacing.md }} />
+              <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} placeholder="••••••••" containerStyle={{ marginTop: spacing.md }} />
+              <Input label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!showPassword} placeholder="••••••••" containerStyle={{ marginTop: spacing.md }} />
+              <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.showPassword}>
+                <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.mutedForeground} />
+                <Text style={styles.showPasswordText}>{showPassword ? "Hide" : "Show"} password</Text>
+              </TouchableOpacity>
               <PhoneInput label="Phone Number" value={phone} onChangeText={setPhone} containerStyle={{ marginTop: spacing.md }} />
               <Text style={styles.helpText}>Required for chefs. Include country code (e.g., +92 for Pakistan).</Text>
 
@@ -301,6 +319,10 @@ export default function ChefSignupScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
+  showPassword: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, alignSelf: "flex-end" },
+  showPasswordText: { ...typography.sm, color: colors.mutedForeground },
+  topBar: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  navBackButton: { width: 40, height: 40, alignItems: "flex-start", justifyContent: "center" },
   container: { flexGrow: 1, padding: spacing.lg },
   header: { alignItems: "center", marginVertical: spacing["2xl"], gap: spacing.md },
   title: { ...typography["3xl"], fontFamily: fonts.display, fontWeight: "700", color: colors.foreground },

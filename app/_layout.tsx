@@ -15,6 +15,7 @@ import {
 } from "@expo-google-fonts/nunito";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import { ToastProvider } from "@/components/ui/Toast";
 import { I18nProvider } from "@/i18n/context";
 import { colors } from "@/constants/theme";
@@ -72,6 +73,7 @@ export default function RootLayout() {
           <I18nProvider>
             <AuthProvider>
               <CartProvider>
+               <FavoritesProvider>
                <ToastProvider>
                 <StatusBar
                   style={splashDone ? "dark" : "light"}
@@ -86,6 +88,12 @@ export default function RootLayout() {
                     <Stack.Screen name="chef/[id]" options={{ headerShown: false }} />
                     <Stack.Screen name="my-requests/[id]" options={{ headerShown: false }} />
                     <Stack.Screen name="notifications" options={{ headerShown: false }} />
+                    {/* Favorites also has a customer tab; this route is how the
+                        chef area reaches the same screen. */}
+                    <Stack.Screen name="favorites" options={{ headerShown: false }} />
+                    {/* One order's chat, reached from an order card or a
+                        new-message notification. */}
+                    <Stack.Screen name="order-chat/[id]" options={{ headerShown: false }} />
                   </Stack>
                 )}
                 {fontsLoaded && <FloatingCart />}
@@ -93,6 +101,7 @@ export default function RootLayout() {
                   <AnimatedSplash onComplete={handleSplashComplete} />
                 )}
                </ToastProvider>
+               </FavoritesProvider>
               </CartProvider>
             </AuthProvider>
           </I18nProvider>

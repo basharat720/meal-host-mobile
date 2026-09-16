@@ -30,6 +30,7 @@ import {
 } from "@/services/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { chefDisplayName } from "@/lib/chefName";
+import { FavoriteButton } from "@/components/FavoriteButton";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -64,6 +65,8 @@ function StarRow({ stars }: { stars: number }) {
 
 interface MappedChef {
   id: string;
+  /** Numeric chef id. `id` above is the firebase_uid this screen looks up by. */
+  chefId: number;
   name: string;
   image: string | null;
   cuisine: string;
@@ -84,6 +87,7 @@ function mapChefForDisplay(chef: Chef, listings: FoodListing[]): MappedChef {
   const dietaryTags = profile?.dietary_tags ?? chef.dietary_tags ?? [];
   return {
     id: chef.firebase_uid,
+    chefId: chef.id,
     // Every name shown on this screen flows from here, so resolving the
     // kitchen name once covers the header, the dish cards and the CTA.
     name: chefDisplayName(chef),
@@ -301,6 +305,12 @@ export default function ChefMenuScreen() {
 
       {/* Chef header */}
       <View style={styles.chefHeader}>
+        <FavoriteButton
+          type="chef"
+          id={chef.chefId}
+          label={chef.name}
+          style={styles.favoriteButton}
+        />
         <View style={styles.chefHeaderTop}>
           <View style={styles.chefAvatarWrap}>
             {chef.image ? (
@@ -574,13 +584,6 @@ export default function ChefMenuScreen() {
     </>
   );
 
-  const ListFooter =
-    menuItems.length > 0 ? (
-      <Text style={styles.endText}>
-        You've seen all {menuItems.length} items
-      </Text>
-    ) : null;
-
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <FlatList
@@ -588,7 +591,6 @@ export default function ChefMenuScreen() {
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
         ListHeaderComponent={ListHeader}
-        ListFooterComponent={ListFooter}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -670,11 +672,15 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   chefInfo: { flex: 1, gap: 6 },
+  favoriteButton: { top: 10, right: 10 },
   chefNameRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     flexWrap: "wrap",
+    // Keeps a long kitchen name from running under the favorite heart, which is
+    // absolutely positioned at the header's top-right.
+    paddingRight: 30,
   },
   chefName: {
     ...typography.xl,
@@ -1009,12 +1015,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
 
-  endText: {
-    textAlign: "center",
-    ...typography.sm,
-    color: colors.mutedForeground,
-    paddingVertical: spacing.lg,
-  },
 
   // Error state
   errorContainer: {

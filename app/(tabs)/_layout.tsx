@@ -72,6 +72,15 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="receipt-outline" size={size} color={color} />,
         }}
       />
+      {/* Saved kitchens and dishes are something you come back to, so they get a
+          tab of their own rather than being buried in the profile. */}
+      <Tabs.Screen
+        name="favorites"
+        options={{
+          title: "Favorites",
+          tabBarIcon: ({ color, size }) => <Ionicons name="heart-outline" size={size} color={color} />,
+        }}
+      />
       <Tabs.Screen
         name="profile"
         options={{
