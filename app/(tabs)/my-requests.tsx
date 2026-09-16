@@ -46,6 +46,14 @@ export default function MyRequestsScreen() {
 
   const hasMore = requests.length < total;
 
+  // This screen is a hidden tab route, so it can be pushed from several places
+  // (the home CTA, the Profile tab, a push notification). Fall back to the feed
+  // when there's nothing on the stack to return to.
+  const goBack = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)/chefs");
+  }, []);
+
   const fetchData = useCallback(
     async (reset = true) => {
       if (!dbUser) return;
@@ -372,13 +380,18 @@ export default function MyRequestsScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>My Requests</Text>
-          {total > 0 && (
-            <Text style={styles.headerSubtitle}>
-              {requests.length} of {total} request{total !== 1 ? "s" : ""}
-            </Text>
-          )}
+        <View style={styles.headerLeft}>
+          <Pressable style={styles.backBtn} onPress={goBack} hitSlop={8}>
+            <Ionicons name="arrow-back" size={22} color={colors.foreground} />
+          </Pressable>
+          <View>
+            <Text style={styles.headerTitle}>My Requests</Text>
+            {total > 0 && (
+              <Text style={styles.headerSubtitle}>
+                {requests.length} of {total} request{total !== 1 ? "s" : ""}
+              </Text>
+            )}
+          </View>
         </View>
         <Button
           size="sm"
@@ -450,6 +463,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     backgroundColor: colors.surface,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    flex: 1,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
     ...typography["2xl"],

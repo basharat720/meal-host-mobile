@@ -14,3 +14,17 @@ export const FIREBASE_CONFIG = {
 
 export const STRIPE_PUBLISHABLE_KEY =
   process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
+
+/**
+ * Whether to offer social sign-in on the auth screens.
+ *
+ * Off, because Google sign-in does not work in any build: the app imports
+ * src/integrations/google-signin-stub.ts unconditionally and that stub always
+ * throws. The real @react-native-google-signin/google-signin package isn't
+ * installed, and it needs OAuth client IDs plus a native build — it can't run
+ * in Expo Go at all.
+ *
+ * Flip this back to true once the real package is wired up; the handlers and
+ * buttons are all still here behind it.
+ */
+export const SOCIAL_AUTH_ENABLED = false;

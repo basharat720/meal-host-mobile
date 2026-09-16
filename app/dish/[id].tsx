@@ -12,6 +12,7 @@ import { useLocalSearchParams, router, useFocusEffect } from "expo-router";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { DishCard } from "@/components/DishCard";
+import { FavoriteButton } from "@/components/FavoriteButton";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { FullScreenLoader } from "@/components/ui/LoadingSpinner";
@@ -116,7 +117,7 @@ export default function DishDetailScreen() {
           <Ionicons name="alert-circle-outline" size={48} color={colors.destructive} />
           <Text style={styles.errorTitle}>{fetchError ?? "Dish not found"}</Text>
           <View style={styles.errorActions}>
-            <Button variant="outline" onPress={() => router.push("/(tabs)/home")} style={styles.errorBtn}>
+            <Button variant="outline" onPress={() => router.push("/(tabs)/chefs")} style={styles.errorBtn}>
               Back to Home
             </Button>
             <Button onPress={() => load()} style={styles.errorBtn}>
@@ -128,7 +129,10 @@ export default function DishDetailScreen() {
     );
   }
 
-  const isChefOffline = dish.chef_is_available === false;
+  // The live availability status is authoritative; the listing flag is a
+  // fallback for when the status call fails. Either saying "offline" blocks
+  // ordering, so a missing/true listing flag can't re-enable the Add button.
+  const isChefOffline = dish.chef_is_available === false || status?.is_open === false;
   const isOutOfStock = dish.available_quantity <= 0;
   const isLowStock = dish.available_quantity > 0 && dish.available_quantity <= 3;
   const orderDisabled = isOutOfStock || isChefOffline;
@@ -229,6 +233,12 @@ export default function DishDetailScreen() {
               <Text style={styles.vegText}>🌿 Veg</Text>
             </View>
           )}
+          <FavoriteButton
+            type="dish"
+            id={dish.id}
+            label={dish.title}
+            style={styles.favoriteButton}
+          />
         </View>
 
         {/* Title + chef */}
@@ -375,7 +385,9 @@ export default function DishDetailScreen() {
                   rating={d.chef_rating_avg}
                   availableQty={d.available_quantity}
                   preparationTimeMinutes={d.preparation_time_minutes}
-                  isChefOffline={d.chef_is_available === false}
+                  // Same chef as the dish above, so it shares its offline state.
+                  isChefOffline={isChefOffline || d.chef_is_available === false}
+                  offlineMessage={offlineMessage}
                   cuisineTypes={d.cuisine_types}
                 />
               ))}
@@ -424,6 +436,8 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   vegText: { fontSize: 11, fontWeight: "600", color: "#166534" },
+  // Matches the veg badge's inset on the larger hero image.
+  favoriteButton: { top: 10, right: 10, width: 34, height: 34 },
 
   card: {
     backgroundColor: colors.card,

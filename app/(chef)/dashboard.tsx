@@ -17,6 +17,8 @@ import { chefService, ChefDashboardStats } from "@/services/chefService";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { NotificationBell } from "@/components/NotificationBell";
 import { isChefActive, getActivationBlockers } from "@/lib/chefStatus";
+import { chefDisplayName } from "@/lib/chefName";
+import { ChefReviewsModal, StarRow } from "@/components/ChefReviewsModal";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 
 interface StatCardProps {
@@ -46,6 +48,7 @@ export default function DashboardScreen() {
   const [stats, setStats] = useState<ChefDashboardStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [reviewsOpen, setReviewsOpen] = useState(false);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -78,12 +81,16 @@ export default function DashboardScreen() {
   );
 
   const profilePictureUrl = dbUser?.chef_profile?.profile_picture_url ?? null;
-  const chefName = dbUser?.name ?? "Chef";
+  // The chef's own portal is branded with their kitchen, not their personal name.
+  const chefName = chefDisplayName(dbUser, "My Kitchen");
 
   const accountActive = isChefActive(dbUser);
   const activationBlockers = getActivationBlockers(dbUser);
 
-  const statCards: { label: string; value: string | null; icon: keyof typeof Ionicons.glyphMap }[] = [
+  // The two figures share one card, which doubles as the way into Earnings &
+  // Orders where the same numbers can be seen over any range. The rating moved
+  // into the header pill.
+  const todaysStats: { label: string; value: string | null; icon: keyof typeof Ionicons.glyphMap }[] = [
     {
       label: "Today's Orders",
       value: stats ? String(stats.todays_orders ?? 0) : null,
@@ -94,17 +101,10 @@ export default function DashboardScreen() {
       value: stats ? formatPrice(stats.todays_earnings ?? 0) : null,
       icon: "cash-outline",
     },
-    {
-      label: "Happy Customers",
-      value: stats ? String(stats.happy_customers ?? 0) : null,
-      icon: "people-outline",
-    },
-    {
-      label: "Rating",
-      value: stats ? `${(stats.rating ?? 0).toFixed(1)} ★` : null,
-      icon: "star-outline",
-    },
   ];
+
+  const reviewCount = stats?.review_count ?? 0;
+  const ratingAverage = stats?.rating ?? 0;
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -136,6 +136,26 @@ export default function DashboardScreen() {
           <View style={styles.headerText}>
             <Text style={styles.title}>Chef Dashboard</Text>
             <Text style={styles.subtitle}>Welcome back, {chefName}</Text>
+            {loading || !stats ? (
+              <View style={styles.ratingSkeleton} />
+            ) : reviewCount > 0 ? (
+              <Pressable
+                style={styles.ratingPill}
+                onPress={() => setReviewsOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="View your reviews"
+              >
+                <StarRow stars={Math.round(ratingAverage)} size={12} />
+                <Text style={styles.ratingValue}>{ratingAverage.toFixed(1)}</Text>
+                <Text style={styles.ratingCount}>
+                  ({reviewCount} review{reviewCount !== 1 ? "s" : ""})
+                </Text>
+              </Pressable>
+            ) : (
+              <View style={styles.ratingPill}>
+                <Text style={styles.ratingCount}>No reviews yet</Text>
+              </View>
+            )}
           </View>
           <NotificationBell color={colors.foreground} />
         </View>
@@ -176,17 +196,42 @@ export default function DashboardScreen() {
           </View>
         )}
 
-        {/* Stats Grid */}
-        <View style={styles.grid}>
-          {statCards.map((card) => (
-            <StatCard
-              key={card.label}
-              label={card.label}
-              value={card.value}
-              icon={card.icon}
-              loading={loading}
-            />
-          ))}
+        {/* Today, and the way into Earnings & Orders */}
+        <Pressable
+          style={({ pressed }) => [styles.todayCard, pressed && { opacity: 0.9 }]}
+          onPress={() => router.push("/(chef)/earnings" as any)}
+          accessibilityRole="button"
+          accessibilityLabel="View earnings and orders"
+        >
+          <View style={styles.todayRow}>
+            {todaysStats.map((card, index) => (
+              <React.Fragment key={card.label}>
+                {index > 0 && <View style={styles.todayDivider} />}
+                <StatCard
+                  label={card.label}
+                  value={card.value}
+                  icon={card.icon}
+                  loading={loading}
+                />
+              </React.Fragment>
+            ))}
+          </View>
+          <View style={styles.todayFooter}>
+            <Text style={styles.todayFooterText}>View earnings & orders</Text>
+            <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+          </View>
+        </Pressable>
+
+        {/* Kept as its own card rather than dropped with web's restructure:
+            web was showing a client-side estimate, but /chefs/dashboard/stats
+            really does count distinct customers with a completed order. */}
+        <View style={styles.soloCard}>
+          <StatCard
+            label="Happy Customers"
+            value={stats ? String(stats.happy_customers ?? 0) : null}
+            icon="people-outline"
+            loading={loading}
+          />
         </View>
 
         {/* Quick actions */}
@@ -206,6 +251,12 @@ export default function DashboardScreen() {
           <Ionicons name="chevron-forward" size={20} color={colors.mutedForeground} />
         </Pressable>
       </ScrollView>
+
+      <ChefReviewsModal
+        chefId={dbUser?.id ?? null}
+        visible={reviewsOpen}
+        onClose={() => setReviewsOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -290,19 +341,71 @@ const styles = StyleSheet.create({
     color: colors.foreground,
   },
 
-  grid: {
+  ratingPill: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.full,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  statCard: {
-    width: "48%",
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    padding: spacing.md,
+  ratingValue: {
+    ...typography.xs,
+    fontWeight: "700",
+    color: colors.foreground,
+  },
+  ratingCount: { ...typography.xs, color: colors.mutedForeground },
+  ratingSkeleton: {
+    width: 128,
+    height: 22,
+    marginTop: 4,
+    borderRadius: radius.full,
+    backgroundColor: colors.muted,
+  },
+
+  todayCard: {
     borderWidth: 1,
     borderColor: colors.cardBorder,
+    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    overflow: "hidden",
     ...shadow.sm,
+  },
+  todayRow: { flexDirection: "row" },
+  soloCard: {
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    overflow: "hidden",
+    ...shadow.sm,
+  },
+  todayDivider: { width: 1, backgroundColor: colors.border },
+  todayFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 6,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  todayFooterText: {
+    ...typography.sm,
+    fontWeight: "600",
+    color: colors.primary,
+  },
+
+  // A pane inside todayCard, not a card of its own — no border or shadow.
+  statCard: {
+    flex: 1,
+    padding: spacing.md,
   },
   statIconWrap: {
     width: 36,

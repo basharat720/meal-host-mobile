@@ -17,13 +17,18 @@ import { useI18n } from "@/i18n/context";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PhoneInput } from "@/components/ui/PhoneInput";
+import { validatePhoneNumber } from "@/lib/phone";
 import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
+import { getCheckoutError } from "@/lib/errorMessages";
 import { orderService } from "@/services/orderService";
 import type { OrderCreate } from "@/services/types";
 import { requestService } from "@/services/requestService";
 import { userService } from "@/services/userService";
 import { dishService } from "@/services/dishService";
+import * as Location from "expo-location";
 import { formatDuration, formatDurationRange } from "@/lib/duration";
+import { calculateDistance, maskAddressEnhanced } from "@/lib/addressPrivacy";
 
 interface OfferCheckout {
   offerId: number;
@@ -69,6 +74,7 @@ export default function CheckoutScreen() {
   const [instructions, setInstructions] = useState("");
   const [pickupAddress, setPickupAddress] = useState("");
   const [isPickupLoading, setIsPickupLoading] = useState(false);
+  const [distanceToChef, setDistanceToChef] = useState<number | undefined>(undefined);
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -124,15 +130,39 @@ export default function CheckoutScreen() {
     let cancelled = false;
     setIsPickupLoading(true);
 
-    userService.getUserById(chefId).then((chef) => {
+    userService.getUserById(chefId).then(async (chef) => {
       if (cancelled) return;
-      const address =
-        chef.locations?.find((l) => l.is_primary)?.address ??
-        chef.locations?.[0]?.address ??
-        "";
-      setPickupAddress(address);
+      const primary = chef.locations?.find((l) => l.is_primary) ?? chef.locations?.[0];
+      setPickupAddress(primary?.address ?? "");
+
+      // Distance is a nice-to-have beside the masked area, so this must never
+      // prompt: only read the position if the user has already granted access
+      // (for the dish feed's location filter). Unlike the web app, asking here
+      // would put a system permission dialog in the middle of checkout.
+      if (primary?.latitude == null || primary?.longitude == null) return;
+      try {
+        const { granted } = await Location.getForegroundPermissionsAsync();
+        if (!granted || cancelled) return;
+        const position = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        if (cancelled) return;
+        setDistanceToChef(
+          calculateDistance(
+            position.coords.latitude,
+            position.coords.longitude,
+            primary.latitude,
+            primary.longitude
+          )
+        );
+      } catch {
+        // Non-fatal: the area is still shown, just without a distance.
+      }
     }).catch(() => {
-      if (!cancelled) setPickupAddress("");
+      if (!cancelled) {
+        setPickupAddress("");
+        setDistanceToChef(undefined);
+      }
     }).finally(() => {
       if (!cancelled) setIsPickupLoading(false);
     });
@@ -192,8 +222,9 @@ export default function CheckoutScreen() {
       Alert.alert("Missing Info", "Please enter your full name.");
       return;
     }
-    if (!phone.trim()) {
-      Alert.alert("Missing Info", "Please enter a phone number.");
+    const phoneResult = validatePhoneNumber(phone, true);
+    if (!phoneResult.isValid) {
+      Alert.alert("Missing Info", phoneResult.error!);
       return;
     }
     if (deliveryType === "pickup" && !pickupAddress) {
@@ -236,31 +267,37 @@ export default function CheckoutScreen() {
         await orderService.payOrder(order.id, { method: "CASH" });
         createdOrderIds.push(order.id);
       } else {
+        // The cart is restricted to one kitchen, so it becomes ONE order
+        // carrying one line per dish — not an order per dish.
         const chefId = items[0].chefId;
         const finalAddress =
           deliveryType === "delivery" ? deliveryAddress.trim() : pickupAddress;
-        for (const item of items) {
+        const orderLines = items.map((item) => {
           const foodListingId = parseInt(item.id, 10);
           if (isNaN(foodListingId)) {
             throw new Error(`Invalid food listing ID: ${item.id}`);
           }
-          // delivery_type is accepted by the backend but not yet in the
-          // OrderCreate type; widen the payload so it is serialized.
-          const payload: OrderCreate & { delivery_type: "pickup" | "delivery" } = {
-            quantity: item.quantity,
-            total_amount: item.price * item.quantity,
-            customer_id: user.id,
-            chef_id: chefId,
-            food_listing_id: foodListingId,
-            delivery_address: finalAddress,
-            delivery_phone: phone.trim(),
-            delivery_type: deliveryType,
-            special_instructions: instructions.trim() || undefined,
-          };
-          const order = await orderService.createOrder(payload);
-          await orderService.payOrder(order.id, { method: "CASH" });
-          createdOrderIds.push(order.id);
-        }
+          return { food_listing_id: foodListingId, quantity: item.quantity };
+        });
+        // delivery_type is accepted by the backend but not yet in the
+        // OrderCreate type; widen the payload so it is serialized.
+        const payload: OrderCreate & { delivery_type: "pickup" | "delivery" } = {
+          quantity: items.reduce((sum, item) => sum + item.quantity, 0),
+          total_amount: items.reduce(
+            (sum, item) => sum + item.price * item.quantity,
+            0,
+          ),
+          customer_id: user.id,
+          chef_id: chefId,
+          items: orderLines,
+          delivery_address: finalAddress,
+          delivery_phone: phone,
+          delivery_type: deliveryType,
+          special_instructions: instructions.trim() || undefined,
+        };
+        const order = await orderService.createOrder(payload);
+        await orderService.payOrder(order.id, { method: "CASH" });
+        createdOrderIds.push(order.id);
         orderPlacedRef.current = true;
         clearCart();
       }
@@ -277,7 +314,7 @@ export default function CheckoutScreen() {
         },
       });
     } catch (err: any) {
-      Alert.alert("Order Failed", err?.message ?? "Failed to place order. Please try again.");
+      Alert.alert("Order Failed", getCheckoutError(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -377,13 +414,10 @@ export default function CheckoutScreen() {
             autoCapitalize="words"
           />
 
-          <Input
+          <PhoneInput
             label="Phone Number *"
-            placeholder="Enter phone number"
             value={phone}
             onChangeText={setPhone}
-            keyboardType="phone-pad"
-            autoComplete="tel"
           />
 
           <View style={styles.textAreaContainer}>
@@ -467,7 +501,11 @@ export default function CheckoutScreen() {
                 ) : pickupAddress ? (
                   <View style={styles.addressRow}>
                     <Ionicons name="location" size={16} color={colors.primary} />
-                    <Text style={styles.addressText}>{pickupAddress}</Text>
+                    {/* Masked until the order is confirmed — the customer sees
+                        the area, not the chef's door. */}
+                    <Text style={styles.addressText}>
+                      {maskAddressEnhanced(pickupAddress, distanceToChef)}
+                    </Text>
                   </View>
                 ) : (
                   <Text style={styles.addressUnavailable}>
@@ -476,7 +514,7 @@ export default function CheckoutScreen() {
                 )}
               </View>
               <Text style={styles.pickupNote}>
-                Please collect your order from this chef location.
+                📍 Exact pickup address will be shared after order confirmation
               </Text>
             </>
           ) : (

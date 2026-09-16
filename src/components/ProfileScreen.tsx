@@ -21,6 +21,17 @@ import { userService } from "@/services/userService";
 import type { UserLocationInput } from "@/services/types";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PhoneInput } from "@/components/ui/PhoneInput";
+import { LocationAutocomplete } from "@/components/ui/LocationAutocomplete";
+import { RoleSwitcher } from "@/components/RoleSwitcher";
+import { uploadProfilePicture } from "@/services/imageService";
+import { validatePhoneNumber } from "@/lib/phone";
+import {
+  fieldToNumber,
+  numberToField,
+  sanitizeNumericInput,
+  validateNumericField,
+} from "@/lib/profileFields";
 import { colors, fonts, radius, shadow, spacing, typography } from "@/constants/theme";
 
 // ---------------------------------------------------------------------------
@@ -79,49 +90,12 @@ const LEGAL_LINKS: { label: string; icon: keyof typeof Ionicons.glyphMap; path: 
   { label: "Refund Policy", icon: "cash-outline", path: "/refund-policy" },
 ];
 
-// ---------------------------------------------------------------------------
-// Cloudinary upload helper (same pattern as menu.tsx)
-// ---------------------------------------------------------------------------
-const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? "";
-const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? "";
-
-const uploadImageToCloudinary = async (uri: string, uid: string): Promise<string> => {
-  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-    throw new Error(
-      "Cloudinary not configured. Set EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME and EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET."
-    );
-  }
-  const safeUid = uid.replace(/[^a-zA-Z0-9]/g, "_");
-  const ext = uri.split(".").pop()?.toLowerCase() ?? "jpg";
-  const mimeMap: Record<string, string> = {
-    jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif",
-  };
-  const mimeType = mimeMap[ext] ?? "image/jpeg";
-
-  const formData = new FormData();
-  formData.append("file", { uri, name: `profile.${ext}`, type: mimeType } as any);
-  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-  formData.append("folder", `profile-pictures/${safeUid}`);
-
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-    { method: "POST", body: formData }
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`Cloudinary upload failed (${res.status}): ${err?.error?.message ?? ""}`);
-  }
-  const data = await res.json();
-  const url = data.secure_url || data.url;
-  if (!url) throw new Error("Cloudinary response missing URL");
-  return url as string;
-};
 
 // ---------------------------------------------------------------------------
 // ProfileScreen component
 // ---------------------------------------------------------------------------
 export const ProfileScreen = () => {
-  const { dbUser, user, isChef, signOut } = useAuth();
+  const { dbUser, user, isChef, signOut, refreshDbUser } = useAuth();
 
   const primaryLocation =
     dbUser?.locations?.find((l) => l.is_primary) ?? dbUser?.locations?.[0];
@@ -129,19 +103,27 @@ export const ProfileScreen = () => {
   const [name, setName] = useState(dbUser?.name ?? "");
   const [phone, setPhone] = useState(dbUser?.phone ?? "");
   const [address, setAddress] = useState(primaryLocation?.address ?? "");
-  const [city, setCity] = useState("");
-  const [zip, setZip] = useState("");
+  const [city, setCity] = useState(dbUser?.city ?? "");
+  const [zip, setZip] = useState(dbUser?.zip_code ?? "");
+  const [kitchenName, setKitchenName] = useState(
+    dbUser?.chef_profile?.kitchen_name ?? dbUser?.name ?? ""
+  );
   const [bio, setBio] = useState(dbUser?.chef_profile?.kitchen_description ?? "");
   const [specialties, setSpecialties] = useState(
     dbUser?.chef_profile?.specialties?.join(", ") ?? ""
   );
-  const [experience, setExperience] = useState("");
-  const [kitchenAddress, setKitchenAddress] = useState(primaryLocation?.address ?? "");
-  const [deliveryRadius, setDeliveryRadius] = useState("");
+  const [experience, setExperience] = useState(
+    numberToField(dbUser?.chef_profile?.years_of_experience)
+  );
+  const [deliveryRadius, setDeliveryRadius] = useState(
+    numberToField(dbUser?.chef_profile?.delivery_radius_km)
+  );
   const [cuisineTypes, setCuisineTypes] = useState(
     dbUser?.chef_profile?.dietary_tags?.join(", ") ?? ""
   );
-  const [deliveryInstructions, setDeliveryInstructions] = useState("");
+  const [deliveryInstructions, setDeliveryInstructions] = useState(
+    dbUser?.delivery_instructions ?? ""
+  );
   const [profilePictureUrl, setProfilePictureUrl] = useState(
     dbUser?.chef_profile?.profile_picture_url ?? ""
   );
@@ -164,14 +146,19 @@ export const ProfileScreen = () => {
     setName(dbUser.name ?? "");
     setPhone(dbUser.phone ?? "");
     setAddress(primary?.address ?? "");
+    setCity(dbUser.city ?? "");
+    setZip(dbUser.zip_code ?? "");
+    setDeliveryInstructions(dbUser.delivery_instructions ?? "");
     setLocationCoords(
       primary ? { lat: primary.latitude, lon: primary.longitude } : null
     );
     if (isChef && dbUser.chef_profile) {
+      setKitchenName(dbUser.chef_profile.kitchen_name ?? dbUser.name ?? "");
       setBio(dbUser.chef_profile.kitchen_description ?? "");
       setSpecialties(dbUser.chef_profile.specialties?.join(", ") ?? "");
       setCuisineTypes(dbUser.chef_profile.dietary_tags?.join(", ") ?? "");
-      setKitchenAddress(primary?.address ?? "");
+      setExperience(numberToField(dbUser.chef_profile.years_of_experience));
+      setDeliveryRadius(numberToField(dbUser.chef_profile.delivery_radius_km));
       setProfilePictureUrl(dbUser.chef_profile.profile_picture_url ?? "");
     }
   }, [dbUser, isChef]);
@@ -193,7 +180,7 @@ export const ProfileScreen = () => {
     setUploadingImage(true);
     try {
       const uid = user?.id ?? dbUser?.firebase_uid ?? "profile-user";
-      const uploadedUrl = await uploadImageToCloudinary(uri, uid);
+      const uploadedUrl = await uploadProfilePicture(uri, uid);
       setProfilePictureUrl(uploadedUrl);
       setProfilePictureTouched(true);
       setProfilePictureError(null);
@@ -234,6 +221,39 @@ export const ProfileScreen = () => {
         Alert.alert("Invalid Image URL", picError);
         return;
       }
+
+      // Bounds mirror the backend schema, so a bad value is caught here
+      // instead of coming back as a 422.
+      const numericError =
+        validateNumericField(experience, {
+          label: "Years of experience",
+          min: 0,
+          max: 100,
+          integer: true,
+        }) ??
+        validateNumericField(deliveryRadius, {
+          label: "Delivery radius",
+          min: 0,
+          max: 500,
+        });
+      if (numericError) {
+        Alert.alert("Invalid Value", numericError);
+        return;
+      }
+    }
+
+    // A blank kitchen name falls back to the chef's own name on save, so only
+    // a too-short value is worth blocking.
+    if (isChef && kitchenName.trim() && kitchenName.trim().length < 3) {
+      Alert.alert("Invalid Value", "Kitchen name must be at least 3 characters");
+      return;
+    }
+
+    // Optional here, but validated against its own country when given.
+    const phoneResult = validatePhoneNumber(phone, false);
+    if (!phoneResult.isValid) {
+      Alert.alert("Invalid Value", phoneResult.error!);
+      return;
     }
 
     setSaving(true);
@@ -247,8 +267,14 @@ export const ProfileScreen = () => {
 
       const updateData: UpdatePayload = {
         name: name.trim(),
-        phone: phone.trim() || undefined,
+        phone: phone || undefined,
+        city: city.trim(),
+        zip_code: zip.trim(),
       };
+
+      if (!isChef) {
+        updateData.delivery_instructions = deliveryInstructions.trim();
+      }
 
       // BUG FIX: previously the edited address + coordinates were never sent,
       // so address changes were silently lost. Geocode the typed address to
@@ -276,8 +302,21 @@ export const ProfileScreen = () => {
       }
 
       if (isChef) {
+        // Blank text fields are sent as null (an explicit clear); a value the
+        // parser can make no number of is omitted so the stored one survives.
+        const yearsOfExperience = fieldToNumber(experience);
+        const deliveryRadiusKm = fieldToNumber(deliveryRadius);
+
         updateData.chef_profile = {
+          // Blank falls back to the chef's own name rather than blocking a save.
+          kitchen_name: kitchenName.trim() || name.trim(),
           kitchen_description: bio.trim(),
+          ...(yearsOfExperience !== undefined
+            ? { years_of_experience: yearsOfExperience }
+            : {}),
+          ...(deliveryRadiusKm !== undefined
+            ? { delivery_radius_km: deliveryRadiusKm }
+            : {}),
           specialties: specialties
             .split(",")
             .map((s) => s.trim())
@@ -286,7 +325,10 @@ export const ProfileScreen = () => {
             .split(",")
             .map((s) => s.trim())
             .filter(Boolean),
-          documents: dbUser.chef_profile?.documents ?? [],
+          // `documents` is write-only on the backend (it maps to
+          // food_safety_badge and is never echoed back), so echoing the read
+          // value here would clear the chef's uploaded documents. Omitting the
+          // key leaves them untouched.
           // When the picture has been touched, persist the change (clearing it
           // sends null so the removal sticks); otherwise leave it untouched.
           ...(profilePictureTouched
@@ -296,6 +338,9 @@ export const ProfileScreen = () => {
       }
 
       await userService.updateUser(dbUser.id, updateData);
+      // Pull the saved profile back so the form (and the rest of the app) shows
+      // what the server actually stored rather than stale context data.
+      await refreshDbUser();
       setProfilePictureTouched(false);
       Alert.alert("Saved", "Profile updated successfully.");
     } catch (err: any) {
@@ -316,9 +361,9 @@ export const ProfileScreen = () => {
         style: "destructive",
         onPress: async () => {
           await signOut();
-          // Browse-first: after logout, return to the public home/discover feed
-          // (not the login screen), matching the web app.
-          router.replace("/(tabs)/home");
+          // Browse-first: after logout, return to the public landing tab (not
+          // the login screen), matching the web app.
+          router.replace("/(tabs)/chefs");
         },
       },
     ]);
@@ -449,22 +494,25 @@ export const ProfileScreen = () => {
               style={styles.readOnly}
             />
 
-            <Input
+            <PhoneInput
               label="Phone"
-              placeholder="+1 555 000 0000"
               value={phone}
               onChangeText={setPhone}
-              keyboardType="phone-pad"
             />
 
-            <Input
-              label="Address"
-              placeholder="Your address"
-              value={address}
-              onChangeText={setAddress}
-              multiline
-              numberOfLines={2}
-              style={{ textAlignVertical: "top", minHeight: 60 }}
+            <LocationAutocomplete
+              label={isChef ? "Kitchen Address" : "Address"}
+              placeholder={
+                isChef ? "Search for where you cook from..." : "Search for your address..."
+              }
+              focusOnLahore
+              defaultValue={address}
+              onLocationSelect={(loc) => {
+                setAddress(loc.label);
+                // Selecting a suggestion gives exact coordinates, so the save
+                // no longer has to geocode the typed string.
+                setLocationCoords({ lat: loc.lat, lon: loc.lon });
+              }}
             />
 
             <Input
@@ -523,6 +571,30 @@ export const ProfileScreen = () => {
             </View>
           )}
 
+          {/* Favorites live in a customer tab, but the chef tab bar is full, so a
+              chef browsing other kitchens reaches the same screen from here. */}
+          {isChef && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>My Activity</Text>
+
+              <Pressable
+                onPress={() => router.push("/favorites")}
+                style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}
+              >
+                <View style={styles.linkLeft}>
+                  <View style={styles.linkIcon}>
+                    <Ionicons name="heart-outline" size={18} color={colors.primary} />
+                  </View>
+                  <View>
+                    <Text style={styles.linkTitle}>Favorites</Text>
+                    <Text style={styles.linkSubtitle}>Kitchens and dishes you've saved</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+          )}
+
           {/* Chef-specific fields */}
           {isChef && (
             <View style={styles.section}>
@@ -556,6 +628,17 @@ export const ProfileScreen = () => {
               )}
 
               <Input
+                label="Kitchen Name"
+                placeholder="e.g. Ammi's Kitchen"
+                value={kitchenName}
+                onChangeText={setKitchenName}
+                autoCapitalize="words"
+              />
+              <Text style={styles.fieldHint}>
+                Shown to customers instead of your own name.
+              </Text>
+
+              <Input
                 label="Kitchen Description (Bio)"
                 placeholder="Tell customers about your cooking style…"
                 value={bio}
@@ -581,26 +664,20 @@ export const ProfileScreen = () => {
 
               <Input
                 label="Years of Experience"
-                placeholder="e.g. 5 years"
+                placeholder="e.g. 5"
+                keyboardType="number-pad"
                 value={experience}
-                onChangeText={setExperience}
+                onChangeText={(v) => setExperience(sanitizeNumericInput(v))}
               />
 
               <Input
-                label="Kitchen Address"
-                placeholder="Where you cook from"
-                value={kitchenAddress}
-                onChangeText={setKitchenAddress}
-                multiline
-                numberOfLines={2}
-                style={{ textAlignVertical: "top", minHeight: 60 }}
-              />
-
-              <Input
-                label="Delivery Radius"
-                placeholder="e.g. 10 km"
+                label="Delivery Radius (km)"
+                placeholder="e.g. 10"
+                keyboardType="decimal-pad"
                 value={deliveryRadius}
-                onChangeText={setDeliveryRadius}
+                onChangeText={(v) =>
+                  setDeliveryRadius(sanitizeNumericInput(v, { allowDecimal: true }))
+                }
               />
             </View>
           )}
@@ -621,6 +698,9 @@ export const ProfileScreen = () => {
               />
             </View>
           )}
+
+          {/* Chef/customer mode — only for accounts holding both roles */}
+          <RoleSwitcher />
 
           {/* Legal & About */}
           {legalSection}
@@ -644,6 +724,7 @@ export default ProfileScreen;
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
+  fieldHint: { ...typography.xs, color: colors.mutedForeground, marginTop: -4 },
   content: { padding: spacing.md, gap: spacing.lg, paddingBottom: 40 },
 
   headerSection: { gap: 4 },

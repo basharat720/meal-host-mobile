@@ -23,7 +23,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n/context";
 import { requestService, userService } from "@/services/api";
 import { FoodRequest, Offer } from "@/services/types";
+import { chefDisplayName } from "@/lib/chefName";
 import { colors, spacing, typography, radius, shadow } from "@/constants/theme";
+import { getUserFriendlyError } from "@/lib/errorMessages";
 
 function offerBadgeVariant(
   status: Offer["status"]
@@ -111,7 +113,7 @@ export default function RequestDetailScreen() {
           if (result.status === "fulfilled") {
             map.set(
               uniqueChefIds[i],
-              result.value.name ?? `Chef #${uniqueChefIds[i]}`
+              chefDisplayName(result.value, `Chef #${uniqueChefIds[i]}`)
             );
           } else {
             map.set(uniqueChefIds[i], `Chef #${uniqueChefIds[i]}`);
@@ -183,7 +185,7 @@ export default function RequestDetailScreen() {
       setRejectReason("");
       Alert.alert("Offer declined.", "The chef's offer has been declined.");
     } catch (err: any) {
-      Alert.alert("Error", err?.message ?? "Failed to decline the offer.");
+      Alert.alert("Error", getUserFriendlyError(err, "Failed to decline the offer."));
     } finally {
       setIsRejecting(false);
     }

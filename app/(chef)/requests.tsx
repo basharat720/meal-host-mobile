@@ -25,6 +25,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useI18n } from "@/i18n/context";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
+import { getUserFriendlyError } from "@/lib/errorMessages";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -411,7 +412,7 @@ export default function ChefRequestsScreen() {
         })
         .catch((err) => console.error("Failed to refresh offers:", err));
     } catch (err: any) {
-      Alert.alert("Error", err?.message ?? "Failed to submit offer.");
+      Alert.alert("Error", getUserFriendlyError(err, "Failed to submit offer."));
     } finally {
       setSubmitting(false);
     }

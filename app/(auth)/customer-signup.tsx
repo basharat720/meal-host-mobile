@@ -9,18 +9,20 @@ import * as Location from "expo-location";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PhoneInput } from "@/components/ui/PhoneInput";
+import { LocationAutocomplete } from "@/components/ui/LocationAutocomplete";
+import { validatePhoneNumber } from "@/lib/phone";
 import { colors, spacing, typography, fonts, radius } from "@/constants/theme";
+import { getUserFriendlyError } from "@/lib/errorMessages";
+import { SOCIAL_AUTH_ENABLED } from "@/constants/config";
 import { Logo } from "@/components/Logo";
 
 type Coords = { latitude: number; longitude: number };
 
 // Phone is optional for customers; validate format only when provided.
-const validatePhone = (phone: string): string | null => {
-  const digits = phone.replace(/[^\d]/g, "");
-  if (digits.length < 10) return "Phone number must be at least 10 digits";
-  if (digits.length > 15) return "Phone number is too long";
-  return null;
-};
+// Optional for customers, but validated against its own country when given.
+const validatePhone = (phone: string): string | null =>
+  validatePhoneNumber(phone, false).error ?? null;
 
 export default function CustomerSignupScreen() {
   const { signUp, signInWithGoogle } = useAuth();
@@ -28,10 +30,10 @@ export default function CustomerSignupScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [coords, setCoords] = useState<Coords | null>(null);
-  const [locating, setLocating] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -46,42 +48,12 @@ export default function CustomerSignupScreen() {
     if (!password) e.password = "Password is required";
     else if (password.length < 6) e.password = "Password must be at least 6 characters";
     if (password !== confirmPassword) e.confirmPassword = "Passwords do not match";
-    if (phone.trim()) {
-      const phoneError = validatePhone(phone);
-      if (phoneError) e.phone = phoneError;
-    }
+    const phoneError = validatePhone(phone);
+    if (phoneError) e.phone = phoneError;
     if (!address.trim()) e.address = "Address is required";
     else if (address.trim().length < 5) e.address = "Address is too short";
     setErrors(e);
     return Object.keys(e).length === 0;
-  };
-
-  // Fill address + coordinates from the device's current location.
-  const useCurrentLocation = async () => {
-    setLocating(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permission needed", "Location permission is required to use your current location.");
-        return;
-      }
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const c = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
-      setCoords(c);
-      try {
-        const places = await Location.reverseGeocodeAsync(c);
-        const p = places?.[0];
-        if (p) {
-          const parts = [p.name, p.street, p.city, p.region, p.postalCode, p.country].filter(Boolean);
-          if (parts.length) setAddress(parts.join(", "));
-        }
-      } catch {}
-      setErrors((prev) => { const n = { ...prev }; delete n.address; return n; });
-    } catch {
-      Alert.alert("Location Error", "Could not get your current location. Please enter your address manually.");
-    } finally {
-      setLocating(false);
-    }
   };
 
   // Return coordinates for the typed address, forward-geocoding if needed.
@@ -112,13 +84,15 @@ export default function CustomerSignupScreen() {
       password,
       "customer",
       name.trim(),
-      undefined,
-      phone.trim() || undefined,
+      // The backend only persists acceptance on a chef record, but record it
+      // here too so customer acceptance isn't lost if that ever changes.
+      { terms_accepted: acceptedTerms, terms_accepted_at: new Date().toISOString() },
+      phone || undefined,
       { latitude: resolved.latitude, longitude: resolved.longitude, address: address.trim() },
     );
     setIsLoading(false);
     if (error) {
-      Alert.alert("Sign Up Failed", error.message);
+      Alert.alert("Sign Up Failed", getUserFriendlyError(error));
     } else {
       router.replace("/(auth)/verify-email");
     }
@@ -129,15 +103,27 @@ export default function CustomerSignupScreen() {
     const { error } = await signInWithGoogle("customer");
     setIsGoogleLoading(false);
     if (error) Alert.alert("Google Sign-Up Failed", error.message);
-    else router.replace("/(tabs)/home");
+    else router.replace("/(tabs)/chefs");
+  };
+
+  // Mirrors the login screens: the signup route can be reached from a gate
+  // deep in the app, so fall back to the home feed when there's no history.
+  const goBackOrHome = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)/chefs");
   };
 
   return (
     <SafeAreaView style={styles.safe}>
+      <View style={styles.topBar}>
+        <TouchableOpacity onPress={goBackOrHome} hitSlop={8} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={colors.foreground} />
+        </TouchableOpacity>
+      </View>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <Logo size="lg" showText={true} />
+            <Logo size="lg" showText={true} variant="customer" />
             <Text style={styles.title}>Create account</Text>
             <Text style={styles.subtitle}>Join Pakwanhus as a customer</Text>
           </View>
@@ -145,22 +131,28 @@ export default function CustomerSignupScreen() {
           <View style={styles.form}>
             <Input label="Full Name" value={name} onChangeText={setName} placeholder="Your name" autoCapitalize="words" error={errors.name} />
             <Input label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="you@example.com" error={errors.email} containerStyle={{ marginTop: spacing.md }} />
-            <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry placeholder="••••••••" error={errors.password} containerStyle={{ marginTop: spacing.md }} />
-            <Input label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry placeholder="••••••••" error={errors.confirmPassword} containerStyle={{ marginTop: spacing.md }} />
-            <Input label="Phone Number (optional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+92 300 1234567" error={errors.phone} containerStyle={{ marginTop: spacing.md }} />
+            <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} placeholder="••••••••" error={errors.password} containerStyle={{ marginTop: spacing.md }} />
+            <Input label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!showPassword} placeholder="••••••••" error={errors.confirmPassword} containerStyle={{ marginTop: spacing.md }} />
+            <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.showPassword}>
+              <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.mutedForeground} />
+              <Text style={styles.showPasswordText}>{showPassword ? "Hide" : "Show"} password</Text>
+            </TouchableOpacity>
+            <PhoneInput label="Phone Number (optional)" value={phone} onChangeText={setPhone} error={errors.phone} containerStyle={{ marginTop: spacing.md }} />
 
-            <Input
+            <LocationAutocomplete
               label="Address"
-              value={address}
-              onChangeText={(t) => { setAddress(t); setCoords(null); }}
-              placeholder="Street, city, region..."
+              required
+              focusOnLahore
+              placeholder="Search for your address..."
+              defaultValue={address}
               error={errors.address}
+              onLocationSelect={(loc) => {
+                setAddress(loc.label);
+                setCoords({ latitude: loc.lat, longitude: loc.lon });
+                setErrors((prev) => { const n = { ...prev }; delete n.address; return n; });
+              }}
               containerStyle={{ marginTop: spacing.md }}
             />
-            <TouchableOpacity style={styles.locationButton} onPress={useCurrentLocation} disabled={locating} activeOpacity={0.7}>
-              <Ionicons name="location-outline" size={16} color={colors.primary} />
-              <Text style={styles.locationButtonText}>{locating ? "Getting location..." : "Use current location"}</Text>
-            </TouchableOpacity>
             {coords && <Text style={styles.locationHint}>Location set ({coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)})</Text>}
 
             <TouchableOpacity style={styles.checkboxRow} onPress={() => setAcceptedTerms((v) => !v)} activeOpacity={0.7}>
@@ -177,13 +169,17 @@ export default function CustomerSignupScreen() {
 
             <Button onPress={handleSignup} loading={isLoading} disabled={!acceptedTerms} style={styles.button}>Create Account</Button>
 
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
-            </View>
+            {SOCIAL_AUTH_ENABLED && (
+              <>
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>or</Text>
+                  <View style={styles.dividerLine} />
+                </View>
 
-            <Button variant="outline" onPress={handleGoogleSignup} loading={isGoogleLoading}>Continue with Google</Button>
+                <Button variant="outline" onPress={handleGoogleSignup} loading={isGoogleLoading}>Continue with Google</Button>
+              </>
+            )}
           </View>
 
           <View style={styles.footer}>
@@ -211,14 +207,16 @@ export default function CustomerSignupScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
+  showPassword: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, alignSelf: "flex-end" },
+  showPasswordText: { ...typography.sm, color: colors.mutedForeground },
+  topBar: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  backButton: { width: 40, height: 40, alignItems: "flex-start", justifyContent: "center" },
   container: { flexGrow: 1, padding: spacing.lg },
   header: { alignItems: "center", marginVertical: spacing["2xl"], gap: spacing.md },
   title: { ...typography["3xl"], fontFamily: fonts.display, fontWeight: "700", color: colors.foreground },
   subtitle: { ...typography.base, fontFamily: fonts.sans, color: colors.mutedForeground },
   form: {},
   button: { marginTop: spacing.lg },
-  locationButton: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.sm },
-  locationButtonText: { ...typography.sm, color: colors.primary, fontWeight: "600" },
   locationHint: { ...typography.xs, color: colors.mutedForeground, marginTop: 4 },
   checkboxRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, marginTop: spacing.lg },
   checkbox: {

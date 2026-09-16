@@ -14,6 +14,7 @@ import { FullScreenLoader } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { chefService, reviewService } from "@/services/api";
 import { Chef, Review } from "@/services/types";
+import { chefDisplayName } from "@/lib/chefName";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 
 function StarRow({ stars, size = 12 }: { stars: number; size?: number }) {
@@ -101,7 +102,7 @@ export default function ChefReviewsScreen() {
         <View style={styles.summaryRight}>
           <Text style={styles.summaryChefLabel}>Reviews for</Text>
           <Text style={styles.summaryChefName} numberOfLines={2}>
-            {chef.name}
+            {chefDisplayName(chef)}
           </Text>
         </View>
       )}

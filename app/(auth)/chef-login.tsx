@@ -7,11 +7,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Link, router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { ChefHatIcon } from "@/components/icons/BrandIcons";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { colors, spacing, typography, fonts, radius } from "@/constants/theme";
+import { getUserFriendlyError } from "@/lib/errorMessages";
+import { SOCIAL_AUTH_ENABLED } from "@/constants/config";
 
 // Web's gradient-secondary: hsl(12 85% 62%) → hsl(18 90% 55%)
 const CHEF_GRADIENT: [string, string] = ["#F06D4C", "#F36325"];
@@ -23,7 +25,7 @@ export default function ChefLoginScreen() {
 
   const goBackOrHome = () => {
     if (router.canGoBack()) router.back();
-    else router.replace("/(tabs)/home");
+    else router.replace("/(tabs)/chefs");
   };
 
   const [email, setEmail]       = useState("");
@@ -49,7 +51,7 @@ export default function ChefLoginScreen() {
     const { error } = await signIn(email.trim(), password);
     setIsLoading(false);
     if (error) {
-      Alert.alert("Login Failed", error.message);
+      Alert.alert("Login Failed", getUserFriendlyError(error));
     } else {
       setRole("chef");
       router.replace(destination as any);
@@ -76,7 +78,7 @@ export default function ChefLoginScreen() {
           <LinearGradient colors={CHEF_GRADIENT} style={styles.hero} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }}>
             <View style={styles.heroInner}>
               <View style={styles.chefBadge}>
-                <MaterialCommunityIcons name="chef-hat" size={32} color="#fff" />
+                <ChefHatIcon size={32} color="#fff" />
               </View>
               <Text style={styles.heroTitle}>Chef Portal</Text>
               <Text style={styles.heroSub}>Sign in to manage your kitchen</Text>
@@ -141,15 +143,19 @@ export default function ChefLoginScreen() {
               Sign In
             </Button>
 
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
-            </View>
+            {SOCIAL_AUTH_ENABLED && (
+              <>
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>or</Text>
+                  <View style={styles.dividerLine} />
+                </View>
 
-            <Button variant="outline" onPress={handleGoogleLogin} loading={isGoogleLoading}>
-              Continue with Google
-            </Button>
+                <Button variant="outline" onPress={handleGoogleLogin} loading={isGoogleLoading}>
+                  Continue with Google
+                </Button>
+              </>
+            )}
 
             <View style={styles.footer}>
               <Text style={styles.footerText}>New chef? </Text>

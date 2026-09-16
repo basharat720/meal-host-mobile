@@ -4,6 +4,7 @@ import {
   ActivityIndicator, Modal, ScrollView, RefreshControl, Linking, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { DishCard } from "@/components/DishCard";
@@ -31,6 +32,14 @@ const SORT_OPTIONS = [
 ];
 
 const PAGE_SIZE = 12;
+
+// Deep forest green → warm gold, matching the web request hero's
+// primary → accent gradient.
+const REQUEST_CTA_GRADIENT: [string, string, string] = [
+  colors.gradientPrimaryStart,
+  colors.primary,
+  colors.accent,
+];
 
 export default function HomeScreen() {
   const { formatPrice } = useI18n();
@@ -83,7 +92,13 @@ export default function HomeScreen() {
   const [displayedCount, setDisplayedCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const fetchDishes = useCallback(async (lat?: number, lon?: number, radiusKm?: number | null, silent = false) => {
+  const fetchDishes = useCallback(async (
+    lat?: number,
+    lon?: number,
+    radiusKm?: number | null,
+    silent = false,
+    cuisineCodes: string[] = [],
+  ) => {
     try {
       // On a silent refetch (screen refocus / pull-to-refresh) keep showing the
       // existing dishes instead of flashing the full-screen loader.
@@ -94,6 +109,11 @@ export default function HomeScreen() {
       // everywhere" — send an empty query so the backend returns all dishes.
       if (lat && lon && radiusKm != null) { params.lat = lat; params.lon = lon; params.radius_km = radiusKm; }
       else { params.query = ""; }
+      // Filter by cuisine on the server too. The client-side pass below still
+      // runs (it keeps the list responsive while this refetch is in flight), but
+      // on its own it could only ever match within the 100-dish page we fetched,
+      // so a matching dish outside that page looked like "no dishes found".
+      if (cuisineCodes.length > 0) params.cuisine_type_codes = cuisineCodes;
       const raw = await dishService.searchFood(params);
       const mapped = raw.map((d: any) => ({
         id: d.id.toString(),
@@ -154,17 +174,25 @@ export default function HomeScreen() {
     return null;
   }, [locationPref, profileLocation]);
 
+  // Selected cuisine codes as a stable, sorted array so it can be a hook
+  // dependency (a Set's identity changes on every toggle).
+  const cuisineCodesKey = useMemo(
+    () => Array.from(selectedCuisines).sort().join(","),
+    [selectedCuisines],
+  );
+
   // Fetch dishes for the current preference. `silent` keeps existing data on
   // screen while refetching (screen refocus / pull-to-refresh / filter change).
   const loadDishes = useCallback(async (silent = false) => {
+    const cuisineCodes = cuisineCodesKey === "" ? [] : cuisineCodesKey.split(",");
     // "Any distance" needs no coordinates — search everywhere.
     if (locationPref.radiusKm == null) {
-      await fetchDishes(undefined, undefined, null, silent);
+      await fetchDishes(undefined, undefined, null, silent, cuisineCodes);
       return;
     }
     const coords = await resolveCoords();
-    await fetchDishes(coords?.lat, coords?.lon, locationPref.radiusKm, silent);
-  }, [fetchDishes, resolveCoords, locationPref.radiusKm]);
+    await fetchDishes(coords?.lat, coords?.lon, locationPref.radiusKm, silent, cuisineCodes);
+  }, [fetchDishes, resolveCoords, locationPref.radiusKm, cuisineCodesKey]);
 
   // Load the saved location preference once on mount.
   useEffect(() => {
@@ -286,6 +314,18 @@ export default function HomeScreen() {
 
   const hasActiveFilters = searchQuery !== "" || selectedCuisines.size > 0 || sortBy !== "relevance" || priceTouched;
 
+  // Empty-state copy. A cuisine chip matches only dishes the chef actually
+  // tagged with that cuisine, so name the cuisines when they're the active
+  // filter — otherwise an untagged catalogue reads as a broken filter.
+  const emptyDescription = useMemo(() => {
+    if (selectedCuisines.size === 0) return "Try adjusting your search or filters.";
+    const names = cuisineTypes
+      .filter((c) => selectedCuisines.has(c.code))
+      .map((c) => c.name);
+    const label = names.length > 0 ? names.join(", ") : "that cuisine";
+    return `No dishes are tagged ${label} in this area yet. Try another cuisine or widen your search area.`;
+  }, [selectedCuisines, cuisineTypes]);
+
   // Human-readable heading describing what area the feed currently covers.
   const searchAreaLabel = useMemo(() => {
     if (locationPref.radiusKm == null) return "Popular Everywhere";
@@ -314,10 +354,13 @@ export default function HomeScreen() {
   const handleEndReached = () => {
     if (!hasMore || isLoadingMore) return;
     setIsLoadingMore(true);
+    // The next page is already in memory — this only slices further into
+    // sortedDishes, with no request behind it — so the delay exists purely to
+    // let the spinner register. Web cut the same one to 200ms in 1da7c68.
     setTimeout(() => {
       setDisplayedCount((prev) => Math.min(prev + PAGE_SIZE, sortedDishes.length));
       setIsLoadingMore(false);
-    }, 400);
+    }, 200);
   };
 
   const renderItem = useCallback(({ item, index }: { item: any; index: number }) => {
@@ -402,54 +445,92 @@ export default function HomeScreen() {
           ScrollView): the chips arrive asynchronously after mount, and on Android
           a ScrollView doesn't reliably re-run layout for late children, so they'd
           paint as blank pills until the next re-render. FlatList lays out arriving
-          data correctly; extraData makes it re-render when the selection changes. */}
+          data correctly; extraData makes it re-render when the selection changes.
+
+          The wrapper <View> is load-bearing: RN gives every horizontal
+          ScrollView/FlatList `flexGrow: 1, flexShrink: 1` on its own style, so as
+          a direct child of this column the row got squeezed (chips clipped in
+          half) whenever the fixed header content plus the dish list overflowed the
+          screen. Inside a plain View the row keeps its content height, and the
+          vertical dish list absorbs the shrink instead — it scrolls anyway. */}
       {cuisineTypes.length > 0 && (
-        <FlatList
-          horizontal
-          data={cuisineTypes}
-          keyExtractor={(cuisine) => cuisine.code}
-          extraData={selectedCuisines}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.cuisineChipsRow}
-          style={styles.cuisineChipsContainer}
-          renderItem={({ item: cuisine }) => (
-            <Pressable
-              style={[styles.cuisineChip, selectedCuisines.has(cuisine.code) && styles.cuisineChipActive]}
-              onPress={() => toggleCuisine(cuisine.code)}
-            >
-              <Text style={[styles.cuisineChipText, selectedCuisines.has(cuisine.code) && styles.cuisineChipTextActive]}>
-                {cuisine.name}
-              </Text>
-            </Pressable>
-          )}
-          ListFooterComponent={
-            selectedCuisines.size > 0 ? (
+        <View style={styles.cuisineChipsContainer}>
+          <FlatList
+            horizontal
+            data={cuisineTypes}
+            keyExtractor={(cuisine) => cuisine.code}
+            extraData={selectedCuisines}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.cuisineChipsRow}
+            style={styles.cuisineChipsList}
+            renderItem={({ item: cuisine }) => (
               <Pressable
-                style={styles.cuisineChipReset}
-                onPress={() => setSelectedCuisines(new Set())}
+                style={[styles.cuisineChip, selectedCuisines.has(cuisine.code) && styles.cuisineChipActive]}
+                onPress={() => toggleCuisine(cuisine.code)}
               >
-                <Ionicons name="close" size={14} color={colors.mutedForeground} />
-                <Text style={styles.cuisineChipResetText}>Reset</Text>
+                <Text style={[styles.cuisineChipText, selectedCuisines.has(cuisine.code) && styles.cuisineChipTextActive]}>
+                  {cuisine.name}
+                </Text>
               </Pressable>
-            ) : null
-          }
-        />
+            )}
+            ListFooterComponent={
+              selectedCuisines.size > 0 ? (
+                <Pressable
+                  style={styles.cuisineChipReset}
+                  onPress={() => setSelectedCuisines(new Set())}
+                >
+                  <Ionicons name="close" size={14} color={colors.mutedForeground} />
+                  <Text style={styles.cuisineChipResetText}>Reset</Text>
+                </Pressable>
+              ) : null
+            }
+          />
+        </View>
       )}
 
-      {/* Request a dish banner */}
-      <Pressable
-        style={({ pressed }) => [styles.requestBanner, pressed && { opacity: 0.85 }]}
-        onPress={() => router.push("/(tabs)/post-request")}
+      {/* Custom-request CTA — mirrors the web landing page's request hero: a
+          prominent gradient card carrying the primary "post a request" action,
+          plus a shortcut to the user's existing requests (previously only
+          reachable from the Profile tab). */}
+      <LinearGradient
+        colors={REQUEST_CTA_GRADIENT}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.requestCta}
       >
-        <View style={styles.requestBannerLeft}>
-          <Ionicons name="bulb-outline" size={20} color={colors.accent} />
-          <View>
-            <Text style={styles.requestBannerTitle}>Can't find what you're craving?</Text>
-            <Text style={styles.requestBannerSub}>Post a custom dish request — chefs will offer!</Text>
+        <View style={styles.requestCtaHeader}>
+          <View style={styles.requestCtaIcon}>
+            <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" />
+          </View>
+          <View style={styles.requestCtaCopy}>
+            <Text style={styles.requestCtaTitle}>Want something specific? Request it!</Text>
+            <Text style={styles.requestCtaSub}>
+              Post your food request and let home chefs offer to cook it just for you.
+            </Text>
           </View>
         </View>
-        <Ionicons name="chevron-forward" size={18} color={colors.accent} />
-      </Pressable>
+
+        <View style={styles.requestCtaActions}>
+          <Pressable
+            style={({ pressed }) => [styles.requestCtaPrimary, pressed && styles.requestCtaPressed]}
+            onPress={() => router.push("/(tabs)/post-request")}
+          >
+            <Ionicons name="add-circle" size={18} color={colors.primary} />
+            <Text style={styles.requestCtaPrimaryText}>Post Your Request</Text>
+            <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+          </Pressable>
+
+          {user && (
+            <Pressable
+              style={({ pressed }) => [styles.requestCtaSecondary, pressed && styles.requestCtaPressed]}
+              onPress={() => router.push("/(tabs)/my-requests")}
+            >
+              <Ionicons name="document-text-outline" size={16} color="#fff" />
+              <Text style={styles.requestCtaSecondaryText}>My Requests</Text>
+            </Pressable>
+          )}
+        </View>
+      </LinearGradient>
 
       {/* Location banner — surfaced when GPS is off so the "everything" fallback
           is explained and the user can set a search area. */}
@@ -489,7 +570,7 @@ export default function HomeScreen() {
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.3}
           ListEmptyComponent={
-            <EmptyState icon="🔍" title="No dishes found" description="Try adjusting your search or filters." actionLabel="Clear Filters" onAction={resetFilters} />
+            <EmptyState icon="🔍" title="No dishes found" description={emptyDescription} actionLabel="Clear Filters" onAction={resetFilters} />
           }
           ListFooterComponent={
             isLoadingMore ? (
@@ -725,8 +806,10 @@ const styles = StyleSheet.create({
     width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary,
   },
 
-  // Cuisine chips horizontal scroll
-  cuisineChipsContainer: { maxHeight: 48 },
+  // Cuisine chips horizontal scroll. No maxHeight on purpose: the row must be
+  // free to size to the chips, which grow with the device's font scale.
+  cuisineChipsContainer: { flexGrow: 0, flexShrink: 0, backgroundColor: colors.background },
+  cuisineChipsList: { flexGrow: 0, flexShrink: 0 },
   cuisineChipsRow: {
     flexDirection: "row",
     paddingHorizontal: spacing.md,
@@ -759,23 +842,46 @@ const styles = StyleSheet.create({
   },
   cuisineChipResetText: { ...typography.sm, fontFamily: fonts.sans, color: colors.mutedForeground },
 
-  requestBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  // Custom-request CTA
+  requestCta: {
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    backgroundColor: `${colors.accent}18`,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: `${colors.accent}40`,
+    padding: spacing.md,
+    borderRadius: radius.xl,
+    gap: spacing.md,
+    // Lift the card off the feed the way the web hero's shadow does.
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  requestBannerLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flex: 1 },
-  requestBannerTitle: { ...typography.sm, fontFamily: fonts.sansSemiBold, fontWeight: "600", color: colors.foreground },
-  requestBannerSub: { ...typography.xs, fontFamily: fonts.sans, color: colors.mutedForeground },
+  requestCtaHeader: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+  requestCtaIcon: {
+    width: 34, height: 34, borderRadius: radius.full,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center", justifyContent: "center",
+  },
+  requestCtaCopy: { flex: 1, gap: 2 },
+  requestCtaTitle: { ...typography.md, fontFamily: fonts.sansBold, fontWeight: "700", color: "#fff" },
+  requestCtaSub: { ...typography.xs, fontFamily: fonts.sans, color: "rgba(255,255,255,0.88)" },
+  requestCtaActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  requestCtaPrimary: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 6, height: 42, paddingHorizontal: spacing.md,
+    borderRadius: radius.full, backgroundColor: "#fff",
+  },
+  requestCtaPrimaryText: { ...typography.sm, fontFamily: fonts.sansBold, fontWeight: "700", color: colors.primary },
+  requestCtaSecondary: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    height: 42, paddingHorizontal: spacing.md,
+    borderRadius: radius.full,
+    borderWidth: 1.5, borderColor: "rgba(255,255,255,0.55)",
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  requestCtaSecondaryText: { ...typography.sm, fontFamily: fonts.sansSemiBold, fontWeight: "600", color: "#fff" },
+  requestCtaPressed: { opacity: 0.85 },
 
   resultsHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   resultsTitle: { ...typography.lg, fontFamily: fonts.sansBold, fontWeight: "700", color: colors.foreground },

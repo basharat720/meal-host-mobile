@@ -17,6 +17,8 @@ import { Badge } from "@/components/ui/Badge";
 import { FullScreenLoader } from "@/components/ui/LoadingSpinner";
 import { chefService, reviewService, availabilityService } from "@/services/api";
 import { Chef, Review, AvailabilitySlot, ChefAvailabilityStatus } from "@/services/types";
+import { chefDisplayName } from "@/lib/chefName";
+import { FavoriteButton } from "@/components/FavoriteButton";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -136,7 +138,8 @@ export default function ChefProfileScreen() {
     chef.locations?.find((l) => l.is_primary) ?? chef.locations?.[0];
   const ratingAvg = profile?.rating_avg ?? 0;
   const profilePictureUrl = profile?.profile_picture_url;
-  const initials = chef.name
+  const displayName = chefDisplayName(chef);
+  const initials = displayName
     .split(" ")
     .map((w) => w[0])
     .join("")
@@ -177,6 +180,12 @@ export default function ChefProfileScreen() {
       >
         {/* Chef header card */}
         <View style={styles.card}>
+          <FavoriteButton
+            type="chef"
+            id={chef.id}
+            label={displayName}
+            style={styles.favoriteButton}
+          />
           <View style={styles.headerRow}>
             {profilePictureUrl ? (
               <Image
@@ -192,7 +201,7 @@ export default function ChefProfileScreen() {
             )}
 
             <View style={styles.headerInfo}>
-              <Text style={styles.chefName}>{chef.name}</Text>
+              <Text style={styles.chefName}>{displayName}</Text>
 
               {primaryLocation?.address && (
                 <View style={styles.locationRow}>
@@ -380,7 +389,7 @@ export default function ChefProfileScreen() {
           onPress={() => router.push(`/chef/${id}/menu`)}
           style={styles.menuButton}
         >
-          Browse {chef.name.split(" ")[0]}'s Menu
+          Browse {displayName.split(" ")[0]}'s Menu
         </Button>
       </ScrollView>
     </SafeAreaView>
@@ -450,11 +459,15 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   headerInfo: { flex: 1 },
+  favoriteButton: { top: 10, right: 10 },
   chefName: {
     ...typography["2xl"],
     fontWeight: "700",
     color: colors.foreground,
     marginBottom: 4,
+    // Keeps a long kitchen name clear of the favorite heart at the card's
+    // top-right.
+    paddingRight: 30,
   },
   locationRow: {
     flexDirection: "row",

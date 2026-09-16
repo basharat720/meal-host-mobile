@@ -36,6 +36,7 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { isChefActive } from "@/lib/chefStatus";
+import { uploadFoodImage } from "@/services/imageService";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 
 // ---------------------------------------------------------------------------
@@ -46,30 +47,42 @@ interface DishForm {
   description: string;
   price: string;
   available_quantity: string;
-  preparation_time_hours: string;
+  preparation_time_minutes: string;
   dietary_tag_ids: number[];
   cuisine_type_ids: number[];
   pickup_location_id: number | null;
-  imageUri: string | null;   // local URI from image picker
-  imageUrl: string;          // remote URL (fallback / after upload)
+  imageUri: string | null; // local URI from image picker
+  imageUrl: string; // remote URL (fallback / after upload)
   isAvailable: boolean;
 }
 
-// Prep time is entered/edited in HOURS (matching the availability screen) but
-// stored in minutes. These convert between the two.
-const prepHoursToMinutes = (hours: string): number | undefined => {
-  const h = parseFloat(hours);
-  return Number.isFinite(h) && h > 0 ? Math.round(h * 60) : undefined;
+// Prep time is entered and edited in HOURS but sent to the API in MINUTES.
+// There is no upper bound — dishes that marinate or slow-cook can run for days.
+
+// Returns { minutes } on success, or { error } with a message for an Alert.
+const parsePrepHours = (raw: string): { minutes?: number; error?: string } => {
+  const trimmed = raw.trim();
+  if (trimmed === "") return { minutes: undefined };
+  const hours = parseFloat(trimmed);
+  if (!Number.isFinite(hours) || hours <= 0) {
+    return { error: "Enter a valid preparation time in hours." };
+  }
+  return { minutes: Math.round(hours * 60) };
 };
-const prepMinutesToHours = (minutes?: number | null): string =>
-  minutes != null ? (minutes / 60).toFixed(2).replace(/\.?0+$/, "") : "";
+
+// Minutes from the API back into the hours shown in the input. Fractional hours
+// keep up to two decimals (90 min → "1.5") and whole hours stay clean ("2").
+const prepMinutesToInput = (minutes?: number | null): string => {
+  if (minutes == null || !Number.isFinite(minutes) || minutes <= 0) return "";
+  return String(Number((minutes / 60).toFixed(2)));
+};
 
 const EMPTY_FORM: DishForm = {
   title: "",
   description: "",
   price: "",
   available_quantity: "",
-  preparation_time_hours: "",
+  preparation_time_minutes: "",
   dietary_tag_ids: [],
   cuisine_type_ids: [],
   pickup_location_id: null,
@@ -78,44 +91,6 @@ const EMPTY_FORM: DishForm = {
   isAvailable: true,
 };
 
-// ---------------------------------------------------------------------------
-// Image upload helper (Cloudinary via env vars)
-// ---------------------------------------------------------------------------
-const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? "";
-const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? "";
-
-const uploadImageToCloudinary = async (
-  uri: string,
-  chefUid: string
-): Promise<string> => {
-  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-    throw new Error(
-      "Cloudinary not configured. Set EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME and EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET."
-    );
-  }
-  const safeUid = chefUid.replace(/[^a-zA-Z0-9]/g, "_");
-  const ext = uri.split(".").pop()?.toLowerCase() ?? "jpg";
-  const mimeMap: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif" };
-  const mimeType = mimeMap[ext] ?? "image/jpeg";
-
-  const formData = new FormData();
-  formData.append("file", { uri, name: `food.${ext}`, type: mimeType } as any);
-  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-  formData.append("folder", `food-images/${safeUid}`);
-
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-    { method: "POST", body: formData }
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`Cloudinary upload failed (${res.status}): ${err?.error?.message ?? ""}`);
-  }
-  const data = await res.json();
-  const url = data.secure_url || data.url;
-  if (!url) throw new Error("Cloudinary response missing URL");
-  return url as string;
-};
 
 // ---------------------------------------------------------------------------
 // Dish row component
@@ -132,7 +107,10 @@ function DishRow({
   onDelete: (id: number) => void;
 }) {
   const { formatPrice } = useI18n();
-  const primaryImage = item.images?.find((i) => i.is_primary)?.image_url ?? item.images?.[0]?.image_url ?? null;
+  const primaryImage =
+    item.images?.find((i) => i.is_primary)?.image_url ??
+    item.images?.[0]?.image_url ??
+    null;
   const isActive = item.status === "ACTIVE";
 
   return (
@@ -144,10 +122,18 @@ function DishRow({
         accessibilityLabel={`Edit ${item.title}`}
       >
         {primaryImage ? (
-          <Image source={{ uri: primaryImage }} style={styles.rowImage} contentFit="cover" />
+          <Image
+            source={{ uri: primaryImage }}
+            style={styles.rowImage}
+            contentFit="cover"
+          />
         ) : (
           <View style={[styles.rowImage, styles.rowImageFallback]}>
-            <Ionicons name="restaurant-outline" size={28} color={colors.mutedForeground} />
+            <Ionicons
+              name="restaurant-outline"
+              size={28}
+              color={colors.mutedForeground}
+            />
           </View>
         )}
         <View style={styles.rowImageEditBadge}>
@@ -156,7 +142,9 @@ function DishRow({
       </Pressable>
 
       <View style={styles.rowInfo}>
-        <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
+        <Text style={styles.rowTitle} numberOfLines={1}>
+          {item.title}
+        </Text>
         <Text style={styles.rowPrice}>{formatPrice(item.price)}</Text>
         <Text style={styles.rowQty}>Qty: {item.available_quantity}</Text>
         {item.dietary_tags?.length > 0 && (
@@ -177,7 +165,11 @@ function DishRow({
         />
         <Pressable
           onPress={() => onDelete(item.id)}
-          style={({ pressed }) => [styles.actionBtn, styles.deleteBtn, pressed && styles.actionBtnPressed]}
+          style={({ pressed }) => [
+            styles.actionBtn,
+            styles.deleteBtn,
+            pressed && styles.actionBtnPressed,
+          ]}
           hitSlop={6}
           accessibilityRole="button"
           accessibilityLabel={`Delete ${item.title}`}
@@ -258,7 +250,12 @@ function DishModal({
   const previewUri = form.imageUri ?? (form.imageUrl ? form.imageUrl : null);
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -272,15 +269,26 @@ function DishModal({
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            contentContainerStyle={styles.modalBody}
+            keyboardShouldPersistTaps="handled"
+          >
             {/* Image picker */}
             <Text style={styles.fieldLabel}>Dish Image</Text>
             <Pressable style={styles.imagePicker} onPress={pickImage}>
               {previewUri ? (
-                <Image source={{ uri: previewUri }} style={styles.imagePreview} contentFit="cover" />
+                <Image
+                  source={{ uri: previewUri }}
+                  style={styles.imagePreview}
+                  contentFit="cover"
+                />
               ) : (
                 <View style={styles.imagePickerPlaceholder}>
-                  <Ionicons name="camera-outline" size={32} color={colors.mutedForeground} />
+                  <Ionicons
+                    name="camera-outline"
+                    size={32}
+                    color={colors.mutedForeground}
+                  />
                   <Text style={styles.imagePickerText}>Pick image</Text>
                 </View>
               )}
@@ -291,7 +299,9 @@ function DishModal({
               label="Or paste image URL"
               placeholder="https://example.com/food.jpg"
               value={form.imageUrl}
-              onChangeText={(v) => setForm((f) => ({ ...f, imageUrl: v, imageUri: null }))}
+              onChangeText={(v) =>
+                setForm((f) => ({ ...f, imageUrl: v, imageUri: null }))
+              }
               autoCapitalize="none"
               keyboardType="url"
             />
@@ -322,14 +332,18 @@ function DishModal({
               label="Available Quantity *"
               placeholder="10"
               value={form.available_quantity}
-              onChangeText={(v) => setForm((f) => ({ ...f, available_quantity: v }))}
+              onChangeText={(v) =>
+                setForm((f) => ({ ...f, available_quantity: v }))
+              }
               keyboardType="number-pad"
             />
             <Input
               label="Preparation Time (hours)"
-              placeholder="0.5"
-              value={form.preparation_time_hours}
-              onChangeText={(v) => setForm((f) => ({ ...f, preparation_time_hours: v }))}
+              placeholder="2"
+              value={form.preparation_time_minutes}
+              onChangeText={(v) =>
+                setForm((f) => ({ ...f, preparation_time_minutes: v }))
+              }
               keyboardType="decimal-pad"
             />
 
@@ -338,7 +352,8 @@ function DishModal({
               <Text style={styles.fieldLabel}>Pickup Location *</Text>
               {locations.length === 0 ? (
                 <Text style={styles.helperError}>
-                  No pickup locations found. Add a location in your profile first.
+                  No pickup locations found. Add a location in your profile
+                  first.
                 </Text>
               ) : (
                 <View style={styles.tagsWrap}>
@@ -349,10 +364,16 @@ function DishModal({
                       <Pressable
                         key={loc.id}
                         onPress={() => selectLocation(loc.id)}
-                        style={[styles.tagChip, selected && styles.tagChipSelected]}
+                        style={[
+                          styles.tagChip,
+                          selected && styles.tagChipSelected,
+                        ]}
                       >
                         <Text
-                          style={[styles.tagChipText, selected && styles.tagChipTextSelected]}
+                          style={[
+                            styles.tagChipText,
+                            selected && styles.tagChipTextSelected,
+                          ]}
                           numberOfLines={1}
                         >
                           {label}
@@ -375,9 +396,17 @@ function DishModal({
                       <Pressable
                         key={cuisine.id}
                         onPress={() => toggleCuisine(cuisine.id)}
-                        style={[styles.tagChip, selected && styles.tagChipSelected]}
+                        style={[
+                          styles.tagChip,
+                          selected && styles.tagChipSelected,
+                        ]}
                       >
-                        <Text style={[styles.tagChipText, selected && styles.tagChipTextSelected]}>
+                        <Text
+                          style={[
+                            styles.tagChipText,
+                            selected && styles.tagChipTextSelected,
+                          ]}
+                        >
                           {cuisine.name}
                         </Text>
                       </Pressable>
@@ -392,7 +421,9 @@ function DishModal({
               <Text style={styles.fieldLabel}>Active</Text>
               <Switch
                 value={form.isAvailable}
-                onValueChange={(v) => setForm((f) => ({ ...f, isAvailable: v }))}
+                onValueChange={(v) =>
+                  setForm((f) => ({ ...f, isAvailable: v }))
+                }
                 trackColor={{ true: colors.primary, false: colors.border }}
                 thumbColor={colors.surface}
               />
@@ -409,9 +440,17 @@ function DishModal({
                       <Pressable
                         key={tag.id}
                         onPress={() => toggleTag(tag.id)}
-                        style={[styles.tagChip, selected && styles.tagChipSelected]}
+                        style={[
+                          styles.tagChip,
+                          selected && styles.tagChipSelected,
+                        ]}
                       >
-                        <Text style={[styles.tagChipText, selected && styles.tagChipTextSelected]}>
+                        <Text
+                          style={[
+                            styles.tagChipText,
+                            selected && styles.tagChipTextSelected,
+                          ]}
+                        >
                           {tag.code}
                         </Text>
                       </Pressable>
@@ -423,7 +462,12 @@ function DishModal({
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <Button variant="outline" onPress={onClose} style={{ flex: 1 }} disabled={saving}>
+            <Button
+              variant="outline"
+              onPress={onClose}
+              style={{ flex: 1 }}
+              disabled={saving}
+            >
               Cancel
             </Button>
             <Button onPress={onSave} style={{ flex: 1 }} loading={saving}>
@@ -454,32 +498,35 @@ export default function MenuScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const hasLoadedRef = useRef(false);
 
-  const fetchMenu = useCallback(async (silent = false) => {
-    if (!dbUser) return;
-    try {
-      // Keep the current list on screen while refetching silently
-      // (refocus / pull-to-refresh) instead of flashing the loader.
-      if (!silent) setLoading(true);
-      const [data, tags, cuisines] = await Promise.all([
-        menuService.getChefListings(dbUser.id.toString()),
-        menuService.getDietaryTags(),
-        cuisineService.getCuisineTypes(),
-      ]);
-      setListings(Array.isArray(data) ? data : []);
-      setDietaryTags(Array.isArray(tags) ? tags : []);
-      setCuisineTypes(Array.isArray(cuisines) ? cuisines : []);
-    } catch (err) {
-      console.error("Failed to fetch menu:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [dbUser]);
+  const fetchMenu = useCallback(
+    async (silent = false) => {
+      if (!dbUser) return;
+      try {
+        // Keep the current list on screen while refetching silently
+        // (refocus / pull-to-refresh) instead of flashing the loader.
+        if (!silent) setLoading(true);
+        const [data, tags, cuisines] = await Promise.all([
+          menuService.getChefListings(dbUser.id.toString()),
+          menuService.getDietaryTags(),
+          cuisineService.getCuisineTypes(),
+        ]);
+        setListings(Array.isArray(data) ? data : []);
+        setDietaryTags(Array.isArray(tags) ? tags : []);
+        setCuisineTypes(Array.isArray(cuisines) ? cuisines : []);
+      } catch (err) {
+        console.error("Failed to fetch menu:", err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [dbUser],
+  );
 
   useFocusEffect(
     useCallback(() => {
       fetchMenu(hasLoadedRef.current);
       hasLoadedRef.current = true;
-    }, [fetchMenu])
+    }, [fetchMenu]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -500,7 +547,7 @@ export default function MenuScreen() {
     if (!chefActive) {
       Alert.alert(
         "Account not active",
-        `You must be an active chef to ${action}.`
+        `You must be an active chef to ${action}.`,
       );
       return false;
     }
@@ -518,10 +565,11 @@ export default function MenuScreen() {
   // ------------------------------------------------------------------
   const handleToggle = async (id: number, current: FoodListing["status"]) => {
     if (!requireActiveChef("update dishes")) return;
-    const newStatus: FoodListing["status"] = current === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+    const newStatus: FoodListing["status"] =
+      current === "ACTIVE" ? "INACTIVE" : "ACTIVE";
     // Optimistic update
     setListings((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, status: newStatus } : l))
+      prev.map((l) => (l.id === id ? { ...l, status: newStatus } : l)),
     );
     try {
       await menuService.updateListing(id, { status: newStatus });
@@ -529,7 +577,7 @@ export default function MenuScreen() {
       console.error("Failed to toggle status:", err);
       // Revert
       setListings((prev) =>
-        prev.map((l) => (l.id === id ? { ...l, status: current } : l))
+        prev.map((l) => (l.id === id ? { ...l, status: current } : l)),
       );
     }
   };
@@ -561,14 +609,19 @@ export default function MenuScreen() {
   // ------------------------------------------------------------------
   const openEdit = (item: FoodListing) => {
     if (!requireActiveChef("edit dishes")) return;
-    const primaryImg = item.images?.find((i) => i.is_primary)?.image_url ?? item.images?.[0]?.image_url ?? "";
+    const primaryImg =
+      item.images?.find((i) => i.is_primary)?.image_url ??
+      item.images?.[0]?.image_url ??
+      "";
     setEditingId(item.id);
     setEditForm({
       title: item.title,
       description: item.description ?? "",
       price: item.price.toString(),
       available_quantity: item.available_quantity.toString(),
-      preparation_time_hours: prepMinutesToHours(item.preparation_time_minutes),
+      preparation_time_minutes: prepMinutesToInput(
+        item.preparation_time_minutes,
+      ),
       dietary_tag_ids: item.dietary_tags?.map((t) => t.id) ?? [],
       cuisine_type_ids: item.cuisine_types?.map((c) => c.id) ?? [],
       pickup_location_id: item.pickup_location_id ?? defaultLocationId(),
@@ -585,7 +638,7 @@ export default function MenuScreen() {
   const resolveImageUrl = async (form: DishForm): Promise<string> => {
     if (form.imageUri) {
       const chefUid = user?.id ?? "anon";
-      return uploadImageToCloudinary(form.imageUri, chefUid);
+      return uploadFoodImage(form.imageUri, chefUid);
     }
     return form.imageUrl.trim();
   };
@@ -597,7 +650,7 @@ export default function MenuScreen() {
     const savedPrep = dbUser?.chef_profile?.default_prep_time_minutes;
     setAddForm({
       ...EMPTY_FORM,
-      preparation_time_hours: prepMinutesToHours(savedPrep),
+      preparation_time_minutes: prepMinutesToInput(savedPrep),
       pickup_location_id: defaultLocationId(),
     });
     setShowAddModal(true);
@@ -628,34 +681,47 @@ export default function MenuScreen() {
       Alert.alert("Validation", "Please select a pickup location.");
       return;
     }
+    // Checked before the image upload so a bad value doesn't cost an upload.
+    const prep = parsePrepHours(addForm.preparation_time_minutes);
+    if (prep.error) {
+      Alert.alert("Validation", prep.error);
+      return;
+    }
 
     let imageUrl = "";
     try {
       imageUrl = await resolveImageUrl(addForm);
     } catch {
-      Alert.alert("Image Upload", "Image upload failed. You can paste a URL instead.");
+      Alert.alert(
+        "Image Upload",
+        "Image upload failed. You can paste a URL instead.",
+      );
       return;
     }
 
     if (!imageUrl) {
-      Alert.alert("Validation", "Please provide an image (pick or paste a URL).");
+      Alert.alert(
+        "Validation",
+        "Please provide an image (pick or paste a URL).",
+      );
       return;
     }
 
     setSaving(true);
     try {
-      const createPayload: FoodListingCreate & { cuisine_type_ids?: number[] } = {
-        title: addForm.title.trim(),
-        description: addForm.description.trim() || undefined,
-        price,
-        available_quantity: qty,
-        status: addForm.isAvailable ? "ACTIVE" : "INACTIVE",
-        pickup_location_id: pickupLocationId,
-        dietary_tag_ids: addForm.dietary_tag_ids,
-        cuisine_type_ids: addForm.cuisine_type_ids,
-        image_url: imageUrl,
-        preparation_time_minutes: prepHoursToMinutes(addForm.preparation_time_hours),
-      };
+      const createPayload: FoodListingCreate & { cuisine_type_ids?: number[] } =
+        {
+          title: addForm.title.trim(),
+          description: addForm.description.trim() || undefined,
+          price,
+          available_quantity: qty,
+          status: addForm.isAvailable ? "ACTIVE" : "INACTIVE",
+          pickup_location_id: pickupLocationId,
+          dietary_tag_ids: addForm.dietary_tag_ids,
+          cuisine_type_ids: addForm.cuisine_type_ids,
+          image_url: imageUrl,
+          preparation_time_minutes: prep.minutes,
+        };
       const listing = await menuService.createListing(createPayload);
       setListings((prev) => [listing, ...prev]);
       setShowAddModal(false);
@@ -679,32 +745,41 @@ export default function MenuScreen() {
       Alert.alert("Validation", "Please select a pickup location.");
       return;
     }
+    const prep = parsePrepHours(editForm.preparation_time_minutes);
+    if (prep.error) {
+      Alert.alert("Validation", prep.error);
+      return;
+    }
 
     let imageUrl: string | undefined;
     if (editForm.imageUri) {
       try {
         imageUrl = await resolveImageUrl(editForm);
       } catch {
-        Alert.alert("Image Upload", "Image upload failed. Continuing without image change.");
+        Alert.alert(
+          "Image Upload",
+          "Image upload failed. Continuing without image change.",
+        );
       }
     }
 
     setSaving(true);
     try {
-      const updatePayload: FoodListingUpdate & { cuisine_type_ids?: number[] } = {
-        title: editForm.title.trim(),
-        description: editForm.description.trim() || undefined,
-        price: parseFloat(editForm.price) || 0,
-        available_quantity: parseInt(editForm.available_quantity) || 0,
-        status: editForm.isAvailable ? "ACTIVE" : "INACTIVE",
-        pickup_location_id: pickupLocationId,
-        dietary_tag_ids: editForm.dietary_tag_ids,
-        cuisine_type_ids: editForm.cuisine_type_ids,
-        preparation_time_minutes: prepHoursToMinutes(editForm.preparation_time_hours),
-      };
+      const updatePayload: FoodListingUpdate & { cuisine_type_ids?: number[] } =
+        {
+          title: editForm.title.trim(),
+          description: editForm.description.trim() || undefined,
+          price: parseFloat(editForm.price) || 0,
+          available_quantity: parseInt(editForm.available_quantity) || 0,
+          status: editForm.isAvailable ? "ACTIVE" : "INACTIVE",
+          pickup_location_id: pickupLocationId,
+          dietary_tag_ids: editForm.dietary_tag_ids,
+          cuisine_type_ids: editForm.cuisine_type_ids,
+          preparation_time_minutes: prep.minutes,
+        };
       const updated = await menuService.updateListing(editingId, updatePayload);
       setListings((prev) =>
-        prev.map((l) => (l.id === editingId ? updated : l))
+        prev.map((l) => (l.id === editingId ? updated : l)),
       );
       setShowEditModal(false);
       setEditingId(null);
@@ -746,7 +821,9 @@ export default function MenuScreen() {
               onDelete={handleDelete}
             />
           )}
-          contentContainerStyle={listings.length === 0 ? styles.emptyContainer : styles.listContent}
+          contentContainerStyle={
+            listings.length === 0 ? styles.emptyContainer : styles.listContent
+          }
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -793,7 +870,10 @@ export default function MenuScreen() {
         cuisineTypes={cuisineTypes}
         locations={dbUser?.locations ?? []}
         saving={saving}
-        onClose={() => { setShowEditModal(false); setEditingId(null); }}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingId(null);
+        }}
         onSave={handleEdit}
         title="Edit Dish"
       />
@@ -814,7 +894,11 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     backgroundColor: colors.surface,
   },
-  screenTitle: { ...typography.xl, fontWeight: "700", color: colors.foreground },
+  screenTitle: {
+    ...typography.xl,
+    fontWeight: "700",
+    color: colors.foreground,
+  },
   refreshBtn: { padding: 4 },
 
   listContent: { padding: spacing.md, paddingBottom: 100 },
@@ -861,7 +945,11 @@ const styles = StyleSheet.create({
   rowPrice: { ...typography.sm, color: colors.primary, fontWeight: "700" },
   rowQty: { ...typography.xs, color: colors.mutedForeground },
   rowTags: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 3 },
-  rowActions: { alignItems: "center", justifyContent: "center", gap: spacing.sm },
+  rowActions: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
   actionBtn: {
     width: 34,
     height: 34,
@@ -911,7 +999,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
 
-  fieldLabel: { ...typography.sm, fontWeight: "600", color: colors.foreground, marginBottom: 4 },
+  fieldLabel: {
+    ...typography.sm,
+    fontWeight: "600",
+    color: colors.foreground,
+    marginBottom: 4,
+  },
   helperError: { ...typography.xs, color: colors.destructive },
 
   imagePicker: {
@@ -925,7 +1018,12 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
   },
   imagePreview: { width: "100%", height: "100%" },
-  imagePickerPlaceholder: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
+  imagePickerPlaceholder: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
   imagePickerText: { ...typography.sm, color: colors.mutedForeground },
 
   toggleRow: {
@@ -947,6 +1045,10 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.accent,
   },
-  tagChipText: { ...typography.xs, fontWeight: "600", color: colors.mutedForeground },
+  tagChipText: {
+    ...typography.xs,
+    fontWeight: "600",
+    color: colors.mutedForeground,
+  },
   tagChipTextSelected: { color: colors.primary },
 });

@@ -7,13 +7,11 @@ import {
   Pressable,
   RefreshControl,
   Alert,
-  Modal,
-  TextInput,
   ActivityIndicator,
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n/context";
@@ -27,6 +25,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
+import { useChatUnread } from "@/hooks/useOrderChat";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -90,104 +89,6 @@ const formatTentativeEta = (order: Order): string | null => {
 };
 
 // ---------------------------------------------------------------------------
-// ETA Confirm Dialog
-// ---------------------------------------------------------------------------
-interface EtaDialogProps {
-  order: Order;
-  defaultPrepMinutes?: number;
-  onConfirm: (orderId: number, minutes: number | undefined) => void;
-  onCancel: () => void;
-}
-
-function EtaDialog({ order, defaultPrepMinutes, onConfirm, onCancel }: EtaDialogProps) {
-  const [minutes, setMinutes] = useState(
-    defaultPrepMinutes != null ? String(defaultPrepMinutes) : ""
-  );
-
-  const handleConfirm = () => {
-    const parsed = minutes.trim() ? parseInt(minutes, 10) : undefined;
-    if (parsed !== undefined && (isNaN(parsed) || parsed <= 0)) {
-      Alert.alert("Invalid ETA", "Please enter a positive number of minutes.");
-      return;
-    }
-    onConfirm(order.id, parsed);
-  };
-
-  return (
-    <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={etaStyles.overlay}>
-        <View style={etaStyles.sheet}>
-          <View style={etaStyles.handle} />
-          <Text style={etaStyles.title}>Confirm Order #{order.id}</Text>
-          <Text style={etaStyles.subtitle}>
-            How many minutes until this order is ready? (optional)
-          </Text>
-          <TextInput
-            style={etaStyles.input}
-            placeholder="e.g. 30"
-            placeholderTextColor={colors.mutedForeground}
-            value={minutes}
-            onChangeText={setMinutes}
-            keyboardType="number-pad"
-            returnKeyType="done"
-            autoFocus
-          />
-          <Text style={etaStyles.hint}>
-            Leave blank to use the estimated time calculated automatically.
-          </Text>
-          <View style={etaStyles.buttons}>
-            <Button variant="outline" size="md" style={{ flex: 1 }} onPress={onCancel}>
-              Cancel
-            </Button>
-            <Button variant="primary" size="md" style={{ flex: 1 }} onPress={handleConfirm}>
-              Confirm Order
-            </Button>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-const etaStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "center",
-    padding: spacing.lg,
-  },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    backgroundColor: colors.border,
-    borderRadius: radius.full,
-    alignSelf: "center",
-    marginBottom: spacing.xs,
-  },
-  title: { ...typography.xl, fontWeight: "700", color: colors.foreground },
-  subtitle: { ...typography.base, color: colors.mutedForeground },
-  input: {
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 11,
-    ...typography.lg,
-    color: colors.foreground,
-    backgroundColor: colors.background,
-    textAlign: "center",
-  },
-  hint: { ...typography.xs, color: colors.mutedForeground, textAlign: "center" },
-  buttons: { flexDirection: "row", gap: spacing.sm },
-});
-
-// ---------------------------------------------------------------------------
 // Order Card
 // ---------------------------------------------------------------------------
 interface OrderCardProps {
@@ -195,10 +96,12 @@ interface OrderCardProps {
   expanded: boolean;
   onToggle: () => void;
   onUpdateStatus: (id: number, status: Order["status"]) => void;
-  onConfirmWithEta: (order: Order) => void;
   onReject: (order: Order) => void;
   updatingId: number | null;
   dishInfo?: DishInfo | null;
+  /** Live unread count for this order's chat, ahead of the orders payload. */
+  unreadMessages: number;
+  onOpenChat: (order: Order) => void;
 }
 
 function OrderCard({
@@ -206,23 +109,35 @@ function OrderCard({
   expanded,
   onToggle,
   onUpdateStatus,
-  onConfirmWithEta,
   onReject,
   updatingId,
   dishInfo,
+  unreadMessages,
+  onOpenChat,
 }: OrderCardProps) {
   const { formatPrice } = useI18n();
   const badge = STATUS_BADGE[order.status];
   const isUpdating = updatingId === order.id;
 
-  // Resolve a display title for the ordered item.
+  // Resolve a display title for the order. One order can hold several dishes,
+  // so a multi-dish order names its first and counts the rest; the summary
+  // below lists every line.
+  const itemNames = order.items?.length
+    ? order.items.map((i) => i.item_title)
+    : [
+        dishInfo?.title ||
+          (order.food_listing_id != null
+            ? `Dish #${order.food_listing_id}`
+            : order.food_request_id != null
+            ? `Food Request #${order.food_request_id}`
+            : `Order #${order.id}`),
+      ];
   const orderTitle =
-    dishInfo?.title ||
-    (order.food_listing_id != null
-      ? `Dish #${order.food_listing_id}`
-      : order.food_request_id != null
-      ? `Food Request #${order.food_request_id}`
-      : `Order #${order.id}`);
+    itemNames.length > 1
+      ? `${itemNames[0]} +${itemNames.length - 1} more`
+      : itemNames[0];
+  // Only meaningful for a single-line order; a multi-dish order lists its own
+  // per-line prices instead of an averaged one.
   const perUnitPrice =
     order.quantity > 0 ? order.total_amount / order.quantity : order.total_amount;
   const currentStepIndex =
@@ -252,11 +167,7 @@ function OrderCard({
 
   const handleActionPress = () => {
     if (!nextAction) return;
-    if (nextAction.status === "CONFIRMED") {
-      onConfirmWithEta(order);
-    } else {
-      onUpdateStatus(order.id, nextAction.status);
-    }
+    onUpdateStatus(order.id, nextAction.status);
   };
 
   return (
@@ -264,7 +175,15 @@ function OrderCard({
       {/* Summary row */}
       <Pressable onPress={onToggle} style={styles.cardHeader}>
         <View style={styles.cardHeaderLeft}>
-          <Text style={styles.orderId}>Order #{order.id}</Text>
+          <View style={styles.orderIdRow}>
+            <Text style={styles.orderId}>Order #{order.id}</Text>
+            {unreadMessages > 0 && (
+              <View style={styles.chatBadge}>
+                <Ionicons name="chatbubble" size={10} color={colors.primaryForeground} />
+                <Text style={styles.chatBadgeText}>{unreadMessages}</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.customerName}>{order.customer_name ?? "Customer"}</Text>
           <Text style={styles.orderMeta}>
             {formatDate(order.created_at)} · {order.quantity} item{order.quantity !== 1 ? "s" : ""}
@@ -319,9 +238,18 @@ function OrderCard({
             </View>
             <View style={styles.summaryInfo}>
               <Text style={styles.summaryTitle} numberOfLines={2}>{orderTitle}</Text>
-              <Text style={styles.summaryQty}>
-                {order.quantity} × {formatPrice(perUnitPrice)}
-              </Text>
+              {order.items?.length ? (
+                order.items.map((orderItem) => (
+                  <Text key={orderItem.food_listing_id} style={styles.summaryQty}>
+                    {orderItem.quantity} × {orderItem.item_title} ·{" "}
+                    {formatPrice(orderItem.unit_price * orderItem.quantity)}
+                  </Text>
+                ))
+              ) : (
+                <Text style={styles.summaryQty}>
+                  {order.quantity} × {formatPrice(perUnitPrice)}
+                </Text>
+              )}
               <View style={styles.summaryTotalRow}>
                 <Text style={styles.summaryTotalLabel}>Total</Text>
                 <Text style={styles.summaryTotalValue}>{formatPrice(order.total_amount)}</Text>
@@ -415,6 +343,21 @@ function OrderCard({
             )}
           </View>
 
+          {/* Chat — opens the moment this order is confirmed, readable once closed. */}
+          {order.chat_available && (
+            <View style={styles.actionRow}>
+              <Button
+                variant="outline"
+                size="sm"
+                onPress={() => onOpenChat(order)}
+                style={styles.actionBtnFlex}
+              >
+                {order.chat_can_send ? "Chat with customer" : "View chat"}
+                {unreadMessages > 0 ? ` (${unreadMessages})` : ""}
+              </Button>
+            </View>
+          )}
+
           {(nextAction || canReject) && (
             <View style={styles.actionRow}>
               {nextAction && (
@@ -454,6 +397,8 @@ const PAGE_SIZE = 20;
 
 export default function ChefOrdersScreen() {
   const { dbUser } = useAuth();
+  // Live unread counts behind the chat badges on each card.
+  const { unread: chatUnread } = useChatUnread(Boolean(dbUser));
   const [orders, setOrders] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -462,7 +407,6 @@ export default function ChefOrdersScreen() {
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterTab>("active");
-  const [etaDialogOrder, setEtaDialogOrder] = useState<Order | null>(null);
   const [dishCache, setDishCache] = useState<Record<number, DishInfo | null>>({});
   const isMounted = useRef(true);
 
@@ -539,27 +483,17 @@ export default function ChefOrdersScreen() {
     return true;
   };
 
-  const handleUpdateStatus = async (orderId: number, status: Order["status"], etaMinutes?: number) => {
+  const handleUpdateStatus = async (orderId: number, status: Order["status"]) => {
     if (!requireActive()) return;
     setUpdatingId(orderId);
     try {
-      const updated = await orderService.updateOrderStatus(orderId, status, etaMinutes);
+      const updated = await orderService.updateOrderStatus(orderId, status);
       setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
     } catch (err: any) {
       Alert.alert("Error", err?.message ?? "Failed to update order.");
     } finally {
       setUpdatingId(null);
     }
-  };
-
-  const handleEtaConfirm = (orderId: number, minutes: number | undefined) => {
-    setEtaDialogOrder(null);
-    handleUpdateStatus(orderId, "CONFIRMED", minutes);
-  };
-
-  const openEtaDialog = (order: Order) => {
-    if (!requireActive()) return;
-    setEtaDialogOrder(order);
   };
 
   const handleReject = (order: Order) => {
@@ -586,7 +520,7 @@ export default function ChefOrdersScreen() {
   useEffect(() => {
     if (expandedId == null) return;
     const order = orders.find((o) => o.id === expandedId);
-    const listingId = order?.food_listing_id;
+    const listingId = order?.items?.[0]?.food_listing_id ?? order?.food_listing_id;
     if (listingId == null || dishCache[listingId] !== undefined) return;
     let cancelled = false;
     dishService
@@ -662,10 +596,27 @@ export default function ChefOrdersScreen() {
             expanded={expandedId === item.id}
             onToggle={() => toggleExpand(item.id)}
             onUpdateStatus={handleUpdateStatus}
-            onConfirmWithEta={openEtaDialog}
             onReject={handleReject}
             updatingId={updatingId}
-            dishInfo={item.food_listing_id != null ? dishCache[item.food_listing_id] : undefined}
+            dishInfo={(() => {
+              const primaryId =
+                item.items?.[0]?.food_listing_id ?? item.food_listing_id;
+              return primaryId != null ? dishCache[primaryId] : undefined;
+            })()}
+            unreadMessages={
+              chatUnread.by_order[String(item.id)] ??
+              item.unread_message_count ??
+              0
+            }
+            onOpenChat={(order) =>
+              router.push({
+                pathname: "/order-chat/[id]",
+                params: {
+                  id: String(order.id),
+                  name: order.customer_name ?? "your customer",
+                },
+              })
+            }
           />
         )}
         contentContainerStyle={filtered.length === 0 ? styles.emptyContainer : styles.listContent}
@@ -690,20 +641,26 @@ export default function ChefOrdersScreen() {
         }
       />
 
-      {/* ETA Confirm Dialog */}
-      {etaDialogOrder && (
-        <EtaDialog
-          order={etaDialogOrder}
-          defaultPrepMinutes={dbUser?.chef_profile?.default_prep_time_minutes}
-          onConfirm={handleEtaConfirm}
-          onCancel={() => setEtaDialogOrder(null)}
-        />
-      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  orderIdRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  chatBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  chatBadgeText: {
+    ...typography.xs,
+    color: colors.primaryForeground,
+    fontWeight: "700",
+  },
   safe: { flex: 1, backgroundColor: colors.background },
 
   header: {

@@ -9,66 +9,33 @@ import * as Location from "expo-location";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PhoneInput } from "@/components/ui/PhoneInput";
+import { LocationAutocomplete } from "@/components/ui/LocationAutocomplete";
+import { validatePhoneNumber } from "@/lib/phone";
+import { uploadProfilePicture } from "@/services/imageService";
 import { colors, spacing, typography, fonts, radius } from "@/constants/theme";
+import { getUserFriendlyError } from "@/lib/errorMessages";
+import { SOCIAL_AUTH_ENABLED } from "@/constants/config";
 import { Logo } from "@/components/Logo";
 
 type Coords = { latitude: number; longitude: number };
 
-// ---------------------------------------------------------------------------
-// Cloudinary upload helper (same pattern as menu.tsx / ProfileScreen.tsx)
-// ---------------------------------------------------------------------------
-const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? "";
-const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? "";
 
-const uploadImageToCloudinary = async (uri: string, uploaderId: string): Promise<string> => {
-  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-    throw new Error(
-      "Cloudinary not configured. Set EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME and EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET."
-    );
-  }
-  const safeId = uploaderId.replace(/[^a-zA-Z0-9]/g, "_") || "signup-user";
-  const ext = uri.split(".").pop()?.toLowerCase() ?? "jpg";
-  const mimeMap: Record<string, string> = {
-    jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif",
-  };
-  const mimeType = mimeMap[ext] ?? "image/jpeg";
-
-  const formData = new FormData();
-  formData.append("file", { uri, name: `profile.${ext}`, type: mimeType } as any);
-  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-  formData.append("folder", `profile-pictures/${safeId}`);
-
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-    { method: "POST", body: formData }
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`Cloudinary upload failed (${res.status}): ${err?.error?.message ?? ""}`);
-  }
-  const data = await res.json();
-  const url = data.secure_url || data.url;
-  if (!url) throw new Error("Cloudinary response missing URL");
-  return url as string;
-};
-
-// Phone is required for chefs; validate format.
-const validatePhone = (phone: string): string | null => {
-  if (!phone.trim()) return "Phone number is required for chefs";
-  const digits = phone.replace(/[^\d]/g, "");
-  if (digits.length < 10) return "Phone number must be at least 10 digits";
-  if (digits.length > 15) return "Phone number is too long";
-  return null;
-};
+// Phone is required for chefs; validated against the rules of its own country.
+const validatePhone = (phone: string): string | null =>
+  validatePhoneNumber(phone, true).error ?? null;
 
 export default function ChefSignupScreen() {
   const { signUp, signInWithGoogle } = useAuth();
   const [step, setStep] = useState(1);
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState("");
+  const [kitchenName, setKitchenName] = useState("");
   const [kitchenDescription, setKitchenDescription] = useState("");
   const [specialties, setSpecialties] = useState("");
   const [profilePictureUrl, setProfilePictureUrl] = useState("");
@@ -76,14 +43,17 @@ export default function ChefSignupScreen() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [address, setAddress] = useState("");
   const [coords, setCoords] = useState<Coords | null>(null);
-  const [locating, setLocating] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // The API takes a single name field, so the CNIC first/last names are joined.
+  const name = `${firstName.trim()} ${lastName.trim()}`.trim();
+
   const validateStep1 = () => {
-    if (!name.trim()) { Alert.alert("Please enter your name"); return false; }
+    if (!firstName.trim()) { Alert.alert("Please enter your first name as per CNIC"); return false; }
+    if (!lastName.trim()) { Alert.alert("Please enter your last name as per CNIC"); return false; }
     if (!/\S+@\S+\.\S+/.test(email)) { Alert.alert("Invalid email address"); return false; }
     if (password.length < 6) { Alert.alert("Password must be at least 6 characters"); return false; }
     if (password !== confirmPassword) { Alert.alert("Passwords do not match"); return false; }
@@ -94,6 +64,8 @@ export default function ChefSignupScreen() {
 
   const validateStep2 = () => {
     const e: Record<string, string> = {};
+    if (!kitchenName.trim()) e.kitchenName = "Kitchen name is required for chefs";
+    else if (kitchenName.trim().length < 3) e.kitchenName = "Kitchen name must be at least 3 characters";
     if (!kitchenDescription.trim()) e.kitchenDescription = "Kitchen description is required for chefs";
     else if (kitchenDescription.trim().length < 20) e.kitchenDescription = "Kitchen description must be at least 20 characters";
     if (!profilePictureUrl && !localImageUri) e.profilePicture = "Profile picture is required for chefs";
@@ -117,7 +89,7 @@ export default function ChefSignupScreen() {
 
     setUploadingImage(true);
     try {
-      const uploadedUrl = await uploadImageToCloudinary(uri, email || name || "signup-user");
+      const uploadedUrl = await uploadProfilePicture(uri, email || name || "signup-user");
       setProfilePictureUrl(uploadedUrl);
       setLocalImageUri(null);
     } catch {
@@ -128,33 +100,6 @@ export default function ChefSignupScreen() {
       Alert.alert("Upload Failed", "Could not upload to cloud. The selected image will be used locally.");
     } finally {
       setUploadingImage(false);
-    }
-  };
-
-  const useCurrentLocation = async () => {
-    setLocating(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permission needed", "Location permission is required to use your current location.");
-        return;
-      }
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const c = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
-      setCoords(c);
-      try {
-        const places = await Location.reverseGeocodeAsync(c);
-        const p = places?.[0];
-        if (p) {
-          const parts = [p.name, p.street, p.city, p.region, p.postalCode, p.country].filter(Boolean);
-          if (parts.length) setAddress(parts.join(", "));
-        }
-      } catch {}
-      setErrors((prev) => { const n = { ...prev }; delete n.address; return n; });
-    } catch {
-      Alert.alert("Location Error", "Could not get your current location. Please enter your address manually.");
-    } finally {
-      setLocating(false);
     }
   };
 
@@ -186,19 +131,27 @@ export default function ChefSignupScreen() {
       "chef",
       name.trim(),
       {
+        // The submit button is gated on acceptedTerms, so this is always true
+        // here — recorded explicitly because the backend stores the agreement
+        // on the chef record and a missing value reads as "never agreed".
+        terms_accepted: acceptedTerms,
+        terms_accepted_at: new Date().toISOString(),
         chef_profile: {
+          // Required, but never send a blank value — the backend would then
+          // fall back to the chef's own name.
+          kitchen_name: kitchenName.trim() || name,
           kitchen_description: kitchenDescription.trim(),
           specialties: specialties.split(",").map((s) => s.trim()).filter(Boolean),
           dietary_tags: [],
           documents: [],
         },
       },
-      phone.trim(),
+      phone,
       { latitude: resolved.latitude, longitude: resolved.longitude, address: address.trim() },
       profilePictureUrl || localImageUri || undefined,
     );
     setIsLoading(false);
-    if (error) Alert.alert("Sign Up Failed", error.message);
+    if (error) Alert.alert("Sign Up Failed", getUserFriendlyError(error));
     else router.replace("/(auth)/verify-email");
   };
 
@@ -212,38 +165,73 @@ export default function ChefSignupScreen() {
 
   const previewUri = localImageUri || profilePictureUrl || null;
 
+  // Mirrors the login screens. On step 2 the arrow rewinds the form instead of
+  // leaving the screen, so a half-filled signup isn't lost by one tap.
+  const goBackOrHome = () => {
+    if (step === 2) setStep(1);
+    else if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)/chefs");
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
+      <View style={styles.topBar}>
+        <TouchableOpacity onPress={goBackOrHome} hitSlop={8} style={styles.navBackButton}>
+          <Ionicons name="arrow-back" size={24} color={colors.foreground} />
+        </TouchableOpacity>
+      </View>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <Logo size="lg" showText={true} />
+            <Logo size="lg" showText={true} variant="chef" />
             <Text style={styles.title}>Become a Chef</Text>
             <Text style={styles.subtitle}>Step {step} of 2</Text>
           </View>
 
           {step === 1 ? (
             <View>
-              <Input label="Full Name" value={name} onChangeText={setName} placeholder="Chef's name" autoCapitalize="words" />
+              <Input label="First name as per CNIC" value={firstName} onChangeText={setFirstName} placeholder="First name" autoCapitalize="words" />
+              <Input label="Last name as per CNIC" value={lastName} onChangeText={setLastName} placeholder="Last name" autoCapitalize="words" containerStyle={{ marginTop: spacing.md }} />
               <Input label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="chef@example.com" containerStyle={{ marginTop: spacing.md }} />
-              <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry placeholder="••••••••" containerStyle={{ marginTop: spacing.md }} />
-              <Input label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry placeholder="••••••••" containerStyle={{ marginTop: spacing.md }} />
-              <Input label="Phone Number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+92 300 1234567" containerStyle={{ marginTop: spacing.md }} />
+              <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} placeholder="••••••••" containerStyle={{ marginTop: spacing.md }} />
+              <Input label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!showPassword} placeholder="••••••••" containerStyle={{ marginTop: spacing.md }} />
+              <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.showPassword}>
+                <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.mutedForeground} />
+                <Text style={styles.showPasswordText}>{showPassword ? "Hide" : "Show"} password</Text>
+              </TouchableOpacity>
+              <PhoneInput label="Phone Number" value={phone} onChangeText={setPhone} containerStyle={{ marginTop: spacing.md }} />
               <Text style={styles.helpText}>Required for chefs. Include country code (e.g., +92 for Pakistan).</Text>
 
               <Button onPress={() => { if (validateStep1()) setStep(2); }} style={styles.button}>Next</Button>
 
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>or</Text>
-                <View style={styles.dividerLine} />
-              </View>
-              <Button variant="outline" onPress={handleGoogleSignup} loading={isGoogleLoading}>Continue with Google</Button>
+              {SOCIAL_AUTH_ENABLED && (
+                <>
+                  <View style={styles.divider}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>or</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
+                  <Button variant="outline" onPress={handleGoogleSignup} loading={isGoogleLoading}>Continue with Google</Button>
+                </>
+              )}
             </View>
           ) : (
             <View>
               <Input
+                label="Kitchen Name"
+                value={kitchenName}
+                onChangeText={setKitchenName}
+                placeholder="e.g. Ammi's Kitchen"
+                autoCapitalize="words"
+                error={errors.kitchenName}
+              />
+              <Text style={styles.helpText}>
+                This is the name customers see instead of your own.
+              </Text>
+
+              <Input
                 label="Kitchen Description"
+                containerStyle={{ marginTop: spacing.md }}
                 value={kitchenDescription}
                 onChangeText={setKitchenDescription}
                 placeholder="Tell customers about your kitchen..."
@@ -280,18 +268,20 @@ export default function ChefSignupScreen() {
               </TouchableOpacity>
               {errors.profilePicture && <Text style={styles.errorText}>{errors.profilePicture}</Text>}
 
-              <Input
-                label="Address"
-                value={address}
-                onChangeText={(t) => { setAddress(t); setCoords(null); }}
-                placeholder="Street, city, region..."
+              <LocationAutocomplete
+                label="Kitchen Address"
+                required
+                focusOnLahore
+                placeholder="Search for your kitchen address..."
+                defaultValue={address}
                 error={errors.address}
+                onLocationSelect={(loc) => {
+                  setAddress(loc.label);
+                  setCoords({ latitude: loc.lat, longitude: loc.lon });
+                  setErrors((prev) => { const n = { ...prev }; delete n.address; return n; });
+                }}
                 containerStyle={{ marginTop: spacing.md }}
               />
-              <TouchableOpacity style={styles.locationButton} onPress={useCurrentLocation} disabled={locating} activeOpacity={0.7}>
-                <Ionicons name="location-outline" size={16} color={colors.primary} />
-                <Text style={styles.locationButtonText}>{locating ? "Getting location..." : "Use current location"}</Text>
-              </TouchableOpacity>
               {coords && <Text style={styles.locationHint}>Location set ({coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)})</Text>}
 
               <TouchableOpacity style={styles.checkboxRow} onPress={() => setAcceptedTerms((v) => !v)} activeOpacity={0.7}>
@@ -299,9 +289,11 @@ export default function ChefSignupScreen() {
                   {acceptedTerms && <Ionicons name="checkmark" size={14} color={colors.primaryForeground} />}
                 </View>
                 <Text style={styles.termsText}>
-                  I agree to the{" "}
+                  By signing up as a Chef, I agree to the{" "}
+                  <Text style={styles.termsLink} onPress={() => router.push("/chef-agreement" as any)}>Pakwanhus Partner Terms and Conditions</Text>
+                  {", the "}
                   <Text style={styles.termsLink} onPress={() => router.push("/terms" as any)}>Terms & Conditions</Text>
-                  {" "}and{" "}
+                  {" and the "}
                   <Text style={styles.termsLink} onPress={() => router.push("/privacy")}>Privacy Policy</Text>
                 </Text>
               </TouchableOpacity>
@@ -327,6 +319,10 @@ export default function ChefSignupScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
+  showPassword: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, alignSelf: "flex-end" },
+  showPasswordText: { ...typography.sm, color: colors.mutedForeground },
+  topBar: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  navBackButton: { width: 40, height: 40, alignItems: "flex-start", justifyContent: "center" },
   container: { flexGrow: 1, padding: spacing.lg },
   header: { alignItems: "center", marginVertical: spacing["2xl"], gap: spacing.md },
   title: { ...typography["3xl"], fontFamily: fonts.display, fontWeight: "700", color: colors.foreground },
@@ -343,8 +339,6 @@ const styles = StyleSheet.create({
   imagePlaceholder: { flex: 1, alignItems: "center", justifyContent: "center", gap: 4 },
   imagePlaceholderText: { ...typography.xs, color: colors.mutedForeground },
   imageOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.35)" },
-  locationButton: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.sm },
-  locationButtonText: { ...typography.sm, color: colors.primary, fontWeight: "600" },
   locationHint: { ...typography.xs, color: colors.mutedForeground, marginTop: 4 },
   checkboxRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, marginTop: spacing.lg },
   checkbox: {

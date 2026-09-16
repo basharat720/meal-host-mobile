@@ -9,12 +9,15 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
-  const { dbUser } = useAuth();
+  const { dbUser, activeRole } = useAuth();
 
   // Role guard: the customer tabs are public for browsing (logged-out users land
-  // here), but a logged-in chef must never enter the customer experience. Only
-  // act on a confirmed backend role (dbUser), never a stale cached role.
-  if (dbUser?.is_chef === true) return <Redirect href="/(chef)/dashboard" />;
+  // here), but someone acting as a chef belongs in the chef portal. Keyed on
+  // activeRole so a dual-role account can browse as a customer; activeRole is
+  // restored from storage asynchronously, so fall back to the confirmed backend
+  // role until it resolves. Never act on a stale cached role.
+  const actingAsChef = activeRole ? activeRole === "chef" : dbUser?.is_chef === true;
+  if (actingAsChef) return <Redirect href="/(chef)/dashboard" />;
 
   return (
     <View style={styles.root}>
@@ -38,17 +41,20 @@ export default function TabsLayout() {
         },
       }}
     >
+      {/* Find Chefs leads, and is the tab the app opens on — it's the landing
+          page on web too, where its nav item is likewise labelled "Home".
+          The dish feed follows as "Dishes". Declaration order is tab order. */}
       <Tabs.Screen
-        name="home"
+        name="chefs"
         options={{
-          title: "Discover",
+          title: "Home",
           tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="chefs"
+        name="home"
         options={{
-          title: "Chefs",
+          title: "Dishes",
           tabBarIcon: ({ color, size }) => <Ionicons name="restaurant-outline" size={size} color={color} />,
         }}
       />
@@ -64,6 +70,15 @@ export default function TabsLayout() {
         options={{
           title: "Orders",
           tabBarIcon: ({ color, size }) => <Ionicons name="receipt-outline" size={size} color={color} />,
+        }}
+      />
+      {/* Saved kitchens and dishes are something you come back to, so they get a
+          tab of their own rather than being buried in the profile. */}
+      <Tabs.Screen
+        name="favorites"
+        options={{
+          title: "Favorites",
+          tabBarIcon: ({ color, size }) => <Ionicons name="heart-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen

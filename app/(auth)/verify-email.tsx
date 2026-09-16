@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { colors, spacing, typography } from "@/constants/theme";
+import { getUserFriendlyError } from "@/lib/errorMessages";
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
@@ -12,7 +13,10 @@ export default function VerifyEmailScreen() {
   const { checkEmailVerification, resendEmailVerification, emailVerified, user, isChef } = useAuth();
   const [isChecking, setIsChecking] = useState(false);
   const [isResending, setIsResending] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
+  // Start the countdown already running: registration sends the verification
+  // email, and the backend enforces the same 60s per-address cooldown, so an
+  // immediate resend would only earn a 429.
+  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS);
 
   // Keep the latest verification status in a ref so the poll interval
   // (set up once) always reads the freshest value without re-subscribing.
@@ -24,7 +28,7 @@ export default function VerifyEmailScreen() {
   useEffect(() => {
     if (emailVerified) {
       if (isChef) router.replace("/(chef)/dashboard");
-      else router.replace("/(tabs)/home");
+      else router.replace("/(tabs)/chefs");
     }
   }, [emailVerified, isChef]);
 
@@ -59,10 +63,10 @@ export default function VerifyEmailScreen() {
     setIsChecking(true);
     const { isVerified, error } = await checkEmailVerification();
     setIsChecking(false);
-    if (error) { Alert.alert("Error", error.message); return; }
+    if (error) { Alert.alert("Error", getUserFriendlyError(error)); return; }
     if (isVerified) {
       if (isChef) router.replace("/(chef)/dashboard");
-      else router.replace("/(tabs)/home");
+      else router.replace("/(tabs)/chefs");
     } else {
       Alert.alert("Not Yet Verified", "Your email hasn't been verified yet. Please check your inbox and click the link.");
     }

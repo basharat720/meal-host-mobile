@@ -124,14 +124,13 @@ export default function AvailabilityScreen() {
     };
   }, [dbUser?.id]);
 
-  // Sync the prep-time field from the saved chef profile (minutes -> hours).
+  // Sync the prep-time field from the saved chef profile (both in minutes).
   useEffect(() => {
+    // Stored in minutes, shown in hours (90 min → "1.5", 120 min → "2").
     const saved = dbUser?.chef_profile?.default_prep_time_minutes;
-    if (saved != null) {
-      setDefaultPrepTime((saved / 60).toFixed(2).replace(/\.?0+$/, ""));
-    } else {
-      setDefaultPrepTime("");
-    }
+    setDefaultPrepTime(
+      saved != null && saved > 0 ? String(Number((saved / 60).toFixed(2))) : ""
+    );
   }, [dbUser?.chef_profile?.default_prep_time_minutes]);
 
   const updateDay = useCallback((i: number, patch: Partial<DayState>) => {
@@ -180,24 +179,21 @@ export default function AvailabilityScreen() {
   const saveDefaultPrepTime = async () => {
     if (!dbUser?.id) return;
     const trimmed = defaultPrepTime.trim();
-    const hours = trimmed === "" ? undefined : parseFloat(trimmed);
-    if (hours !== undefined && (isNaN(hours) || hours <= 0)) {
+    const parsed = trimmed === "" ? undefined : parseFloat(trimmed);
+    if (parsed !== undefined && (isNaN(parsed) || parsed <= 0)) {
       Alert.alert("Invalid time", "Please enter a valid prep time in hours.");
       return;
     }
     setSavingPrep(true);
     try {
-      const minutes = hours !== undefined ? Math.round(hours * 60) : undefined;
-      // Preserve the chef's existing arrays — normalizeUserPayload otherwise
-      // blanks specialties/dietary_tags/documents, which the backend would then
-      // overwrite. Mirrors the safe pattern in ProfileScreen.
+      // The field is in hours; the API stores minutes.
+      const minutes = parsed !== undefined ? Math.round(parsed * 60) : undefined;
+      // Send only the field being edited — the backend applies every key it
+      // receives, so any other chef_profile key sent here would overwrite the
+      // stored value (`documents` in particular is never echoed back by the
+      // API, so re-sending it wiped the chef's food-safety documents).
       await userService.updateUser(dbUser.id as number, {
-        chef_profile: {
-          default_prep_time_minutes: minutes,
-          specialties: dbUser.chef_profile?.specialties ?? [],
-          dietary_tags: dbUser.chef_profile?.dietary_tags ?? [],
-          documents: dbUser.chef_profile?.documents ?? [],
-        },
+        chef_profile: { default_prep_time_minutes: minutes },
       });
       // Keep context in sync so the field prefills correctly on re-entry.
       await refreshDbUser();
@@ -209,17 +205,25 @@ export default function AvailabilityScreen() {
     }
   };
 
+  // A window that closes earlier than it opens runs past midnight.
+  const isOvernight = (d: DayState) =>
+    toMinutes(d.close_time) < toMinutes(d.open_time);
+
   const saveAvailability = async () => {
     if (!dbUser?.id) return;
 
-    // Validate enabled days have a close time after the open time.
+    // A day's hours are only invalid when open and close are the same instant —
+    // a zero-length window. A close time earlier than the open time is a
+    // legitimate overnight slot (e.g. 18:00–01:00): the backend spans it from
+    // the start day, see availability_service.is_within_slot(). Rejecting those
+    // stopped any chef who cooks into the night from setting their hours.
     const invalid = days.find(
-      (d) => d.enabled && toMinutes(d.close_time) <= toMinutes(d.open_time)
+      (d) => d.enabled && toMinutes(d.close_time) === toMinutes(d.open_time)
     );
     if (invalid) {
       Alert.alert(
         "Invalid hours",
-        "For every open day, the closing time must be after the opening time."
+        "For every open day, the closing time must differ from the opening time."
       );
       return;
     }
@@ -280,7 +284,7 @@ export default function AvailabilityScreen() {
                 style={styles.prepInput}
                 value={defaultPrepTime}
                 onChangeText={setDefaultPrepTime}
-                placeholder="e.g. 1.5"
+                placeholder="e.g. 2"
                 placeholderTextColor={colors.mutedForeground}
                 keyboardType="decimal-pad"
                 returnKeyType="done"
@@ -380,6 +384,9 @@ export default function AvailabilityScreen() {
                         {displayTime(days[i].close_time)}
                       </Text>
                     </Pressable>
+                    {isOvernight(days[i]) && (
+                      <Text style={styles.overnightHint}>next day</Text>
+                    )}
                   </View>
                 ) : (
                   <Text style={styles.closedText}>Closed</Text>
@@ -555,6 +562,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
   },
   timeChipText: { ...typography.sm, color: colors.foreground, fontWeight: "600" },
+  overnightHint: {
+    ...typography.xs,
+    color: colors.mutedForeground,
+    fontStyle: "italic",
+  },
   closedText: { ...typography.sm, color: colors.mutedForeground },
 
   saveBtn: { marginTop: spacing.sm },

@@ -9,6 +9,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { colors, spacing, typography, radius, fonts } from "@/constants/theme";
+import { getUserFriendlyError } from "@/lib/errorMessages";
+import { SOCIAL_AUTH_ENABLED } from "@/constants/config";
 import { Logo } from "@/components/Logo";
 
 export default function CustomerLoginScreen() {
@@ -16,11 +18,11 @@ export default function CustomerLoginScreen() {
   // Where to go after a successful login. Set by the gate that sent the user
   // here (e.g. checkout, profile); falls back to the home feed.
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
-  const destination = (redirect as string) || "/(tabs)/home";
+  const destination = (redirect as string) || "/(tabs)/chefs";
 
   const goBackOrHome = () => {
     if (router.canGoBack()) router.back();
-    else router.replace("/(tabs)/home");
+    else router.replace("/(tabs)/chefs");
   };
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -44,7 +46,7 @@ export default function CustomerLoginScreen() {
     const { error } = await signIn(email.trim(), password);
     setIsLoading(false);
     if (error) {
-      Alert.alert("Login Failed", error.message);
+      Alert.alert("Login Failed", getUserFriendlyError(error));
     } else {
       setRole("customer"); // pin role so 404-handler never creates a chef account
       router.replace(destination as any);
@@ -69,7 +71,7 @@ export default function CustomerLoginScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <Logo size="lg" showText={true} />
+            <Logo size="lg" showText={true} variant="customer" />
             <Text style={styles.title}>Welcome back</Text>
             <Text style={styles.subtitle}>Sign in to your customer account</Text>
           </View>
@@ -111,15 +113,19 @@ export default function CustomerLoginScreen() {
               Sign In
             </Button>
 
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
-            </View>
+            {SOCIAL_AUTH_ENABLED && (
+              <>
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>or</Text>
+                  <View style={styles.dividerLine} />
+                </View>
 
-            <Button variant="outline" onPress={handleGoogleLogin} loading={isGoogleLoading} style={styles.googleButton}>
-              Continue with Google
-            </Button>
+                <Button variant="outline" onPress={handleGoogleLogin} loading={isGoogleLoading} style={styles.googleButton}>
+                  Continue with Google
+                </Button>
+              </>
+            )}
           </View>
 
           <View style={styles.footer}>

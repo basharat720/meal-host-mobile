@@ -19,7 +19,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n/context";
@@ -35,6 +35,8 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FullScreenLoader } from "@/components/ui/LoadingSpinner";
 import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
+import { getUserFriendlyError } from "@/lib/errorMessages";
+import { useChatUnread } from "@/hooks/useOrderChat";
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 
@@ -148,7 +150,7 @@ function ReviewModal({ order, customerId, onClose, onSubmitted }: ReviewModalPro
       onSubmitted(order.id);
       onClose();
     } catch (err: any) {
-      setError(err?.message ?? "Failed to submit review. Please try again.");
+      setError(getUserFriendlyError(err, "Failed to submit review. Please try again."));
     } finally {
       setIsSubmitting(false);
     }
@@ -278,6 +280,9 @@ interface OrderCardProps {
   onToggle: (id: number) => void;
   onMarkReceived: (order: Order) => void;
   onLeaveReview: (order: Order) => void;
+  /** Live unread count for this order's chat, ahead of the orders payload. */
+  unreadMessages: number;
+  onOpenChat: (order: Order) => void;
 }
 
 function OrderCard({
@@ -291,25 +296,36 @@ function OrderCard({
   onToggle,
   onMarkReceived,
   onLeaveReview,
+  unreadMessages,
+  onOpenChat,
 }: OrderCardProps) {
   const { formatPrice } = useI18n();
   const currentIndex =
     order.status === "CANCELLED" ? -1 : STATUS_STEPS.indexOf(order.status);
 
+  // A multi-dish order names its first dish and counts the rest; the detail
+  // section lists them all. Titles come from the order's own snapshotted lines.
+  const itemNames = order.items?.length
+    ? order.items.map((i) => i.item_title)
+    : [
+        dish?.title ??
+          requestInfo?.title ??
+          (order.food_listing_id != null
+            ? `Dish #${order.food_listing_id}`
+            : order.food_request_id != null
+            ? `Custom Request #${order.food_request_id}`
+            : "Order"),
+      ];
   const dishName =
-    dish?.title ??
-    requestInfo?.title ??
-    (order.food_listing_id != null
-      ? `Dish #${order.food_listing_id}`
-      : order.food_request_id != null
-      ? `Custom Request #${order.food_request_id}`
-      : "Order");
+    itemNames.length > 1
+      ? `${itemNames[0]} +${itemNames.length - 1} more`
+      : itemNames[0];
 
   const confirmedEta = formatConfirmedEta(order);
   const tentativeEta = formatTentativeEta(order);
   const showEtaInHeader =
     ACTIVE_STATUSES.has(order.status) &&
-    (confirmedEta != null || (order.status === "PENDING" && tentativeEta != null));
+    (confirmedEta != null || tentativeEta != null);
 
   const address = order.delivery_address || chefInfo?.address;
   const phone = order.delivery_phone || chefInfo?.phone;
@@ -345,6 +361,12 @@ function OrderCard({
             <View style={cardStyles.orderIdBadge}>
               <Text style={cardStyles.orderIdText}>#{order.id}</Text>
             </View>
+            {unreadMessages > 0 && (
+              <View style={cardStyles.chatBadge}>
+                <Ionicons name="chatbubble" size={10} color={colors.primaryForeground} />
+                <Text style={cardStyles.chatBadgeText}>{unreadMessages}</Text>
+              </View>
+            )}
           </View>
           <View style={cardStyles.metaRow}>
             <Ionicons name="time-outline" size={12} color={colors.mutedForeground} />
@@ -410,9 +432,22 @@ function OrderCard({
                 {requestInfo?.description ? (
                   <Text style={cardStyles.detailSubText} numberOfLines={2}>{requestInfo.description}</Text>
                 ) : null}
-                <Text style={cardStyles.detailSubText}>
-                  {order.quantity} × {formatPrice(order.total_amount / order.quantity)}
-                </Text>
+                {order.items?.length ? (
+                  order.items.map((orderItem) => (
+                    <Text
+                      key={orderItem.food_listing_id}
+                      style={cardStyles.detailSubText}
+                    >
+                      {orderItem.quantity} × {orderItem.item_title} ·{" "}
+                      {formatPrice(orderItem.unit_price * orderItem.quantity)}
+                    </Text>
+                  ))
+                ) : (
+                  <Text style={cardStyles.detailSubText}>
+                    {order.quantity} ×{" "}
+                    {formatPrice(order.total_amount / order.quantity)}
+                  </Text>
+                )}
                 <View style={cardStyles.totalRow}>
                   <Text style={cardStyles.detailSubText}>Total</Text>
                   <Text style={cardStyles.totalAmount}>
@@ -560,6 +595,22 @@ function OrderCard({
             </View>
           </View>
 
+          {/* Chat — opens the moment the chef confirms, readable once closed. */}
+          {order.chat_available && (
+            <View style={cardStyles.actionSection}>
+              <Button
+                variant="outline"
+                size="sm"
+                onPress={() => onOpenChat(order)}
+              >
+                {order.chat_can_send
+                  ? `Chat with ${order.chef_name ?? "the chef"}`
+                  : "View chat"}
+                {unreadMessages > 0 ? ` (${unreadMessages})` : ""}
+              </Button>
+            </View>
+          )}
+
           {/* Mark as Received */}
           {order.status === "DELIVERED" && (
             <View style={cardStyles.actionSection}>
@@ -608,6 +659,20 @@ function OrderCard({
 }
 
 const cardStyles = StyleSheet.create({
+  chatBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  chatBadgeText: {
+    ...typography.xs,
+    color: colors.primaryForeground,
+    fontWeight: "700",
+  },
   container: {
     backgroundColor: colors.card,
     borderRadius: radius.lg,
@@ -846,6 +911,17 @@ export default function OrdersScreen() {
   const [reviewTarget, setReviewTarget] = useState<Order | null>(null);
   const [activeTab, setActiveTab] = useState<"active" | "past">("active");
 
+  // Live unread counts behind the chat badges on each card.
+  const { unread: chatUnread } = useChatUnread(Boolean(dbUser));
+
+  // Order notifications and emails point here as ?order=<id> — there is no
+  // standalone order-detail screen. Applied once, after the order actually
+  // shows up in the loaded page.
+  const { order: orderParam } = useLocalSearchParams<{ order?: string }>();
+  const deepLinkedOrderId = Number(orderParam) || null;
+  const deepLinkApplied = useRef(false);
+  const listRef = useRef<FlatList<Order>>(null);
+
   const hasMore = orders.length < total;
   const isMounted = useRef(true);
   const hasLoadedRef = useRef(false);
@@ -865,7 +941,10 @@ export default function OrdersScreen() {
       const newIds = [
         ...new Set(
           fetched
-            .map((o) => o.food_listing_id)
+            .flatMap((o) => [
+              ...(o.items ?? []).map((i) => i.food_listing_id),
+              o.food_listing_id,
+            ])
             .filter((id): id is number => id != null)
         ),
       ].filter((id) => !currentMap.has(id));
@@ -1081,7 +1160,7 @@ export default function OrdersScreen() {
       const updated = await orderService.updateOrderStatus(order.id, "RECEIVED");
       setOrders((prev) => prev.map((o) => (o.id === order.id ? updated : o)));
     } catch (err: any) {
-      Alert.alert("Error", err?.message ?? "Failed to update order status.");
+      Alert.alert("Error", getUserFriendlyError(err, "Failed to update order status."));
     } finally {
       setReceivingOrderId(null);
     }
@@ -1142,6 +1221,35 @@ export default function OrdersScreen() {
   const activeOrders = orders.filter((o) => ACTIVE_STATUSES.has(o.status));
   const pastOrders = orders.filter((o) => !ACTIVE_STATUSES.has(o.status));
   const displayedOrders = activeTab === "active" ? activeOrders : pastOrders;
+
+  // Take the deep link to its order: switch to the tab holding it, expand it,
+  // and scroll it into view.
+  useEffect(() => {
+    if (deepLinkedOrderId === null || deepLinkApplied.current) return;
+    const target = orders.find((o) => o.id === deepLinkedOrderId);
+    // Not in the loaded page yet — leave the flag unset so a later page can
+    // still satisfy the link.
+    if (!target) return;
+
+    deepLinkApplied.current = true;
+    const targetTab = ACTIVE_STATUSES.has(target.status) ? "active" : "past";
+    setActiveTab(targetTab);
+    setExpandedOrderId(target.id);
+
+    // The tab switch has to render the new list before there is a row to
+    // scroll to, so the index is resolved on the next frame.
+    requestAnimationFrame(() => {
+      const list = targetTab === "active" ? activeOrders : pastOrders;
+      const index = list.findIndex((o) => o.id === target.id);
+      if (index >= 0) {
+        listRef.current?.scrollToIndex({
+          index,
+          viewPosition: 0.5,
+          animated: true,
+        });
+      }
+    });
+  }, [deepLinkedOrderId, orders, activeOrders, pastOrders]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -1229,9 +1337,19 @@ export default function OrdersScreen() {
             />
           ) : (
         <FlatList
+          ref={listRef}
           data={displayedOrders}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
+          // Order cards vary in height and there is no getItemLayout, so a
+          // scroll to a row that hasn't been measured yet can fail. Nudge the
+          // list to the offset it does know, then retry once it has rendered.
+          onScrollToIndexFailed={({ index, averageItemLength }) => {
+            listRef.current?.scrollToOffset({
+              offset: index * averageItemLength,
+              animated: true,
+            });
+          }}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -1243,11 +1361,11 @@ export default function OrdersScreen() {
           renderItem={({ item }) => (
             <OrderCard
               order={item}
-              dish={
-                item.food_listing_id != null
-                  ? dishMap.get(item.food_listing_id)
-                  : undefined
-              }
+              dish={(() => {
+                const primaryId =
+                  item.items?.[0]?.food_listing_id ?? item.food_listing_id;
+                return primaryId != null ? dishMap.get(primaryId) : undefined;
+              })()}
               requestInfo={
                 item.food_request_id != null
                   ? requestMap.get(item.food_request_id)
@@ -1260,6 +1378,20 @@ export default function OrdersScreen() {
               onToggle={toggleExpand}
               onMarkReceived={markReceived}
               onLeaveReview={setReviewTarget}
+              unreadMessages={
+                chatUnread.by_order[String(item.id)] ??
+                item.unread_message_count ??
+                0
+              }
+              onOpenChat={(order) =>
+                router.push({
+                  pathname: "/order-chat/[id]",
+                  params: {
+                    id: String(order.id),
+                    name: order.chef_name ?? "the chef",
+                  },
+                })
+              }
             />
           )}
           ListFooterComponent={

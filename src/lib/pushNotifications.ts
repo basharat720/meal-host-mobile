@@ -140,11 +140,30 @@ export async function registerForPushNotificationsAsync(
  */
 export function mapNotificationUrlToRoute(url?: string | null): string {
   if (!url) return "/notifications";
-  const path = url.split("?")[0].replace(/\/+$/, "");
+  const [rawPath, rawQuery] = url.split("?");
+  const path = rawPath.replace(/\/+$/, "");
 
   if (path === "" || path === "/") return "/notifications";
   if (path.startsWith("/chef-dashboard")) return "/(chef)/dashboard";
-  if (path.startsWith("/my-orders")) return "/(tabs)/orders";
+
+  // /my-orders?order=<id> opens the list on that order. The backend's push
+  // payloads send a bare /my-orders today, but its order emails already carry
+  // the id, so carry the parameter through rather than dropping the query.
+  if (path.startsWith("/my-orders")) {
+    const query = new URLSearchParams(rawQuery ?? "");
+
+    // A new-message push is /my-orders?chat=<id> on the web, which the app
+    // opens as the chat screen itself rather than the orders list.
+    const chatOrderId = query.get("chat");
+    if (chatOrderId && /^\d+$/.test(chatOrderId)) {
+      return `/order-chat/${chatOrderId}`;
+    }
+
+    const orderId = query.get("order");
+    return orderId && /^\d+$/.test(orderId)
+      ? `/(tabs)/orders?order=${orderId}`
+      : "/(tabs)/orders";
+  }
 
   // /my-requests/:id -> request detail; /my-requests -> list
   if (path.startsWith("/my-requests")) {

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { colors, fonts } from "@/constants/theme";
 
 interface Props {
@@ -87,7 +87,12 @@ export function AnimatedSplash({ onComplete }: Props) {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <MaterialCommunityIcons name="chef-hat" size={58} color="#fff" />
+              {/* Same mark as the app icon / native splash, in its light-ink colourway */}
+              <Image
+                source={require("../../assets/splash-icon.png")}
+                style={styles.logoImage}
+                contentFit="contain"
+              />
             </LinearGradient>
           </Animated.View>
 
@@ -151,6 +156,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.30,
     shadowRadius: 18,
     elevation: 14,
+  },
+  logoImage: {
+    width: 74,
+    height: 74,
   },
 
   brandName: {
