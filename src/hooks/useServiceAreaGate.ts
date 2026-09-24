@@ -12,12 +12,14 @@ import {
 } from "@/services/serviceAreaService";
 
 /**
- * Works out whether the customer is allowed to order, using the phone's
- * location and falling back to an address they pick by hand.
+ * Works out where the customer is, using the phone's location and falling back
+ * to an address they pick by hand.
  *
- * The server enforces the rule regardless (see the `meal-host` repo,
- * feature-docs/13-service-area-and-ordering-zone.md) — this hook exists so the
- * app can say so up front rather than at the end of checkout.
+ * This decides nothing on its own. Ordering is never blocked by location; the
+ * position it resolves is what `useDeliveryAvailability` sends to the server to
+ * find out whether the delivery option may be offered, and what the order
+ * itself carries so the server judges the same point. See the `meal-host` repo,
+ * feature-docs/13-service-area-and-ordering-zone.md.
  *
  * Mirrors meal-host-frontend/src/hooks/useServiceAreaGate.ts, with one
  * deliberate difference: **mounting never raises the system permission
@@ -29,9 +31,9 @@ import {
 export type GateStatus =
   /** Still fetching the zone, reading storage, or waiting on the phone. */
   | "checking"
-  /** Inside the zone — ordering allowed. */
+  /** Inside the zone — delivery is possible from the customer's end. */
   | "inside"
-  /** Located, but too far from the zone centre. */
+  /** Located, but too far from the zone centre for delivery. */
   | "outside"
   /** No usable position: permission not granted, unavailable, or too imprecise. */
   | "needs-location";
@@ -127,7 +129,8 @@ export const useServiceAreaGate = (
   }, []);
 
   // Load the active zone. If this fails we deliberately fall open: the server
-  // still enforces the rule, and a flaky config fetch shouldn't block ordering.
+  // still enforces the rule, and a flaky config fetch shouldn't cost anyone
+  // the delivery option.
   useEffect(() => {
     if (!enabled) {
       setIsAreaLoading(false);
@@ -297,8 +300,12 @@ export const useServiceAreaGate = (
     status,
     distanceKm,
     isLocating,
-    /** True once we know ordering is not allowed from here. */
-    isBlocked: status === "outside" || status === "needs-location",
+    /**
+     * True once we know this position can't receive a delivery — either it is
+     * outside the zone or we never got one. Nothing is blocked by it: it only
+     * means the customer's end of the delivery rule has failed.
+     */
+    isOutsideDeliveryZone: status === "outside" || status === "needs-location",
     requestDeviceLocation,
     setManualLocation,
     clearLocation,

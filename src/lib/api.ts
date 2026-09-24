@@ -35,7 +35,7 @@ export const authenticatedFetch = async (
 
 export class ApiError extends Error {
   status: number;
-  /** Machine-readable reason, when the endpoint supplies one (e.g. OUTSIDE_SERVICE_AREA). */
+  /** Machine-readable reason, when the endpoint supplies one (e.g. DELIVERY_NOT_AVAILABLE). */
   code?: string;
   constructor(message: string, status: number, code?: string) {
     super(message);

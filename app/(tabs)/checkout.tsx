@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { LocationAutocomplete } from "@/components/ui/LocationAutocomplete";
 import { isWithinServiceArea } from "@/services/serviceAreaService";
+import { useDeliveryAvailability } from "@/hooks/useDeliveryAvailability";
 import { useServiceAreaGate } from "@/hooks/useServiceAreaGate";
 import { LocationRequiredCard } from "@/components/location/LocationRequiredCard";
 import { validatePhoneNumber } from "@/lib/phone";
@@ -94,16 +95,47 @@ export default function CheckoutScreen() {
 
   // Where the customer is. Reads a position we already have permission for and
   // otherwise waits to be asked — mounting never raises the system prompt.
+  // Nothing here blocks an order; it only feeds the delivery question below.
   // See feature-docs/07-ordering-zone-in-the-app.md.
   const gate = useServiceAreaGate();
+  const areaName = gate.area?.name ?? "our launch area";
 
-  // The delivery point has to sit inside the zone too. The server re-checks it,
-  // so this only saves the customer from filling in the rest of the form.
+  // The dishes being checked out. Offer orders have no listing, and the server
+  // always makes those pickup.
+  const checkoutListingIds = useMemo(
+    () =>
+      isOfferMode
+        ? []
+        : items.map((item) => Number(item.id)).filter((id) => !isNaN(id)),
+    [isOfferMode, items]
+  );
+
+  // Delivery needs BOTH the customer and the kitchen inside the zone, and the
+  // kitchen's exact coordinates are deliberately never published, so only the
+  // server can answer this.
+  const delivery = useDeliveryAvailability({
+    enabled: !isOfferMode && checkoutListingIds.length > 0,
+    listingIds: checkoutListingIds,
+    chefId: items[0] ? Number(items[0].chefId) : undefined,
+    locationPayload: gate.orderLocationPayload,
+  });
+  const isDeliveryAvailable = delivery.deliveryAvailable === true;
+
+  // The delivery point has to sit inside the zone too. Checked on the device
+  // because the address the customer picks is not the position the gate holds
+  // until they pick it; the server re-checks regardless.
   const isDeliveryOutsideArea =
     deliveryType === "delivery" &&
     deliveryCoords !== null &&
     !isWithinServiceArea(gate.area, deliveryCoords.lat, deliveryCoords.lon);
-  const areaName = gate.area?.name ?? "our launch area";
+
+  // Never leave Delivery selected once we learn it isn't on offer — the
+  // customer would otherwise fill in an address the order would be refused for.
+  useEffect(() => {
+    if (deliveryType === "delivery" && delivery.deliveryAvailable === false) {
+      setDeliveryType("pickup");
+    }
+  }, [deliveryType, delivery.deliveryAvailable]);
 
   // Pre-fill name and phone from dbUser
   useEffect(() => {
@@ -261,17 +293,15 @@ export default function CheckoutScreen() {
       );
       return;
     }
-    if (gate.status === "needs-location") {
+    // Location never blocks an order — it only decides whether delivery was an
+    // option. A delivery order that slipped past the UI is caught here so the
+    // customer is told before paying rather than by a server refusal.
+    if (deliveryType === "delivery" && !isDeliveryAvailable) {
+      setDeliveryType("pickup");
       Alert.alert(
-        "Confirm your location",
-        `We deliver in ${areaName} only for now, so we need to know where you are before you order. Share your location or enter your address above.`
-      );
-      return;
-    }
-    if (gate.status === "outside") {
-      Alert.alert(
-        "Outside our delivery zone",
-        `PakwanHus is currently available in ${areaName} only. Enter a different address above to check another location.`
+        "Switched to pickup",
+        delivery.message ??
+          `We can't deliver this order. PakwanHus currently delivers in ${areaName} only — your order has been switched to pickup.`
       );
       return;
     }
@@ -456,9 +486,10 @@ export default function CheckoutScreen() {
           ) : null}
         </View>
 
-        {/* Where the customer is. Only appears when it stands between them and
-            an order — a customer inside the zone never sees it. */}
-        {gate.isBlocked && (
+        {/* Where the customer is. Only offered when sharing it would actually
+            unlock delivery — never when the kitchen is the one out of range,
+            and never in the way of a pickup order. */}
+        {delivery.reason === "customer_location_unknown" && (
           <LocationRequiredCard
             status={gate.status}
             failure={gate.failure}
@@ -543,10 +574,12 @@ export default function CheckoutScreen() {
               </Text>
             </Pressable>
             <Pressable
+              disabled={!isDeliveryAvailable}
               onPress={() => setDeliveryType("delivery")}
               style={[
                 styles.methodOption,
                 deliveryType === "delivery" && styles.methodOptionActive,
+                !isDeliveryAvailable && styles.methodOptionDisabled,
               ]}
             >
               <Ionicons
@@ -564,6 +597,20 @@ export default function CheckoutScreen() {
               </Text>
             </Pressable>
           </View>
+
+          {/* Why Delivery is dimmed. Pickup stays available throughout, so this
+              explains a missing option — it never blocks the order. */}
+          {delivery.isChecking && (
+            <Text style={styles.deliveryUnavailableNote}>
+              Checking whether we can deliver to you…
+            </Text>
+          )}
+          {delivery.deliveryAvailable === false && (
+            <Text style={styles.deliveryUnavailableNote}>
+              {delivery.message ??
+                `PakwanHus only delivers within ${areaName}. You can still place this order for pickup.`}
+            </Text>
+          )}
 
           {deliveryType === "pickup" ? (
             <>
@@ -695,7 +742,7 @@ export default function CheckoutScreen() {
           onPress={handlePlaceOrder}
           loading={isSubmitting}
           disabled={
-            isSubmitting || !acceptedTerms || isDeliveryOutsideArea || gate.isBlocked
+            isSubmitting || !acceptedTerms || isDeliveryOutsideArea
           }
         >
           {isSubmitting ? "Placing Order…" : `Place Order — ${formatPrice(checkoutTotal)}`}
@@ -902,6 +949,11 @@ const styles = StyleSheet.create({
     ...typography.xs,
     color: colors.mutedForeground,
   },
+  deliveryUnavailableNote: {
+    ...typography.sm,
+    color: colors.mutedForeground,
+    marginTop: spacing.sm,
+  },
   paymentOption: {
     flexDirection: "row",
     alignItems: "center",
@@ -956,6 +1008,9 @@ const styles = StyleSheet.create({
   methodOptionActive: {
     borderColor: colors.primary,
     backgroundColor: `${colors.primary}0D`,
+  },
+  methodOptionDisabled: {
+    opacity: 0.5,
   },
   methodOptionText: {
     ...typography.base,

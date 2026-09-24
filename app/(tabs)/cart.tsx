@@ -181,9 +181,9 @@ export default function CartScreen() {
               <View style={styles.offlineBanner}>
                 <Ionicons name="location-outline" size={16} color={colors.mutedForeground} />
                 <Text style={styles.offlineBannerText}>
-                  {`We're not delivering to your area yet — PakwanHus is currently available in ${
+                  {`This order will be for pickup — PakwanHus only delivers within ${
                     serviceArea.area?.name ?? "our launch area"
-                  } only. You can still browse and add to your cart, and you can check a different address at checkout.`}
+                  }. You can still place your order and collect it yourself, or change your location at checkout.`}
                 </Text>
               </View>
             )}

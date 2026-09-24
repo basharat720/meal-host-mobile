@@ -9,7 +9,7 @@
  */
 
 import { ApiError } from "./api";
-import { LOCATION_REQUIRED, OUTSIDE_SERVICE_AREA } from "@/services/serviceAreaService";
+import { DELIVERY_NOT_AVAILABLE } from "@/services/serviceAreaService";
 
 /** Firebase surfaces these as `Firebase: Error (auth/wrong-password).` */
 const FIREBASE_AUTH_MESSAGES: { codes: string[]; message: string }[] = [
@@ -168,17 +168,15 @@ export const getUploadError = (error: unknown): string => {
 };
 
 export const getCheckoutError = (error: unknown): string => {
-  // The zone refusals carry a code precisely so they don't have to be matched
-  // on message text. See feature-docs/07-ordering-zone-in-the-app.md.
+  // The delivery-zone refusal carries a code precisely so it doesn't have to be
+  // matched on message text, and its message already names pickup as the way
+  // forward. See feature-docs/07-ordering-zone-in-the-app.md.
   const code = error instanceof ApiError ? error.code : undefined;
-  if (code === OUTSIDE_SERVICE_AREA) {
+  if (code === DELIVERY_NOT_AVAILABLE) {
     return (
       (error as ApiError).message ||
-      "We're not delivering to your area yet. Try a different address."
+      "We can't deliver this order. You can still place it for pickup."
     );
-  }
-  if (code === LOCATION_REQUIRED) {
-    return "We need to know where you are before you can order. Share your location or enter your address.";
   }
   return getUserFriendlyError(error, "Unable to place your order. Please try again.");
 };

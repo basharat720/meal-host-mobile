@@ -34,4 +34,4 @@ between the two.
 | [Location & Address Privacy](04-location-and-address-privacy.md) | When the app asks for your location, and how a chef's address is protected |
 | [Where the App Differs from the Website](05-parity-with-the-website.md) | A current, honest list of what the website does that the app does not yet |
 | [Order Chat in the App](06-order-chat.md) | The chat screen, keyboard handling, notification taps, and reconnecting after the app sleeps |
-| [The Ordering Zone in the App](07-ordering-zone-in-the-app.md) | Why ordering is limited to one neighbourhood, and how the app confirms where you are without interrupting checkout |
+| [Delivery & Pickup in the App](07-ordering-zone-in-the-app.md) | When delivery is offered and when an order is pickup-only, and how the app confirms where you are without interrupting checkout |

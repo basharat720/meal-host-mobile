@@ -1,10 +1,13 @@
 import { apiRequest } from "./client";
 
 /**
- * PakwanHus takes orders from one neighbourhood at a time. The server owns that
- * rule and re-checks it on every order; this module exists so the app can warn
- * a customer early instead of letting them fill in a whole checkout and only
- * then be refused.
+ * PakwanHus only runs delivery riders in one neighbourhood at a time, so the
+ * delivery option is offered only when both the customer and the kitchen sit
+ * inside the zone. Pickup is always available — location never blocks an order.
+ *
+ * The kitchen's exact coordinates are deliberately never published, so whether
+ * delivery is possible cannot be worked out on the device: the server answers,
+ * running the same check the order endpoint will.
  *
  * Mirrors meal-host-frontend/src/services/serviceAreaService.ts. See the
  * `meal-host` repo, feature-docs/13-service-area-and-ordering-zone.md.
@@ -18,9 +21,31 @@ export interface ServiceArea {
   radius_km: number;
 }
 
-/** Refusal codes the order endpoints return alongside their message. */
-export const OUTSIDE_SERVICE_AREA = "OUTSIDE_SERVICE_AREA";
-export const LOCATION_REQUIRED = "LOCATION_REQUIRED";
+/** The code `POST /orders/` returns when a delivery order can't be accepted. */
+export const DELIVERY_NOT_AVAILABLE = "DELIVERY_NOT_AVAILABLE";
+
+/** Why delivery isn't on offer, as reported alongside that code. */
+export type DeliveryUnavailableReason =
+  | "customer_outside"
+  | "chef_outside"
+  | "customer_location_unknown"
+  | "chef_location_unknown";
+
+export interface DeliveryAvailability {
+  delivery_available: boolean;
+  reason: DeliveryUnavailableReason | null;
+  message: string | null;
+  area_name: string;
+  enforced: boolean;
+}
+
+export interface DeliveryAvailabilityQuery {
+  chef_id?: number;
+  listing_ids?: number[];
+  customer_latitude?: number;
+  customer_longitude?: number;
+  customer_location_accuracy_m?: number;
+}
 
 /**
  * A fix this vague could place an Askari X resident in another part of the
@@ -32,6 +57,21 @@ export const MAX_ACCEPTABLE_ACCURACY_M = 1000;
 export const serviceAreaService = {
   getServiceArea: async (): Promise<ServiceArea> => {
     return apiRequest<ServiceArea>("service-area");
+  },
+
+  /**
+   * Whether delivery can be offered for a given basket and position.
+   *
+   * A POST because it carries the customer's live coordinates, which don't
+   * belong in a URL.
+   */
+  checkDeliveryAvailability: async (
+    query: DeliveryAvailabilityQuery
+  ): Promise<DeliveryAvailability> => {
+    return apiRequest<DeliveryAvailability>("orders/delivery-availability", {
+      method: "POST",
+      body: JSON.stringify(query),
+    });
   },
 };
 
