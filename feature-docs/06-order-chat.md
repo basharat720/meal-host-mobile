@@ -16,6 +16,20 @@ The keyboard is handled the way a messaging app should handle it: the message
 box rises with the keyboard, the newest message stays in view, and the thread
 opens scrolled to the bottom.
 
+## A safety notice before the first message
+
+A conversation that has not started yet opens on a short notice rather than an
+empty thread: keep the conversation and every payment on PakwanHus, never share
+bank or card details, and use the chat for questions about this order only.
+Tapping **Got it, continue** reveals the thread.
+
+It is shown once per order and remembered afterwards, so returning to a
+conversation that is already under way goes straight to the messages. A thread
+that already has messages in it never shows the notice — it was fronted by it
+when it was started.
+
+This matches the website, which added the same notice to its chat panel.
+
 ## Notifications open the chat directly
 
 Tapping a new-message push takes you straight into that order's chat screen,

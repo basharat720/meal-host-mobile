@@ -49,9 +49,22 @@ export const requestService = {
     );
   },
 
-  acceptOffer: async (offerId: number): Promise<Order> => {
+  acceptOffer: async (
+    offerId: number,
+    /**
+     * The customer's confirmed position, so the server checks the same place
+     * the app did. Optional: without it the server falls back to their saved
+     * primary location.
+     */
+    location?: {
+      customer_latitude?: number;
+      customer_longitude?: number;
+      customer_location_accuracy_m?: number;
+    }
+  ): Promise<Order> => {
     return apiRequest<Order>(`requests/offers/${offerId}/accept`, {
       method: "POST",
+      body: JSON.stringify(location ?? {}),
     });
   },
 

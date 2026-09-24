@@ -14,11 +14,17 @@ have not:
 | --- | --- | --- |
 | Find Chefs | Puts the nearest kitchens first and shows each one's distance | Kitchens are still listed, without distances |
 | The dish feed | Limits dishes to a chosen radius | Searches without a radius |
-| Checkout | Shows how far away the chef is | The area is still shown, without a distance |
+| Checkout | Shows how far away the chef is, and checks you are inside the ordering zone | The area is still shown, without a distance; a card asks you to confirm where you are |
 
 This matters most at checkout. A system permission dialog appearing in the
 middle of paying for food is the kind of interruption that loses an order, so
 the app never does it there.
+
+Checkout is also the one place where the app cannot simply do without a
+location, because ordering is restricted to one neighbourhood. It still does
+not prompt: it uses permission you have already granted, and otherwise asks
+with a card you can answer by tapping a button or by entering an address. See
+[The Ordering Zone in the App](07-ordering-zone-in-the-app.md).
 
 ## How a chef's address is protected
 

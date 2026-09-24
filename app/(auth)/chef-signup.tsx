@@ -75,7 +75,8 @@ export default function ChefSignupScreen() {
     return Object.keys(e).length === 0;
   };
 
-  // Pick + upload the chef profile picture.
+  // Pick the chef profile picture. Only previews it locally — the upload is
+  // deferred to handleSubmit so an abandoned signup costs no bucket storage.
   const pickProfilePicture = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -87,20 +88,8 @@ export default function ChefSignupScreen() {
     const uri = result.assets[0].uri;
     setErrors((prev) => { const n = { ...prev }; delete n.profilePicture; return n; });
 
-    setUploadingImage(true);
-    try {
-      const uploadedUrl = await uploadProfilePicture(uri, email || name || "signup-user");
-      setProfilePictureUrl(uploadedUrl);
-      setLocalImageUri(null);
-    } catch {
-      // Fall back to the local uri so the user can still proceed; this local
-      // uri is passed as profile_picture_url when a remote upload isn't available.
-      setProfilePictureUrl("");
-      setLocalImageUri(uri);
-      Alert.alert("Upload Failed", "Could not upload to cloud. The selected image will be used locally.");
-    } finally {
-      setUploadingImage(false);
-    }
+    setLocalImageUri(uri);
+    setProfilePictureUrl("");
   };
 
   const resolveCoords = async (): Promise<Coords | null> => {
@@ -125,6 +114,23 @@ export default function ChefSignupScreen() {
       setErrors((prev) => ({ ...prev, address: "Could not find that address. Please enter a more specific address or use your current location." }));
       return;
     }
+
+    // The picked image reaches the bucket here and nowhere earlier.
+    let pictureUrl = profilePictureUrl;
+    if (localImageUri && !pictureUrl) {
+      setUploadingImage(true);
+      try {
+        pictureUrl = await uploadProfilePicture(localImageUri, email || name || "signup-user");
+        setProfilePictureUrl(pictureUrl);
+      } catch {
+        // Fall back to the local uri so the user can still finish signing up;
+        // this local uri is passed as profile_picture_url when a remote upload
+        // isn't available.
+        Alert.alert("Upload Failed", "Could not upload your photo to the cloud. The selected image will be used locally.");
+      } finally {
+        setUploadingImage(false);
+      }
+    }
     const { error } = await signUp(
       email.trim(),
       password,
@@ -148,7 +154,7 @@ export default function ChefSignupScreen() {
       },
       phone,
       { latitude: resolved.latitude, longitude: resolved.longitude, address: address.trim() },
-      profilePictureUrl || localImageUri || undefined,
+      pictureUrl || localImageUri || undefined,
     );
     setIsLoading(false);
     if (error) Alert.alert("Sign Up Failed", getUserFriendlyError(error));
@@ -272,7 +278,7 @@ export default function ChefSignupScreen() {
                 label="Kitchen Address"
                 required
                 focusOnLahore
-                placeholder="Search for your kitchen address..."
+                placeholder={"Tap \u201cLocate me\u201d to set your kitchen address"}
                 defaultValue={address}
                 error={errors.address}
                 onLocationSelect={(loc) => {

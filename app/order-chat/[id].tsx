@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderChat } from "@/hooks/useOrderChat";
@@ -20,6 +21,26 @@ import type { OrderMessage } from "@/services/chatService";
 import { colors, radius, spacing, typography } from "@/constants/theme";
 
 const MAX_LENGTH = 1000;
+
+const disclaimerKey = (orderId: number) => `order-chat-disclaimer:${orderId}`;
+
+/** Remembered per order, so the notice only fronts a brand new conversation. */
+const readDisclaimerAccepted = async (orderId: number | null): Promise<boolean> => {
+  if (orderId == null) return false;
+  try {
+    return (await AsyncStorage.getItem(disclaimerKey(orderId))) === "1";
+  } catch {
+    // Unreadable storage — the notice simply shows again.
+    return false;
+  }
+};
+
+const rememberDisclaimer = (orderId: number | null) => {
+  if (orderId == null) return;
+  AsyncStorage.setItem(disclaimerKey(orderId), "1").catch(() => {
+    // Not being able to remember it is not worth failing over.
+  });
+};
 
 const dayLabel = (iso: string) => {
   const date = new Date(iso);
@@ -71,7 +92,24 @@ export default function OrderChatScreen() {
   } = useOrderChat(orderId, true);
 
   const [draft, setDraft] = useState("");
+  // null until storage has been read, so the thread never flashes past the notice.
+  const [accepted, setAccepted] = useState<boolean | null>(null);
   const listRef = useRef<FlatList<Row>>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void readDisclaimerAccepted(orderId).then((value) => {
+      if (!cancelled) setAccepted(value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId]);
+
+  const acceptDisclaimer = () => {
+    rememberDisclaimer(orderId);
+    setAccepted(true);
+  };
 
   // Newest message stays in view as the thread grows.
   useEffect(() => {
@@ -103,6 +141,11 @@ export default function OrderChatScreen() {
     myLastMessageId != null &&
     theirLastReadMessageId != null &&
     theirLastReadMessageId >= myLastMessageId;
+
+  // Only a conversation that has not started yet gets the notice; an existing
+  // thread was already fronted by it when it was started.
+  const showDisclaimer =
+    !loading && !error && (thread?.can_send ?? false) && messages.length === 0 && accepted === false;
 
   const submit = async () => {
     const body = draft.trim();
@@ -166,9 +209,26 @@ export default function OrderChatScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
       >
-        {loading ? (
+        {loading || accepted === null ? (
           <View style={styles.centered}>
             <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : showDisclaimer ? (
+          <View style={styles.disclaimer}>
+            <Ionicons name="shield-checkmark-outline" size={32} color={colors.primary} />
+            <Text style={styles.disclaimerTitle}>Before you start chatting</Text>
+            <Text style={styles.disclaimerBody}>
+              Keep the whole conversation and every payment on PakwanHus — we can only help
+              with an order we can see. Never share bank or card details, and use this chat
+              for questions about this order only.
+            </Text>
+            <Pressable
+              style={styles.disclaimerButton}
+              onPress={acceptDisclaimer}
+              accessibilityRole="button"
+            >
+              <Text style={styles.disclaimerButtonText}>Got it, continue</Text>
+            </Pressable>
           </View>
         ) : (
           <FlatList
@@ -210,7 +270,7 @@ export default function OrderChatScreen() {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {thread?.can_send ? (
+        {showDisclaimer ? null : thread?.can_send ? (
           <View style={styles.composer}>
             <TextInput
               style={styles.input}
@@ -276,6 +336,37 @@ const styles = StyleSheet.create({
     ...typography.sm,
     color: colors.mutedForeground,
     textAlign: "center",
+  },
+  disclaimer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.xl,
+    gap: spacing.sm,
+  },
+  disclaimerTitle: {
+    ...typography.base,
+    fontWeight: "600",
+    color: colors.foreground,
+    textAlign: "center",
+  },
+  disclaimerBody: {
+    ...typography.sm,
+    color: colors.mutedForeground,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  disclaimerButton: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primary,
+  },
+  disclaimerButtonText: {
+    ...typography.sm,
+    fontWeight: "600",
+    color: colors.primaryForeground,
   },
   listContent: { padding: spacing.md, flexGrow: 1 },
   dayRow: { alignItems: "center", marginVertical: spacing.sm },

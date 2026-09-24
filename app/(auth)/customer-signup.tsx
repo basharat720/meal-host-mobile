@@ -143,7 +143,7 @@ export default function CustomerSignupScreen() {
               label="Address"
               required
               focusOnLahore
-              placeholder="Search for your address..."
+              placeholder={"Tap \u201cLocate me\u201d to set your address"}
               defaultValue={address}
               error={errors.address}
               onLocationSelect={(loc) => {

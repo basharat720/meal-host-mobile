@@ -16,6 +16,7 @@ import { useI18n } from "@/i18n/context";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { availabilityService } from "@/services/api";
+import { useServiceAreaGate } from "@/hooks/useServiceAreaGate";
 import { ChefAvailabilityStatus } from "@/services/types";
 import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
 
@@ -33,6 +34,13 @@ export default function CartScreen() {
   const { items, updateQuantity, removeItem, total } = useCart();
   const { formatPrice } = useI18n();
   const router = useRouter();
+
+  // Report-only: the cart says so if we *already* know the customer is outside
+  // the zone, so the news doesn't arrive at the last step. It never reads the
+  // phone's position and never raises a permission prompt — that belongs to
+  // checkout. See feature-docs/07-ordering-zone-in-the-app.md.
+  const serviceArea = useServiceAreaGate({ autoLocate: false });
+  const isKnownOutside = serviceArea.status === "outside";
 
   // A cart only ever holds one chef's dishes, so a single status check covers it.
   const chefId = items[0]?.chefId;
@@ -166,6 +174,17 @@ export default function CartScreen() {
               <View style={styles.offlineBanner}>
                 <Ionicons name="moon-outline" size={16} color={colors.mutedForeground} />
                 <Text style={styles.offlineBannerText}>{offlineMessage}</Text>
+              </View>
+            )}
+
+            {isKnownOutside && (
+              <View style={styles.offlineBanner}>
+                <Ionicons name="location-outline" size={16} color={colors.mutedForeground} />
+                <Text style={styles.offlineBannerText}>
+                  {`We're not delivering to your area yet — PakwanHus is currently available in ${
+                    serviceArea.area?.name ?? "our launch area"
+                  } only. You can still browse and add to your cart, and you can check a different address at checkout.`}
+                </Text>
               </View>
             )}
 

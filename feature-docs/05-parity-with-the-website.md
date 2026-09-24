@@ -15,17 +15,14 @@ no app equivalent and is not intended to get one.
 
 ## Waiting on the backend
 
-**Service area restrictions.** The website limits ordering to the Askari X
-neighbourhood: it asks for your location, checks it against the delivery zone,
-and explains things rather than letting you fill in a whole checkout only to
-be refused.
+**Online card payment.** The website takes payment through PayFast: a payment
+method choice at checkout, a branded handover screen, and success and failure
+screens it returns to. The app offers cash only.
 
-The app cannot do this yet because the endpoint the website calls
-(`GET /service-area`) does not exist in the backend repository, and neither
-does the handling for the coordinates an order would send with it. The one
-piece that could be taken early has been: the app now reads structured error
-codes from the backend, so when the zone check does arrive its refusals will
-read properly instead of as `[object Object]`.
+This is not simply unported. The website calls payment endpoints
+(`payments/payfast/…`) that do not exist in the backend repository, so the
+website is ahead of the shared backend here, not just ahead of the app. The
+app should follow once the backend side is real.
 
 ## Waiting on credentials or configuration
 
@@ -78,6 +75,11 @@ Worth knowing before "fixing" these to match:
 - **Notifications** — the app syncs the icon badge, routes taps to the right
   screen, handles a notification that arrives while it is closed, and asks
   permission gently before triggering the system prompt.
+- **Confirming your location** — the app never interrupts checkout with a
+  permission prompt, and when a phone setting is what is blocking it, it opens
+  the right Settings screen for you. The website can only describe where its
+  browser's permission menu is. See
+  [The Ordering Zone in the App](07-ordering-zone-in-the-app.md).
 - **Offline chefs** — the app re-checks whether a chef is still open when you
   return to your cart, and blocks checkout with the time they next open.
 - **Saving a single chef field** no longer wipes the others. The app's profile

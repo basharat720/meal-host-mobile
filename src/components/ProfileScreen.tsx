@@ -503,7 +503,9 @@ export const ProfileScreen = () => {
             <LocationAutocomplete
               label={isChef ? "Kitchen Address" : "Address"}
               placeholder={
-                isChef ? "Search for where you cook from..." : "Search for your address..."
+                isChef
+                  ? "Tap \u201cLocate me\u201d to set your kitchen address"
+                  : "Tap \u201cLocate me\u201d to set your address"
               }
               focusOnLahore
               defaultValue={address}

@@ -18,6 +18,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/ui/PhoneInput";
+import { LocationAutocomplete } from "@/components/ui/LocationAutocomplete";
+import { isWithinServiceArea } from "@/services/serviceAreaService";
+import { useServiceAreaGate } from "@/hooks/useServiceAreaGate";
+import { LocationRequiredCard } from "@/components/location/LocationRequiredCard";
 import { validatePhoneNumber } from "@/lib/phone";
 import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
 import { getCheckoutError } from "@/lib/errorMessages";
@@ -77,10 +81,29 @@ export default function CheckoutScreen() {
   const [distanceToChef, setDistanceToChef] = useState<number | undefined>(undefined);
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  // Coordinates behind the delivery address, so the zone rule can be checked
+  // against where the food is actually going.
+  const [deliveryCoords, setDeliveryCoords] = useState<{
+    lat: number;
+    lon: number;
+  } | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [etaText, setEtaText] = useState<string | null>(null);
   const orderPlacedRef = useRef(false);
+
+  // Where the customer is. Reads a position we already have permission for and
+  // otherwise waits to be asked — mounting never raises the system prompt.
+  // See feature-docs/07-ordering-zone-in-the-app.md.
+  const gate = useServiceAreaGate();
+
+  // The delivery point has to sit inside the zone too. The server re-checks it,
+  // so this only saves the customer from filling in the rest of the form.
+  const isDeliveryOutsideArea =
+    deliveryType === "delivery" &&
+    deliveryCoords !== null &&
+    !isWithinServiceArea(gate.area, deliveryCoords.lat, deliveryCoords.lon);
+  const areaName = gate.area?.name ?? "our launch area";
 
   // Pre-fill name and phone from dbUser
   useEffect(() => {
@@ -232,7 +255,31 @@ export default function CheckoutScreen() {
       return;
     }
     if (deliveryType === "delivery" && !deliveryAddress.trim()) {
-      Alert.alert("Missing Info", "Please enter your delivery address.");
+      Alert.alert(
+        "Missing Info",
+        "Please use “Locate me” to set your delivery address."
+      );
+      return;
+    }
+    if (gate.status === "needs-location") {
+      Alert.alert(
+        "Confirm your location",
+        `We deliver in ${areaName} only for now, so we need to know where you are before you order. Share your location or enter your address above.`
+      );
+      return;
+    }
+    if (gate.status === "outside") {
+      Alert.alert(
+        "Outside our delivery zone",
+        `PakwanHus is currently available in ${areaName} only. Enter a different address above to check another location.`
+      );
+      return;
+    }
+    if (isDeliveryOutsideArea) {
+      Alert.alert(
+        "Outside our delivery zone",
+        `That delivery address is outside our zone. PakwanHus currently delivers in ${areaName} only. Locate yourself from an address inside the zone, or switch to pickup.`
+      );
       return;
     }
     if (!acceptedTerms) {
@@ -263,7 +310,12 @@ export default function CheckoutScreen() {
       const createdOrderIds: number[] = [];
 
       if (isOfferMode) {
-        const order = await requestService.acceptOffer(offerCheckout!.offerId);
+        // Accepting an offer creates a real order, so it carries the confirmed
+        // position the same way a cart order does.
+        const order = await requestService.acceptOffer(
+          offerCheckout!.offerId,
+          gate.orderLocationPayload
+        );
         await orderService.payOrder(order.id, { method: "CASH" });
         createdOrderIds.push(order.id);
       } else {
@@ -279,9 +331,17 @@ export default function CheckoutScreen() {
           }
           return { food_listing_id: foodListingId, quantity: item.quantity };
         });
-        // delivery_type is accepted by the backend but not yet in the
-        // OrderCreate type; widen the payload so it is serialized.
-        const payload: OrderCreate & { delivery_type: "pickup" | "delivery" } = {
+        // delivery_type and the customer coordinates are accepted by the
+        // backend but not yet in the OrderCreate type; widen the payload so
+        // they are serialized. Sending the confirmed position means the server
+        // checks the zone against the same place the app just checked, instead
+        // of falling back to the saved profile address.
+        const payload: OrderCreate & {
+          delivery_type: "pickup" | "delivery";
+          customer_latitude?: number;
+          customer_longitude?: number;
+          customer_location_accuracy_m?: number;
+        } = {
           quantity: items.reduce((sum, item) => sum + item.quantity, 0),
           total_amount: items.reduce(
             (sum, item) => sum + item.price * item.quantity,
@@ -293,6 +353,7 @@ export default function CheckoutScreen() {
           delivery_address: finalAddress,
           delivery_phone: phone,
           delivery_type: deliveryType,
+          ...gate.orderLocationPayload,
           special_instructions: instructions.trim() || undefined,
         };
         const order = await orderService.createOrder(payload);
@@ -394,6 +455,20 @@ export default function CheckoutScreen() {
             </View>
           ) : null}
         </View>
+
+        {/* Where the customer is. Only appears when it stands between them and
+            an order — a customer inside the zone never sees it. */}
+        {gate.isBlocked && (
+          <LocationRequiredCard
+            status={gate.status}
+            failure={gate.failure}
+            isLocating={gate.isLocating}
+            areaName={gate.area?.name}
+            onRetryDeviceLocation={gate.requestDeviceLocation}
+            onManualLocation={gate.setManualLocation}
+            onOpenSettings={gate.openSettings}
+          />
+        )}
 
         {/* Contact Info */}
         <View style={styles.section}>
@@ -530,20 +605,31 @@ export default function CheckoutScreen() {
                 </View>
               </View>
               <View style={styles.textAreaContainer}>
-                <Text style={styles.textAreaLabel}>Delivery Address *</Text>
-                <TextInput
-                  style={styles.textArea}
-                  placeholder="Enter your complete delivery address (street, building, floor, landmarks)…"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={deliveryAddress}
-                  onChangeText={setDeliveryAddress}
-                  multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
+                <LocationAutocomplete
+                  label="Delivery Address"
+                  required
+                  focusOnLahore
+                  placeholder={"Tap \u201cLocate me\u201d to set your delivery address"}
+                  defaultValue={deliveryAddress}
+                  error={
+                    isDeliveryOutsideArea
+                      ? `This address is outside our delivery zone. PakwanHus currently delivers in ${areaName} only — locate yourself from an address inside the zone, or switch to pickup.`
+                      : undefined
+                  }
+                  onLocationSelect={(loc) => {
+                    setDeliveryAddress(loc.label);
+                    setDeliveryCoords({ lat: loc.lat, lon: loc.lon });
+                    // Where the food is going is the address this order should
+                    // be judged on, so the gate uses it too.
+                    gate.setManualLocation(loc.lat, loc.lon, loc.label);
+                  }}
                 />
-                <Text style={styles.pickupNote}>
-                  Be as specific as possible to ensure smooth delivery.
-                </Text>
+                {!isDeliveryOutsideArea && (
+                  <Text style={styles.pickupNote}>
+                    Tap “Locate me” so the chef gets your exact delivery point. Add
+                    landmarks or a floor in the notes below if it helps the rider.
+                  </Text>
+                )}
               </View>
             </>
           )}
@@ -608,7 +694,9 @@ export default function CheckoutScreen() {
           style={styles.placeOrderButton}
           onPress={handlePlaceOrder}
           loading={isSubmitting}
-          disabled={isSubmitting || !acceptedTerms}
+          disabled={
+            isSubmitting || !acceptedTerms || isDeliveryOutsideArea || gate.isBlocked
+          }
         >
           {isSubmitting ? "Placing Order…" : `Place Order — ${formatPrice(checkoutTotal)}`}
         </Button>

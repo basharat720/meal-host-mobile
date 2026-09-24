@@ -91,6 +91,11 @@ interface LocationAutocompleteProps {
   /** Message shown under the field; also puts it in an error state. */
   error?: string;
   containerStyle?: ViewStyle;
+  /**
+   * Typing an address is disabled for now — "Locate me" is the only way to set
+   * the field. Flip this to true (here or per call site) to bring search back.
+   */
+  allowManualEntry?: boolean;
 }
 
 /**
@@ -102,13 +107,14 @@ interface LocationAutocompleteProps {
 export function LocationAutocomplete({
   onLocationSelect,
   label,
-  placeholder = "Search for an address...",
+  placeholder,
   defaultValue = "",
   required = false,
   showUseMyLocation = true,
   focusOnLahore = false,
   error,
   containerStyle,
+  allowManualEntry = false,
 }: LocationAutocompleteProps) {
   const [query, setQuery] = useState(defaultValue);
   const [suggestions, setSuggestions] = useState<PhotonFeature[]>([]);
@@ -120,6 +126,12 @@ export function LocationAutocomplete({
   // must not trigger a fresh search for the text we just put in the field.
   const skipNextSearch = useRef(false);
 
+  const resolvedPlaceholder =
+    placeholder ??
+    (allowManualEntry
+      ? "Search for an address..."
+      : "Tap \u201cLocate me\u201d to set your location");
+
   useEffect(() => {
     skipNextSearch.current = true;
     setQuery(defaultValue);
@@ -130,6 +142,7 @@ export function LocationAutocomplete({
       skipNextSearch.current = false;
       return;
     }
+    if (!allowManualEntry) return;
     if (!query || query.trim().length <= 2) {
       setSuggestions([]);
       setIsOpen(false);
@@ -138,7 +151,7 @@ export function LocationAutocomplete({
     // 500ms, to be polite to a free public API.
     const timer = setTimeout(() => fetchSuggestions(query.trim()), 500);
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, allowManualEntry]);
 
   const fetchSuggestions = async (searchQuery: string) => {
     setIsLoading(true);
@@ -181,7 +194,7 @@ export function LocationAutocomplete({
       if (status !== "granted") {
         Alert.alert(
           "Permission needed",
-          "Location permission is required to use your current location. You can also type your address instead."
+          "Location permission is required to set your address. Please enable it in Settings and try again."
         );
         return;
       }
@@ -198,7 +211,7 @@ export function LocationAutocomplete({
     } catch {
       Alert.alert(
         "Location Error",
-        "Could not get your current location. Please enter your address manually."
+        "Could not get your current location. Please try again."
       );
     } finally {
       setIsGettingLocation(false);
@@ -229,18 +242,31 @@ export function LocationAutocomplete({
       )}
 
       <View style={[styles.field, !!error && styles.fieldError]}>
-        <TextInput
-          style={styles.input}
-          value={query}
-          onChangeText={setQuery}
-          placeholder={placeholder}
-          placeholderTextColor={colors.mutedForeground}
-          editable={!isGettingLocation}
-          autoCorrect={false}
-          onFocus={() => {
-            if (suggestions.length > 0) setIsOpen(true);
-          }}
-        />
+        {/* A non-editable TextInput does not take touches, so the press
+            handler lives on a wrapper: with typing off, the field is just a
+            second, bigger target for the only action available. */}
+        <Pressable
+          style={styles.inputWrapper}
+          onPress={
+            !allowManualEntry && showUseMyLocation && !isGettingLocation
+              ? handleUseMyLocation
+              : undefined
+          }
+          disabled={allowManualEntry}
+        >
+          <TextInput
+            style={styles.input}
+            value={query}
+            onChangeText={setQuery}
+            placeholder={resolvedPlaceholder}
+            placeholderTextColor={colors.mutedForeground}
+            editable={allowManualEntry && !isGettingLocation}
+            autoCorrect={false}
+            onFocus={() => {
+              if (allowManualEntry && suggestions.length > 0) setIsOpen(true);
+            }}
+          />
+        </Pressable>
 
         {isLoading && <ActivityIndicator size="small" color={colors.mutedForeground} />}
 
@@ -269,7 +295,7 @@ export function LocationAutocomplete({
       {/* Rendered inline rather than as an overlay: this field lives inside a
           ScrollView on every screen that uses it, and an absolutely positioned
           list would be clipped and unscrollable. */}
-      {isOpen && suggestions.length > 0 && (
+      {allowManualEntry && isOpen && suggestions.length > 0 && (
         <View style={styles.suggestions}>
           {suggestions.map((feature, index) => (
             <Pressable
@@ -326,8 +352,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   fieldError: { borderColor: colors.destructive },
+  inputWrapper: { flex: 1, minWidth: 0 },
   input: {
-    flex: 1,
     minWidth: 0,
     paddingVertical: 11,
     ...typography.base,
