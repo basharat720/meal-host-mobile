@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.destructive,
   },
-  filterCountText: { fontSize: 10, fontWeight: "700", color: "#fff" },
+  filterCountText: { fontSize: 10, fontWeight: "700", color: colors.white },
 
   countRow: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
   countText: { ...typography.sm, color: colors.mutedForeground },

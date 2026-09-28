@@ -90,11 +90,11 @@ export default function RefundPolicyScreen() {
         <View style={styles.approveBox}>
           <CheckItem>Order cancellation is accepted before food preparation begins</CheckItem>
           <CheckItem>
-            Order not delivered due to an error attributable to Pakwanhus or the assigned delivery
+            Order not delivered due to an error attributable to FoodPal or the assigned delivery
             process
           </CheckItem>
           <CheckItem>Incorrect order delivered</CheckItem>
-          <CheckItem>Significant quality issues confirmed by Pakwanhus representative</CheckItem>
+          <CheckItem>Significant quality issues confirmed by FoodPal representative</CheckItem>
           <CheckItem>Payment deducted but order was not successfully placed</CheckItem>
         </View>
 
@@ -111,7 +111,7 @@ export default function RefundPolicyScreen() {
         <SectionTitle>Refund Processing</SectionTitle>
         <Paragraph>
           Approved refunds will be processed through the original payment method within the time
-          stipulated by the bank. For cash payments, Pakwanhus may provide refunds through an agreed
+          stipulated by the bank. For cash payments, FoodPal may provide refunds through an agreed
           alternative method. Refund processing time may vary depending on the payment provider or
           banking partner.
         </Paragraph>
@@ -119,7 +119,7 @@ export default function RefundPolicyScreen() {
         <SectionTitle>How to Request a Refund</SectionTitle>
         <View style={styles.infoBox}>
           <Text style={styles.infoTextStrong}>To process your refund request:</Text>
-          <Bullet>Contact Pakwanhus Customer Support immediately</Bullet>
+          <Bullet>Contact FoodPal Customer Support immediately</Bullet>
           <Bullet>
             Report the issue <Text style={styles.bold}>no later than 60 minutes</Text> after
             receiving your order
@@ -207,9 +207,9 @@ const styles = StyleSheet.create({
   rowIcon: { marginRight: spacing.sm, marginTop: 2 },
   iconText: { ...typography.base, color: colors.mutedForeground, flex: 1 },
   approveBox: {
-    backgroundColor: "#f0fdf4",
+    backgroundColor: colors.successSubtle,
     borderWidth: 1,
-    borderColor: "#bbf7d0",
+    borderColor: colors.successBorder,
     borderRadius: radius.md,
     padding: spacing.md,
     marginTop: spacing.xs,
@@ -217,9 +217,9 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   denyBox: {
-    backgroundColor: "#fef2f2",
+    backgroundColor: colors.status.cancelled.bg,
     borderWidth: 1,
-    borderColor: "#fecaca",
+    borderColor: colors.status.cancelled.border,
     borderRadius: radius.md,
     padding: spacing.md,
     marginTop: spacing.xs,

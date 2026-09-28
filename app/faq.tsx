@@ -31,22 +31,22 @@ type FaqCategory = { category: string; questions: Faq[] };
 
 const faqData: FaqCategory[] = [
   {
-    category: "About Pakwanhus",
+    category: "About FoodPal",
     questions: [
       {
-        question: "What is Pakwanhus?",
+        question: "What is FoodPal?",
         answer:
-          "Pakwanhus is a platform that connects you with talented home chefs offering authentic homemade food. We help you enjoy delicious meals prepared with care, tradition, and fresh ingredients.",
+          "FoodPal is a platform that connects you with talented home chefs offering authentic homemade food. We help you enjoy delicious meals prepared with care, tradition, and fresh ingredients.",
       },
       {
-        question: "What does Pakwanhus mean?",
+        question: "What does FoodPal mean?",
         answer:
-          "Pakwan comes from Urdu, meaning 'delicious food', while Hus comes from Norwegian, meaning 'house'. Together, Pakwanhus represents delicious food from the house — connecting people with authentic home cooking.",
+          "A pal is a friend, and that is how we think about food: something shared, made by someone nearby who cooks it the way they would for their own family. Hence our slogan — Your Food is a Pal Away.",
       },
       {
-        question: "Is Pakwanhus a restaurant?",
+        question: "Is FoodPal a restaurant?",
         answer:
-          "No. Pakwanhus is a platform connecting customers with independent home chefs who prepare food from their own kitchens.",
+          "No. FoodPal is a platform connecting customers with independent home chefs who prepare food from their own kitchens.",
       },
     ],
   },
@@ -56,7 +56,7 @@ const faqData: FaqCategory[] = [
       {
         question: "How do I place an order?",
         answer:
-          "Simply browse available home chefs and dishes, select your preferred items, choose your delivery details, and place your order through the Pakwanhus platform.",
+          "Simply browse available home chefs and dishes, select your preferred items, choose your delivery details, and place your order through the FoodPal platform.",
       },
       {
         question: "Can I order a dish that is not on the menu?",
@@ -86,7 +86,7 @@ const faqData: FaqCategory[] = [
       {
         question: "What if my order arrives late?",
         answer:
-          "Delivery times are estimates. If your order is delayed, please contact Pakwanhus support and we will assist you.",
+          "Delivery times are estimates. If your order is delayed, please contact FoodPal support and we will assist you.",
       },
       {
         question: "What if I receive the wrong order?",
@@ -106,12 +106,12 @@ const faqData: FaqCategory[] = [
       {
         question: "How do I request a refund?",
         answer:
-          "To process a refund, you must contact Pakwanhus Customer Support immediately and no later than 60 minutes after receiving your order. Our team will review the reported concern and work with both customer and home chef to find an appropriate resolution.",
+          "To process a refund, you must contact FoodPal Customer Support immediately and no later than 60 minutes after receiving your order. Our team will review the reported concern and work with both customer and home chef to find an appropriate resolution.",
       },
       {
         question: "When are refunds provided?",
         answer:
-          "Refunds may be provided for: order cancellation before food preparation begins, order not delivered due to Pakwanhus error, incorrect order delivered, significant quality issues confirmed by Pakwanhus representative, or payment deducted but order not placed.",
+          "Refunds may be provided for: order cancellation before food preparation begins, order not delivered due to FoodPal error, incorrect order delivered, significant quality issues confirmed by FoodPal representative, or payment deducted but order not placed.",
       },
       {
         question: "When are refunds NOT provided?",
@@ -124,19 +124,19 @@ const faqData: FaqCategory[] = [
     category: "Home Chefs",
     questions: [
       {
-        question: "Who are the home chefs on Pakwanhus?",
+        question: "Who are the home chefs on FoodPal?",
         answer:
           "Our home chefs are passionate food creators who prepare authentic meals from their homes, bringing traditional recipes and personal cooking styles to customers.",
       },
       {
-        question: "How does Pakwanhus ensure food quality?",
+        question: "How does FoodPal ensure food quality?",
         answer:
           "We support home chefs by promoting good hygiene practices, accurate food descriptions, and customer feedback. We continuously work to improve trust and quality across our platform.",
       },
       {
         question: "Can anyone become a home chef?",
         answer:
-          "Interested home chefs can apply through Pakwanhus. Each application is reviewed before confirming the chefs to sign up and upload their menus.",
+          "Interested home chefs can apply through FoodPal. Each application is reviewed before confirming the chefs to sign up and upload their menus.",
       },
     ],
   },
@@ -146,7 +146,7 @@ const faqData: FaqCategory[] = [
       {
         question: "Are home chefs verified?",
         answer:
-          "Pakwanhus reviews home chef applications before onboarding and continuously monitors customer feedback.",
+          "FoodPal reviews home chef applications before onboarding and continuously monitors customer feedback.",
       },
       {
         question: "How can I provide feedback?",
@@ -156,7 +156,7 @@ const faqData: FaqCategory[] = [
       {
         question: "What about food allergies?",
         answer:
-          "Customers are responsible for reviewing available food information before placing orders and should inform the home chef of any known allergies or dietary restrictions before ordering. While home chefs make reasonable efforts to provide accurate information, Pakwanhus cannot guarantee that food products are completely free from allergens.",
+          "Customers are responsible for reviewing available food information before placing orders and should inform the home chef of any known allergies or dietary restrictions before ordering. While home chefs make reasonable efforts to provide accurate information, FoodPal cannot guarantee that food products are completely free from allergens.",
       },
     ],
   },
@@ -208,7 +208,7 @@ export default function FaqScreen() {
         <View style={styles.hero}>
           <Ionicons name="help-circle-outline" size={48} color={colors.primary} />
           <Text style={styles.pageTitle}>Frequently Asked Questions</Text>
-          <Text style={styles.updated}>Find answers to common questions about Pakwanhus</Text>
+          <Text style={styles.updated}>Find answers to common questions about FoodPal</Text>
         </View>
 
         {faqData.map((category) => (

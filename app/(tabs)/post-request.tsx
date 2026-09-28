@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
   },
   locationRowSelected: {
     borderColor: colors.primary,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.accentSubtle,
   },
   locationText: {
     flex: 1,
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
   },
   tagChipSelected: {
     borderColor: colors.primary,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.accentSubtle,
   },
   tagText: {
     ...typography.sm,
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    shadowColor: "#000",
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,

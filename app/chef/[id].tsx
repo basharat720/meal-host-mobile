@@ -449,14 +449,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   avatarFallback: {
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.accentSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarInitials: {
     ...typography.xl,
     fontWeight: "700",
-    color: colors.primary,
+    color: colors.accentSubtleForeground,
   },
   headerInfo: { flex: 1 },
   favoriteButton: { top: 10, right: 10 },
@@ -513,8 +513,8 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   availBadgeOpen: { backgroundColor: colors.success },
-  availDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#fff" },
-  availBadgeOpenText: { ...typography.xs, fontWeight: "700", color: "#fff" },
+  availDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.white },
+  availBadgeOpenText: { ...typography.xs, fontWeight: "700", color: colors.white },
   availBadgeOffline: { backgroundColor: colors.muted },
   availBadgeOfflineText: {
     ...typography.xs,
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   tagChip: {
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.accentSubtle,
     borderRadius: radius.full,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -585,7 +585,7 @@ const styles = StyleSheet.create({
   tagChipText: {
     ...typography.xs,
     fontWeight: "600",
-    color: colors.primary,
+    color: colors.accentSubtleForeground,
   },
   tagChipOutline: {
     backgroundColor: "transparent",
@@ -600,17 +600,17 @@ const styles = StyleSheet.create({
 
   // Safety badges
   safetyBadge: {
-    backgroundColor: "#DCFCE7",
+    backgroundColor: colors.successSubtle,
     borderRadius: radius.full,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: "#86EFAC",
+    borderColor: colors.successBorder,
   },
   safetyBadgeText: {
     ...typography.xs,
     fontWeight: "600",
-    color: "#166534",
+    color: colors.successSubtleForeground,
   },
 
   // Reviews

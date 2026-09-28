@@ -2,6 +2,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   useRef,
 } from "react";
 import {
@@ -35,6 +36,7 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FullScreenLoader } from "@/components/ui/LoadingSpinner";
 import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
+import { orderStatusTone } from "@/lib/orderStatus";
 import { getUserFriendlyError } from "@/lib/errorMessages";
 import { useChatUnread } from "@/hooks/useOrderChat";
 
@@ -75,20 +77,6 @@ const ACTIVE_STATUSES = new Set<Order["status"]>([
   "READY_FOR_PICKUP",
 ]);
 
-type BadgeVariant = "default" | "success" | "warning" | "destructive" | "outline";
-
-const getStatusBadgeVariant = (status: Order["status"]): BadgeVariant => {
-  switch (status) {
-    case "PENDING": return "warning";
-    case "CONFIRMED": return "outline";
-    case "READY_FOR_PICKUP": return "success";
-    case "DELIVERED":
-    case "RECEIVED":
-    case "COMPLETED": return "default";
-    case "CANCELLED": return "destructive";
-    default: return "default";
-  }
-};
 
 const sortOrders = (orders: Order[]): Order[] =>
   [...orders].sort((a, b) => {
@@ -382,7 +370,7 @@ function OrderCard({
           <View style={cardStyles.statusRow}>
             <Badge
               label={STEP_LABELS[order.status]}
-              variant={getStatusBadgeVariant(order.status)}
+              variant={orderStatusTone(order.status)}
             />
             <Text style={cardStyles.amount}>
               {formatPrice(order.total_amount)}
@@ -563,7 +551,7 @@ function OrderCard({
                     <View key={step} style={cardStyles.stepRow}>
                       {isPast ? (
                         <View style={cardStyles.stepDotDone}>
-                          <Ionicons name="checkmark" size={10} color="#fff" />
+                          <Ionicons name="checkmark" size={10} color={colors.white} />
                         </View>
                       ) : isCurrent ? (
                         <View style={cardStyles.stepDotCurrent} />
@@ -778,7 +766,7 @@ const cardStyles = StyleSheet.create({
   detailText: { ...typography.sm, color: colors.foreground, flex: 1 },
   detailSubText: { ...typography.xs, color: colors.mutedForeground, marginTop: 2 },
   instructionsBox: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.accentSubtle,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: `${colors.accentForeground}22`,
@@ -1170,6 +1158,46 @@ export default function OrdersScreen() {
     setReviewedOrderIds((prev) => new Set(prev).add(orderId));
   };
 
+  // Split into Active / Past for the tabbed view.
+  const activeOrders = useMemo(
+    () => orders.filter((o) => ACTIVE_STATUSES.has(o.status)),
+    [orders]
+  );
+  const pastOrders = useMemo(
+    () => orders.filter((o) => !ACTIVE_STATUSES.has(o.status)),
+    [orders]
+  );
+  const displayedOrders = activeTab === "active" ? activeOrders : pastOrders;
+
+  // Take the deep link to its order: switch to the tab holding it, expand it,
+  // and scroll it into view.
+  useEffect(() => {
+    if (deepLinkedOrderId === null || deepLinkApplied.current) return;
+    const target = orders.find((o) => o.id === deepLinkedOrderId);
+    // Not in the loaded page yet — leave the flag unset so a later page can
+    // still satisfy the link.
+    if (!target) return;
+
+    deepLinkApplied.current = true;
+    const targetTab = ACTIVE_STATUSES.has(target.status) ? "active" : "past";
+    setActiveTab(targetTab);
+    setExpandedOrderId(target.id);
+
+    // The tab switch has to render the new list before there is a row to
+    // scroll to, so the index is resolved on the next frame.
+    requestAnimationFrame(() => {
+      const list = targetTab === "active" ? activeOrders : pastOrders;
+      const index = list.findIndex((o) => o.id === target.id);
+      if (index >= 0) {
+        listRef.current?.scrollToIndex({
+          index,
+          viewPosition: 0.5,
+          animated: true,
+        });
+      }
+    });
+  }, [deepLinkedOrderId, orders, activeOrders, pastOrders]);
+
   // ── Not logged in ──
   if (!user) {
     return (
@@ -1217,39 +1245,6 @@ export default function OrdersScreen() {
     );
   }
 
-  // Split into Active / Past for the tabbed view.
-  const activeOrders = orders.filter((o) => ACTIVE_STATUSES.has(o.status));
-  const pastOrders = orders.filter((o) => !ACTIVE_STATUSES.has(o.status));
-  const displayedOrders = activeTab === "active" ? activeOrders : pastOrders;
-
-  // Take the deep link to its order: switch to the tab holding it, expand it,
-  // and scroll it into view.
-  useEffect(() => {
-    if (deepLinkedOrderId === null || deepLinkApplied.current) return;
-    const target = orders.find((o) => o.id === deepLinkedOrderId);
-    // Not in the loaded page yet — leave the flag unset so a later page can
-    // still satisfy the link.
-    if (!target) return;
-
-    deepLinkApplied.current = true;
-    const targetTab = ACTIVE_STATUSES.has(target.status) ? "active" : "past";
-    setActiveTab(targetTab);
-    setExpandedOrderId(target.id);
-
-    // The tab switch has to render the new list before there is a row to
-    // scroll to, so the index is resolved on the next frame.
-    requestAnimationFrame(() => {
-      const list = targetTab === "active" ? activeOrders : pastOrders;
-      const index = list.findIndex((o) => o.id === target.id);
-      if (index >= 0) {
-        listRef.current?.scrollToIndex({
-          index,
-          viewPosition: 0.5,
-          animated: true,
-        });
-      }
-    });
-  }, [deepLinkedOrderId, orders, activeOrders, pastOrders]);
 
   return (
     <SafeAreaView style={styles.safeArea}>

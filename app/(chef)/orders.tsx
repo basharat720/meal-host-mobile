@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
+import { orderStatusTone } from "@/lib/orderStatus";
 import { useChatUnread } from "@/hooks/useOrderChat";
 
 // ---------------------------------------------------------------------------
@@ -35,17 +36,14 @@ type FilterTab = "active" | "completed" | "cancelled" | "all";
 const ACTIVE_STATUSES = new Set<Order["status"]>(["PENDING", "CONFIRMED", "READY_FOR_PICKUP"]);
 const COMPLETED_STATUSES = new Set<Order["status"]>(["DELIVERED", "RECEIVED", "COMPLETED"]);
 
-const STATUS_BADGE: Record<
-  Order["status"],
-  { label: string; variant: "default" | "warning" | "success" | "destructive" | "outline" }
-> = {
-  PENDING:          { label: "Pending",          variant: "warning" },
-  CONFIRMED:        { label: "Confirmed",         variant: "default" },
-  READY_FOR_PICKUP: { label: "Ready for Pickup",  variant: "success" },
-  DELIVERED:        { label: "Delivered",         variant: "success" },
-  RECEIVED:         { label: "Received",          variant: "success" },
-  COMPLETED:        { label: "Completed",         variant: "outline" },
-  CANCELLED:        { label: "Cancelled",         variant: "destructive" },
+const STATUS_LABEL: Record<Order["status"], string> = {
+  PENDING: "Pending",
+  CONFIRMED: "Confirmed",
+  READY_FOR_PICKUP: "Ready for Pickup",
+  DELIVERED: "Delivered",
+  RECEIVED: "Received",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
 };
 
 const STATUS_SORT: Record<Order["status"], number> = {
@@ -116,7 +114,7 @@ function OrderCard({
   onOpenChat,
 }: OrderCardProps) {
   const { formatPrice } = useI18n();
-  const badge = STATUS_BADGE[order.status];
+  const statusLabel = STATUS_LABEL[order.status];
   const isUpdating = updatingId === order.id;
 
   // Resolve a display title for the order. One order can hold several dishes,
@@ -205,7 +203,7 @@ function OrderCard({
         </View>
         <View style={styles.cardHeaderRight}>
           <Text style={styles.orderTotal}>{formatPrice(order.total_amount)}</Text>
-          <Badge label={badge.label} variant={badge.variant} />
+          <Badge label={statusLabel} variant={orderStatusTone(order.status)} />
           <Ionicons
             name={expanded ? "chevron-up" : "chevron-down"}
             size={16}
@@ -314,7 +312,7 @@ function OrderCard({
                         isCurrent && styles.timelineDotCurrent,
                       ]}
                     >
-                      {isPast && <Ionicons name="checkmark" size={10} color="#fff" />}
+                      {isPast && <Ionicons name="checkmark" size={10} color={colors.white} />}
                     </View>
                   </View>
                   <Text
@@ -692,7 +690,7 @@ const styles = StyleSheet.create({
   },
   tabActive: { backgroundColor: colors.primary },
   tabText: { ...typography.xs, fontWeight: "600", color: colors.mutedForeground },
-  tabTextActive: { color: "#fff" },
+  tabTextActive: { color: colors.white },
 
   listContent: { padding: spacing.md, paddingBottom: 40 },
   emptyContainer: { flex: 1, justifyContent: "center" },

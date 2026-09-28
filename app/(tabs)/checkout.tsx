@@ -301,14 +301,14 @@ export default function CheckoutScreen() {
       Alert.alert(
         "Switched to pickup",
         delivery.message ??
-          `We can't deliver this order. PakwanHus currently delivers in ${areaName} only — your order has been switched to pickup.`
+          `We can't deliver this order. FoodPal currently delivers in ${areaName} only — your order has been switched to pickup.`
       );
       return;
     }
     if (isDeliveryOutsideArea) {
       Alert.alert(
         "Outside our delivery zone",
-        `That delivery address is outside our zone. PakwanHus currently delivers in ${areaName} only. Locate yourself from an address inside the zone, or switch to pickup.`
+        `That delivery address is outside our zone. FoodPal currently delivers in ${areaName} only. Locate yourself from an address inside the zone, or switch to pickup.`
       );
       return;
     }
@@ -608,7 +608,7 @@ export default function CheckoutScreen() {
           {delivery.deliveryAvailable === false && (
             <Text style={styles.deliveryUnavailableNote}>
               {delivery.message ??
-                `PakwanHus only delivers within ${areaName}. You can still place this order for pickup.`}
+                `FoodPal only delivers within ${areaName}. You can still place this order for pickup.`}
             </Text>
           )}
 
@@ -660,7 +660,7 @@ export default function CheckoutScreen() {
                   defaultValue={deliveryAddress}
                   error={
                     isDeliveryOutsideArea
-                      ? `This address is outside our delivery zone. PakwanHus currently delivers in ${areaName} only — locate yourself from an address inside the zone, or switch to pickup.`
+                      ? `This address is outside our delivery zone. FoodPal currently delivers in ${areaName} only — locate yourself from an address inside the zone, or switch to pickup.`
                       : undefined
                   }
                   onLocationSelect={(loc) => {
@@ -793,14 +793,14 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: radius.full,
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.accentSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
   stepBadgeText: {
     ...typography.sm,
     fontWeight: "700",
-    color: colors.primary,
+    color: colors.accentSubtleForeground,
   },
   sectionTitle: {
     ...typography.md,
@@ -821,7 +821,7 @@ const styles = StyleSheet.create({
     color: colors.mutedForeground,
   },
   offerCard: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.accentSubtle,
     borderRadius: radius.md,
     padding: spacing.md,
     gap: spacing.xs,

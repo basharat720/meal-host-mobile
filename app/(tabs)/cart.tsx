@@ -181,7 +181,7 @@ export default function CartScreen() {
               <View style={styles.offlineBanner}>
                 <Ionicons name="location-outline" size={16} color={colors.mutedForeground} />
                 <Text style={styles.offlineBannerText}>
-                  {`This order will be for pickup — PakwanHus only delivers within ${
+                  {`This order will be for pickup — FoodPal only delivers within ${
                     serviceArea.area?.name ?? "our launch area"
                   }. You can still place your order and collect it yourself, or change your location at checkout.`}
                 </Text>

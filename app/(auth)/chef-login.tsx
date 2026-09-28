@@ -16,7 +16,7 @@ import { getUserFriendlyError } from "@/lib/errorMessages";
 import { SOCIAL_AUTH_ENABLED } from "@/constants/config";
 
 // Web's gradient-secondary: hsl(12 85% 62%) → hsl(18 90% 55%)
-const CHEF_GRADIENT: [string, string] = ["#F06D4C", "#F36325"];
+const CHEF_GRADIENT: [string, string] = [colors.secondary, colors.gradientSecondaryEnd];
 
 export default function ChefLoginScreen() {
   const { signIn, signInWithGoogle, setRole } = useAuth();
@@ -69,7 +69,7 @@ export default function ChefLoginScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["bottom"]}>
       <TouchableOpacity onPress={goBackOrHome} hitSlop={8} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={24} color="#fff" />
+        <Ionicons name="arrow-back" size={24} color={colors.white} />
       </TouchableOpacity>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" bounces={false}>
@@ -78,7 +78,7 @@ export default function ChefLoginScreen() {
           <LinearGradient colors={CHEF_GRADIENT} style={styles.hero} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }}>
             <View style={styles.heroInner}>
               <View style={styles.chefBadge}>
-                <ChefHatIcon size={32} color="#fff" />
+                <ChefHatIcon size={32} color={colors.white} />
               </View>
               <Text style={styles.heroTitle}>Chef Portal</Text>
               <Text style={styles.heroSub}>Sign in to manage your kitchen</Text>
@@ -138,7 +138,7 @@ export default function ChefLoginScreen() {
               loading={isLoading}
               style={styles.signInBtn}
               // Override button background to match chef orange
-              textStyle={{ color: "#fff" }}
+              textStyle={{ color: colors.white }}
             >
               Sign In
             </Button>
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontFamily: fonts.display,
     fontSize: 30,
-    color: "#fff",
+    color: colors.white,
     marginTop: spacing.xs,
   },
   heroSub: {
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
   showPasswordText: { ...typography.sm, color: colors.mutedForeground },
 
   forgot: { alignSelf: "flex-end" },
-  forgotText: { ...typography.sm, color: colors.accent, fontFamily: fonts.sansSemiBold },
+  forgotText: { ...typography.sm, color: colors.primary, fontFamily: fonts.sansSemiBold },
 
   signInBtn: { backgroundColor: CHEF_GRADIENT[1] },
 
@@ -271,5 +271,5 @@ const styles = StyleSheet.create({
 
   footer: { flexDirection: "row", justifyContent: "center" },
   footerText: { ...typography.base, color: colors.mutedForeground },
-  footerLink: { ...typography.base, color: colors.accent, fontFamily: fonts.sansBold },
+  footerLink: { ...typography.base, color: colors.primary, fontFamily: fonts.sansBold },
 });

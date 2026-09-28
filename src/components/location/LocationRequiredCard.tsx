@@ -46,10 +46,10 @@ export function LocationRequiredCard({
   // customer isn't told to check a permission that was never the problem.
   const message = isOutside
     ? `We're not delivering to your area yet.${
-        areaName ? ` PakwanHus is currently available in ${areaName} only.` : ""
+        areaName ? ` FoodPal is currently available in ${areaName} only.` : ""
       } Enter a different address to check another location.`
     : failure === "blocked"
-      ? "Location is turned off for PakwanHus. Turn it on in Settings, or enter your address below."
+      ? "Location is turned off for FoodPal. Turn it on in Settings, or enter your address below."
       : failure === "denied"
         ? "We can't check your area without your location. Try again, or enter your address below."
         : failure === "imprecise"

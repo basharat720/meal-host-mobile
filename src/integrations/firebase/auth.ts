@@ -102,7 +102,7 @@ export const resendEmailVerification = async (): Promise<{ error: Error | null }
     if (!user) return { error: new Error("No user is currently signed in.") };
     await reload(user);
     if (user.emailVerified) return { error: new Error("Email is already verified.") };
-    // Sent by our backend so it carries Pakwanhus branding.
+    // Sent by our backend so it carries FoodPal branding.
     await authEmailService.sendEmailVerification();
     return { error: null };
   } catch (error) {

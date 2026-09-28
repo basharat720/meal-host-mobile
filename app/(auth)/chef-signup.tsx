@@ -268,7 +268,7 @@ export default function ChefSignupScreen() {
                 )}
                 {uploadingImage && (
                   <View style={styles.imageOverlay}>
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color={colors.white} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -296,7 +296,7 @@ export default function ChefSignupScreen() {
                 </View>
                 <Text style={styles.termsText}>
                   By signing up as a Chef, I agree to the{" "}
-                  <Text style={styles.termsLink} onPress={() => router.push("/chef-agreement" as any)}>Pakwanhus Partner Terms and Conditions</Text>
+                  <Text style={styles.termsLink} onPress={() => router.push("/chef-agreement" as any)}>FoodPal Partner Terms and Conditions</Text>
                   {", the "}
                   <Text style={styles.termsLink} onPress={() => router.push("/terms" as any)}>Terms & Conditions</Text>
                   {" and the "}

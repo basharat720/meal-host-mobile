@@ -44,7 +44,7 @@ export const DietaryFilterBar = ({ selectedFilters, onToggle, onReset, hasActive
             style={[styles.pill, active && styles.pillActive]}
           >
             {active && (
-              <Ionicons name="checkmark" size={12} color="#fff" style={styles.checkIcon} />
+              <Ionicons name="checkmark" size={12} color={colors.white} style={styles.checkIcon} />
             )}
             <Text style={[styles.label, active && styles.labelActive]}>{f.label}</Text>
           </Pressable>
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     color: colors.foreground,
   },
   labelActive: {
-    color: "#fff",
+    color: colors.white,
   },
   resetPill: {
     flexDirection: "row",

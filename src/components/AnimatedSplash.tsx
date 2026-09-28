@@ -67,7 +67,7 @@ export function AnimatedSplash({ onComplete }: Props) {
   return (
     <Animated.View style={[StyleSheet.absoluteFill, styles.root, { opacity: screen }]}>
       <LinearGradient
-        colors={["#0D5233", "#062D1E"]}
+        colors={[colors.gradientPrimaryEnd, colors.gradientPrimaryStart]}
         style={styles.gradient}
         start={{ x: 0.1, y: 0 }}
         end={{ x: 0.6, y: 1 }}
@@ -87,9 +87,10 @@ export function AnimatedSplash({ onComplete }: Props) {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              {/* Same mark as the app icon / native splash, in its light-ink colourway */}
+              {/* Pal, in the light-ink colourway — the same mascot the app icon
+                  and the native splash carry, so the three read as one. */}
               <Image
-                source={require("../../assets/splash-icon.png")}
+                source={require("../../assets/mascot/pal-flat-white.png")}
                 style={styles.logoImage}
                 contentFit="contain"
               />
@@ -99,11 +100,17 @@ export function AnimatedSplash({ onComplete }: Props) {
           <Animated.View
             style={{ opacity: textOpacity, transform: [{ translateY: textY }], marginTop: 26 }}
           >
-            <Text style={styles.brandName}>Pakwanhus</Text>
+            {/* The supplied wordmark, not live text: the logo must not drift
+                with the type stack. */}
+            <Image
+              source={require("../../assets/brand/foodpal-wordmark-white.png")}
+              style={styles.wordmark}
+              contentFit="contain"
+            />
           </Animated.View>
 
           <Animated.View style={{ opacity: tagOpacity, marginTop: 8 }}>
-            <Text style={styles.tagline}>Home-cooked meals, delivered.</Text>
+            <Text style={styles.tagline}>Your Food is a Pal Away</Text>
           </Animated.View>
         </View>
 
@@ -151,24 +158,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1.5,
     borderColor: "rgba(255,255,255,0.28)",
-    shadowColor: "#000",
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.30,
     shadowRadius: 18,
     elevation: 14,
   },
   logoImage: {
-    width: 74,
-    height: 74,
+    width: 58,
+    height: 82,
   },
 
-  brandName: {
-    fontSize: 42,
-    fontFamily: fonts.display,
-    color: "#fff",
-    letterSpacing: 0.5,
-    textAlign: "center",
+  // 780x218 artwork, held to that ratio.
+  wordmark: {
+    width: 206,
+    height: 206 * (218 / 780),
   },
+
   tagline: {
     fontSize: 15,
     fontFamily: fonts.sans,

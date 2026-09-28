@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#fff",
+    color: colors.white,
   },
 
   statusRow: {
@@ -243,16 +243,16 @@ const styles = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 3,
-    backgroundColor: "#fff",
+    backgroundColor: colors.white,
   },
-  openBadgeText: { fontSize: 10, fontWeight: "700", color: "#fff" },
+  openBadgeText: { fontSize: 10, fontWeight: "700", color: colors.white },
   offlineBadge: {
     backgroundColor: "rgba(0,0,0,0.55)",
     borderRadius: radius.full,
     paddingHorizontal: 7,
     paddingVertical: 3,
   },
-  offlineBadgeText: { fontSize: 10, fontWeight: "700", color: "#fff" },
+  offlineBadgeText: { fontSize: 10, fontWeight: "700", color: colors.white },
 
   locationRow: {
     flexDirection: "row",
@@ -303,14 +303,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   tag: {
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.accentSubtle,
     borderRadius: radius.full,
     paddingHorizontal: 7,
     paddingVertical: 2,
   },
   tagText: {
     ...typography.xs,
-    color: colors.primary,
+    color: colors.accentSubtleForeground,
     fontWeight: "600",
   },
 

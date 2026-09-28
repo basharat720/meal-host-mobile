@@ -9,7 +9,7 @@ import {
 /**
  * Whether the delivery option may be offered for a basket.
  *
- * PakwanHus delivers only when both ends of the trip are inside the Askari X
+ * FoodPal delivers only when both ends of the trip are inside the Askari X
  * zone, and the kitchen's exact pickup coordinates are deliberately never
  * published — checkout only ever shows a masked address until an order is
  * placed. So this can't be worked out on the device: the server answers,

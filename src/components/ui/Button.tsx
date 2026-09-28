@@ -10,7 +10,12 @@ import {
 } from "react-native";
 import { colors, fonts, radius, spacing, typography } from "@/constants/theme";
 
-type Variant = "primary" | "secondary" | "outline" | "ghost" | "destructive";
+// The brand guideline draws four button treatments: blue on white (`outline`),
+// white on blue (`primary`), orange on white (`accentOutline`) and white on
+// orange (`secondary`). `ghost` and `destructive` are carried over for the
+// screens that already use them. Mirrors buttonVariants in
+// meal-host-frontend/src/components/ui/button.tsx.
+type Variant = "primary" | "secondary" | "outline" | "accentOutline" | "ghost" | "destructive";
 type Size = "sm" | "md" | "lg";
 
 interface ButtonProps extends PressableProps {
@@ -48,7 +53,11 @@ export const Button = ({
       {...props}
     >
       {loading ? (
-        <ActivityIndicator color={variant === "outline" || variant === "ghost" ? colors.primary : "#fff"} size="small" />
+        <ActivityIndicator color={variant === "outline" || variant === "ghost"
+            ? colors.primary
+            : variant === "accentOutline"
+            ? colors.secondaryStrong
+            : colors.white} size="small" />
       ) : (
         <Text style={[styles.text, styles[`text_${variant}`], styles[`textSize_${size}`], textStyle]}>
           {children}
@@ -63,25 +72,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: radius.md,
+    // Brand shape language: buttons are fully rounded pills at every size.
+    borderRadius: radius.full,
   },
   pressed: { opacity: 0.85 },
   disabled: { opacity: 0.5 },
 
   primary: { backgroundColor: colors.primary },
-  secondary: { backgroundColor: colors.secondary },
-  outline: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: colors.primary },
+  // Solid orange uses secondaryStrong, not the raw brand orange: white text on
+  // #FF3903 measures ~3.6:1, under the WCAG AA floor.
+  secondary: { backgroundColor: colors.secondaryStrong },
+  outline: { backgroundColor: "transparent", borderWidth: 2, borderColor: colors.primary },
+  accentOutline: { backgroundColor: "transparent", borderWidth: 2, borderColor: colors.secondaryStrong },
   ghost: { backgroundColor: "transparent" },
   destructive: { backgroundColor: colors.destructive },
 
-  size_sm: { paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: radius.sm },
-  size_md: { paddingHorizontal: spacing.md, paddingVertical: 11 },
-  size_lg: { paddingHorizontal: spacing.lg, paddingVertical: 14, borderRadius: radius.lg },
+  size_sm: { paddingHorizontal: spacing.md, paddingVertical: 6 },
+  size_md: { paddingHorizontal: spacing.lg, paddingVertical: 11 },
+  size_lg: { paddingHorizontal: spacing.xl, paddingVertical: 14 },
 
   text: { fontFamily: fonts.sansSemiBold, fontWeight: "600" },
   text_primary: { color: colors.primaryForeground },
   text_secondary: { color: colors.secondaryForeground },
   text_outline: { color: colors.primary },
+  text_accentOutline: { color: colors.secondaryStrong },
   text_ghost: { color: colors.primary },
   text_destructive: { color: colors.destructiveForeground },
 

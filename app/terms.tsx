@@ -54,30 +54,30 @@ export default function TermsScreen() {
 
         <Paragraph>
           These terms and conditions govern your use of the websites and mobile applications
-          provided by Bridging People (SMC-Private) Limited (or referred to as "Pakwanhus", "we" or
+          provided by Bridging People (SMC-Private) Limited (or referred to as "FoodPal", "we" or
           us) (collectively the "Platform").
         </Paragraph>
         <Paragraph>
-          By accessing or using Pakwanhus, you agree to these Terms and Conditions.
+          By accessing or using FoodPal, you agree to these Terms and Conditions.
         </Paragraph>
 
-        <SectionTitle>1. About Pakwanhus</SectionTitle>
+        <SectionTitle>1. About FoodPal</SectionTitle>
         <Paragraph>
-          Pakwanhus acts as a technology and service platform connecting customers and home chefs
+          FoodPal acts as a technology and service platform connecting customers and home chefs
           for providing homemade food. We enable customers to discover, order, and enjoy food
           prepared by independent home chefs.
         </Paragraph>
         <Paragraph>
-          Pakwanhus works to onboard and support quality home chefs but does not prepare food itself
+          FoodPal works to onboard and support quality home chefs but does not prepare food itself
           unless specifically stated.
         </Paragraph>
         <Paragraph>
-          All photos and images uploaded on Pakwanhus are for illustrative purposes only and may be
+          All photos and images uploaded on FoodPal are for illustrative purposes only and may be
           different from the actual food delivered.
         </Paragraph>
 
         <SectionTitle>2. Home Chefs</SectionTitle>
-        <Paragraph>Home chefs registered on Pakwanhus are responsible for:</Paragraph>
+        <Paragraph>Home chefs registered on FoodPal are responsible for:</Paragraph>
         <Bullet>Preparing food according to the information provided on their profile</Bullet>
         <Bullet>Maintaining appropriate hygiene and food preparation standards</Bullet>
         <Bullet>
@@ -91,11 +91,11 @@ export default function TermsScreen() {
           before ordering.
         </Paragraph>
         <Paragraph>
-          While home chefs make reasonable efforts to provide accurate information, Pakwanhus cannot
+          While home chefs make reasonable efforts to provide accurate information, FoodPal cannot
           guarantee that food products are completely free from allergens. The customer must
-          therefore carefully read the dish description before ordering. Pakwanhus does not take any
+          therefore carefully read the dish description before ordering. FoodPal does not take any
           responsibility if the customer faces allergic reactions after consuming the food ordered
-          at Pakwanhus.
+          at FoodPal.
         </Paragraph>
 
         <SectionTitle>4. Orders &amp; Payments</SectionTitle>
@@ -105,13 +105,13 @@ export default function TermsScreen() {
           begin after order confirmation and payment.
         </Paragraph>
         <Paragraph>
-          Prices displayed on Pakwanhus are determined by home chefs and may include applicable
+          Prices displayed on FoodPal are determined by home chefs and may include applicable
           service or delivery charges.
         </Paragraph>
 
         <SectionTitle>5. Custom Orders</SectionTitle>
         <Paragraph>
-          Pakwanhus provides customers the ability to request customized dishes and special orders
+          FoodPal provides customers the ability to request customized dishes and special orders
           from selected home chefs. Custom orders may require additional preparation time and
           confirmation from the home chef before acceptance. Cancellation for custom orders can be
           made within 120 minutes of placing the order.
@@ -128,22 +128,22 @@ export default function TermsScreen() {
         <Paragraph>Users agree not to:</Paragraph>
         <Bullet>Provide false information</Bullet>
         <Bullet>Misuse the platform</Bullet>
-        <Bullet>Harass or abuse home chefs, delivery partners, or Pakwanhus staff</Bullet>
+        <Bullet>Harass or abuse home chefs, delivery partners, or FoodPal staff</Bullet>
         <Bullet>Attempt fraudulent activities</Bullet>
         <Paragraph>
-          In case of any misuse of the platform, Pakwanhus reserves the right to use legal channels
+          In case of any misuse of the platform, FoodPal reserves the right to use legal channels
           to seek justice.
         </Paragraph>
 
         <SectionTitle>8. Platform Rights</SectionTitle>
-        <Paragraph>Pakwanhus reserves the right to:</Paragraph>
+        <Paragraph>FoodPal reserves the right to:</Paragraph>
         <Bullet>Suspend accounts violating our policies</Bullet>
         <Bullet>Remove listings that do not meet our quality standards</Bullet>
         <Bullet>Modify platform features and services</Bullet>
 
         <SectionTitle>9. Limitation of Liability</SectionTitle>
         <Paragraph>
-          Pakwanhus facilitates connections between customers and home chefs. While we work to
+          FoodPal facilitates connections between customers and home chefs. While we work to
           maintain quality and trust, food preparation remains the responsibility of individual home
           chefs.
         </Paragraph>
@@ -160,7 +160,7 @@ export default function TermsScreen() {
           the order has been received by the customer.
         </Paragraph>
         <Paragraph>
-          To process your refund, you must contact Pakwanhus Customer Support immediately and no
+          To process your refund, you must contact FoodPal Customer Support immediately and no
           later than 60 minutes after receiving your order. Our team will review the reported
           concern and work with both customer and home chef to find an appropriate resolution.
         </Paragraph>
@@ -169,7 +169,7 @@ export default function TermsScreen() {
         <Bullet>Photos/videos of the received food (where applicable)</Bullet>
         <Bullet>Any relevant information to help us investigate the issue</Bullet>
         <Paragraph>
-          Pakwanhus reserves the right to evaluate each complaint individually and determine the
+          FoodPal reserves the right to evaluate each complaint individually and determine the
           appropriate resolution.
         </Paragraph>
       </ScrollView>

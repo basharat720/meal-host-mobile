@@ -346,7 +346,7 @@ export default function AvailabilityScreen() {
                     value={days[i].enabled}
                     onValueChange={(v) => updateDay(i, { enabled: v })}
                     trackColor={{ false: colors.border, true: colors.primary }}
-                    thumbColor="#fff"
+                    thumbColor={colors.white}
                   />
                   <Text style={styles.dayName}>{day}</Text>
                 </View>

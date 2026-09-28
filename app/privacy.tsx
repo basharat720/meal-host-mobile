@@ -53,12 +53,12 @@ export default function PrivacyScreen() {
         </View>
 
         <Paragraph>
-          Welcome to Pakwanhus ("Pakwanhus", "we", "our", or "us").
+          Welcome to FoodPal ("FoodPal", "we", "our", or "us").
         </Paragraph>
         <Paragraph>
           Your privacy matters to us. This Privacy Policy explains how we collect, use, disclose,
           store and protect your personal information when you access or use our website, mobile
-          application, or any services offered by Pakwanhus (collectively, the "Platform").
+          application, or any services offered by FoodPal (collectively, the "Platform").
         </Paragraph>
         <Paragraph>
           By creating an account or using the Platform, you acknowledge that you have read and
@@ -68,11 +68,11 @@ export default function PrivacyScreen() {
 
         <SectionTitle>1. Who We Are</SectionTitle>
         <Paragraph>
-          Pakwanhus is an online marketplace that connects customers with independent home chefs
+          FoodPal is an online marketplace that connects customers with independent home chefs
           offering freshly prepared homemade meals.
         </Paragraph>
         <Paragraph>
-          For the purposes of this Privacy Policy, Pakwanhus acts as the data controller for the
+          For the purposes of this Privacy Policy, FoodPal acts as the data controller for the
           personal information collected through the Platform.
         </Paragraph>
         <View style={styles.infoBox}>
@@ -121,7 +121,7 @@ export default function PrivacyScreen() {
         <Paragraph>Payments are processed through secure third-party payment providers.</Paragraph>
         <Paragraph>
           <Text style={styles.bold}>
-            Pakwanhus does not store your complete debit or credit card information on its own
+            FoodPal does not store your complete debit or credit card information on its own
             servers.
           </Text>
         </Paragraph>
@@ -215,11 +215,11 @@ export default function PrivacyScreen() {
         <Paragraph>
           We may disclose your information where required by applicable law, court order, regulatory
           authority or governmental request, or where necessary to protect the rights, safety or
-          security of Pakwanhus, our users or the public.
+          security of FoodPal, our users or the public.
         </Paragraph>
 
         <SectionTitle>11. Custom Orders</SectionTitle>
-        <Paragraph>Pakwanhus offers customers the ability to place custom food requests.</Paragraph>
+        <Paragraph>FoodPal offers customers the ability to place custom food requests.</Paragraph>
         <Paragraph>
           Information you provide in relation to custom orders—including dietary preferences, event
           details, requested recipes, delivery schedules, and other instructions—will be shared only
@@ -230,7 +230,7 @@ export default function PrivacyScreen() {
         <Paragraph>Customers may submit ratings and reviews after completing an order.</Paragraph>
         <Paragraph>These reviews may be publicly displayed on the Platform.</Paragraph>
         <Paragraph>
-          Pakwanhus reserves the right to remove reviews that are false, abusive, defamatory,
+          FoodPal reserves the right to remove reviews that are false, abusive, defamatory,
           discriminatory, offensive or otherwise violate our policies.
         </Paragraph>
 
@@ -285,7 +285,7 @@ export default function PrivacyScreen() {
 
         <SectionTitle>17. Children's Privacy</SectionTitle>
         <Paragraph>
-          Pakwanhus is intended for individuals who are at least{" "}
+          FoodPal is intended for individuals who are at least{" "}
           <Text style={styles.bold}>18 years of age</Text> or otherwise legally capable of entering
           into binding agreements under applicable law.
         </Paragraph>
@@ -294,7 +294,7 @@ export default function PrivacyScreen() {
         <SectionTitle>18. Third-Party Links</SectionTitle>
         <Paragraph>Our Platform may contain links to third-party websites or services.</Paragraph>
         <Paragraph>
-          Pakwanhus is not responsible for the privacy practices or content of those third-party
+          FoodPal is not responsible for the privacy practices or content of those third-party
           websites. We encourage you to review their respective privacy policies before providing
           any personal information.
         </Paragraph>
@@ -305,7 +305,7 @@ export default function PrivacyScreen() {
           Pakistan or other jurisdictions where our trusted service providers operate.
         </Paragraph>
         <Paragraph>
-          Where such transfers occur, Pakwanhus will take reasonable measures to ensure that your
+          Where such transfers occur, FoodPal will take reasonable measures to ensure that your
           information remains protected in accordance with applicable laws.
         </Paragraph>
 
@@ -323,7 +323,7 @@ export default function PrivacyScreen() {
           rights, please contact us at:
         </Paragraph>
         <View style={styles.infoBox}>
-          <Text style={styles.contactName}>Pakwanhus</Text>
+          <Text style={styles.contactName}>FoodPal</Text>
           <Text style={styles.infoText}>
             <Text style={styles.bold}>Email:</Text> contact@pakwanhus.com
           </Text>

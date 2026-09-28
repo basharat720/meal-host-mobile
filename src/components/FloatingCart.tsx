@@ -7,9 +7,10 @@ import { colors } from "@/constants/theme";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Screens that are part of the cart flow itself — a shortcut back to the cart
-// would be redundant here.
-const HIDDEN_SCREENS = ["cart", "checkout", "order-success"];
+// Screens the button has no business floating over: the cart flow itself,
+// where a shortcut back to the cart is redundant, and the order chat, where the
+// FAB sits on top of the message composer's send button.
+const HIDDEN_SCREENS = ["cart", "checkout", "order-success", "order-chat"];
 
 /**
  * Global floating cart button. Mounted once at the root so it overlays every
@@ -66,7 +67,7 @@ export function FloatingCart() {
       accessibilityRole="button"
       accessibilityLabel={`Open cart${count > 0 ? `, ${count} item${count === 1 ? "" : "s"}` : ""}`}
     >
-      <Ionicons name="bag" size={24} color="#fff" />
+      <Ionicons name="bag" size={24} color={colors.white} />
       {count > 0 && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{count > 9 ? "9+" : count}</Text>
@@ -87,7 +88,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     // Elevation / shadow so it reads as floating
-    shadowColor: "#000",
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -107,5 +108,5 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.surface,
   },
-  badgeText: { color: "#fff", fontSize: 10, fontWeight: "700" },
+  badgeText: { color: colors.white, fontSize: 10, fontWeight: "700" },
 });

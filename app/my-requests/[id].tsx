@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
   infoBanner: {
     flexDirection: "row",
     alignItems: "flex-start",
-    backgroundColor: colors.accent,
+    backgroundColor: colors.accentSubtle,
     borderRadius: radius.md,
     padding: spacing.sm,
     marginBottom: spacing.md,
@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
   },
   offerCardAccepted: {
     borderColor: colors.primary,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.accentSubtle,
   },
   offerCardRejected: {
     borderColor: colors.destructive + "33",

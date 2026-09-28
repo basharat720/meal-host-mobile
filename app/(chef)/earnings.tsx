@@ -18,6 +18,8 @@ import {
   ChefEarningsSummary,
 } from "@/services/chefService";
 import { colors, fonts, radius, shadow, spacing, typography } from "@/constants/theme";
+import { orderStatusTone } from "@/lib/orderStatus";
+import type { Order } from "@/services/types";
 
 const PAGE_SIZE = 20;
 
@@ -83,19 +85,11 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELLED: "Cancelled",
 };
 
-const statusStyle = (status: string) => {
-  switch (status) {
-    case "PENDING":
-      return { bg: colors.warning, fg: "#fff" };
-    case "CONFIRMED":
-      return { bg: colors.primary, fg: colors.primaryForeground };
-    case "READY_FOR_PICKUP":
-      return { bg: colors.success, fg: "#fff" };
-    case "CANCELLED":
-      return { bg: colors.destructive, fg: "#fff" };
-    default:
-      return { bg: colors.muted, fg: colors.mutedForeground };
-  }
+// CONFIRMED used to render on brand blue here, which made a status badge look
+// like a button. Statuses now come from the shared order-status scale.
+const statusStyle = (status: Order["status"] | string) => {
+  const t = colors.status[orderStatusTone(status)];
+  return { bg: t.bg, fg: t.fg, border: t.border };
 };
 
 const EMPTY_SUMMARY: ChefEarningsSummary = {
@@ -315,7 +309,7 @@ export default function ChefEarningsScreen() {
                       <View style={styles.orderMain}>
                         <View style={styles.orderTopRow}>
                           <Text style={styles.orderId}>#{order.id}</Text>
-                          <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
+                          <View style={[styles.statusBadge, { backgroundColor: badge.bg, borderWidth: 1, borderColor: badge.border }]}>
                             <Text style={[styles.statusBadgeText, { color: badge.fg }]}>
                               {STATUS_LABELS[order.status] ?? order.status}
                             </Text>

@@ -6,6 +6,7 @@
  */
 import React from "react";
 import Svg, { Path } from "react-native-svg";
+import { colors } from "@/constants/theme";
 
 interface IconProps {
   size?: number;
@@ -28,7 +29,7 @@ const STROKE = {
 /** lucide `utensils-crossed` — the customer mark. */
 export function UtensilsCrossedIcon({
   size = 24,
-  color = "#FFFFFF",
+  color = colors.white,
   strokeWidth = STROKE.strokeWidth,
 }: IconProps) {
   return (
@@ -64,7 +65,7 @@ export function UtensilsCrossedIcon({
 /** lucide `chef-hat` — the chef mark. */
 export function ChefHatIcon({
   size = 24,
-  color = "#FFFFFF",
+  color = colors.white,
   strokeWidth = STROKE.strokeWidth,
 }: IconProps) {
   return (

@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  vegText: { fontSize: 11, fontWeight: "600", color: "#166534" },
+  vegText: { fontSize: 11, fontWeight: "600", color: colors.successSubtleForeground },
   // Matches the veg badge's inset on the larger hero image.
   favoriteButton: { top: 10, right: 10, width: 34, height: 34 },
 
@@ -465,12 +465,12 @@ const styles = StyleSheet.create({
 
   chipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
   chip: {
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.accentSubtle,
     borderRadius: radius.full,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  chipText: { ...typography.xs, fontWeight: "600", color: colors.primary },
+  chipText: { ...typography.xs, fontWeight: "600", color: colors.accentSubtleForeground },
   chipOutline: { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border },
   chipOutlineText: { ...typography.xs, fontWeight: "500", color: colors.foreground },
 

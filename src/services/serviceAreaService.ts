@@ -1,7 +1,7 @@
 import { apiRequest } from "./client";
 
 /**
- * PakwanHus only runs delivery riders in one neighbourhood at a time, so the
+ * FoodPal only runs delivery riders in one neighbourhood at a time, so the
  * delivery option is offered only when both the customer and the kitchen sit
  * inside the zone. Pickup is always available — location never blocks an order.
  *

@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
+import { colors } from "@/constants/theme";
 
 /**
  * Push-notification transport = Expo Push.
@@ -43,7 +44,7 @@ export async function ensureAndroidChannel(): Promise<void> {
       name: "Default",
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#062D1E",
+      lightColor: colors.primary,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
   } catch (err) {

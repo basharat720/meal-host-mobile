@@ -1,17 +1,15 @@
 {
   "expo": {
-    "name": "Pakwanhus",
+    "name": "FoodPal",
     "slug": "meal-host-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "mealhost",
+    "scheme": [
+      "foodpal",
+      "mealhost"
+    ],
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#062D1E"
-    },
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
@@ -23,7 +21,7 @@
     "android": {
       "package": "com.mealhost.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
+        "backgroundColor": "#0003D5",
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
@@ -45,7 +43,15 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/brand/foodpal-lockup-white.png",
+          "imageWidth": 260,
+          "resizeMode": "contain",
+          "backgroundColor": "#0003D5"
+        }
+      ],
       [
         "expo-build-properties",
         {
@@ -57,21 +63,21 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Pakwanhus needs your location to show nearby home chefs."
+          "locationAlwaysAndWhenInUsePermission": "FoodPal needs your location to show nearby home chefs."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Pakwanhus needs access to your photos to upload a profile picture or dish image.",
-          "cameraPermission": "Pakwanhus needs camera access to take a photo."
+          "photosPermission": "FoodPal needs access to your photos to upload a profile picture or dish image.",
+          "cameraPermission": "FoodPal needs camera access to take a photo."
         }
       ],
       [
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#062D1E"
+          "color": "#0003D5"
         }
       ],
       "expo-build-properties"

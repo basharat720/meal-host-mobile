@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
   },
   badgeText: {
-    color: "#fff",
+    color: colors.white,
     fontSize: 10,
     fontWeight: "700",
   },

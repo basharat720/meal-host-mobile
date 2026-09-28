@@ -844,7 +844,7 @@ export default function MenuScreen() {
 
       {/* FAB */}
       <Pressable style={styles.fab} onPress={openAdd}>
-        <Ionicons name="add" size={28} color="#fff" />
+        <Ionicons name="add" size={28} color={colors.white} />
       </Pressable>
 
       {/* Add modal */}
@@ -1043,7 +1043,7 @@ const styles = StyleSheet.create({
   },
   tagChipSelected: {
     borderColor: colors.primary,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.accentSubtle,
   },
   tagChipText: {
     ...typography.xs,

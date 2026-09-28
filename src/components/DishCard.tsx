@@ -110,7 +110,7 @@ export const DishCard = ({
           hitSlop={8}
           disabled={orderDisabled}
         >
-          <Ionicons name={orderDisabled ? "close" : "add"} size={18} color="#fff" />
+          <Ionicons name={orderDisabled ? "close" : "add"} size={18} color={colors.white} />
         </Pressable>
       </View>
 
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.92)",
     borderRadius: radius.full, paddingHorizontal: 6, paddingVertical: 2,
   },
-  vegText: { fontSize: 10, fontWeight: "600", color: "#166534" },
+  vegText: { fontSize: 10, fontWeight: "600", color: colors.successSubtleForeground },
   offlineBadge: {
     position: "absolute", bottom: 6, left: 6,
     backgroundColor: "rgba(0,0,0,0.55)",
@@ -185,13 +185,13 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.55)",
     borderRadius: radius.full, paddingHorizontal: 7, paddingVertical: 3,
   },
-  offlineText: { fontSize: 10, fontWeight: "600", color: "#fff" },
+  offlineText: { fontSize: 10, fontWeight: "600", color: colors.white },
   popularBadge: {
     position: "absolute", bottom: 6, left: 6,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.secondaryStrong,
     borderRadius: radius.full, paddingHorizontal: 7, paddingVertical: 3,
   },
-  popularText: { fontSize: 10, fontWeight: "700", color: "#fff" },
+  popularText: { fontSize: 10, fontWeight: "700", color: colors.white },
   addButton: {
     position: "absolute", bottom: 6, right: 6,
     width: 30, height: 30, borderRadius: 15,
@@ -207,13 +207,13 @@ const styles = StyleSheet.create({
   description: { ...typography.xs, color: colors.mutedForeground, marginTop: 2 },
   cuisineRow: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 },
   cuisineChip: {
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.accentSubtle,
     borderRadius: radius.full,
     paddingHorizontal: 6,
     paddingVertical: 1,
     maxWidth: "100%",
   },
-  cuisineText: { fontSize: 10, fontWeight: "600", color: colors.primary },
+  cuisineText: { fontSize: 10, fontWeight: "600", color: colors.accentSubtleForeground },
   chefName: { ...typography.xs, color: colors.mutedForeground, marginTop: 2 },
   offlineNote: { ...typography.xs, fontWeight: "600", color: colors.mutedForeground, marginTop: 2 },
   lowStock: { ...typography.xs, fontWeight: "600", color: colors.destructive, marginTop: 2 },

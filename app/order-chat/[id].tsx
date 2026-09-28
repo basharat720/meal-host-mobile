@@ -218,7 +218,7 @@ export default function OrderChatScreen() {
             <Ionicons name="shield-checkmark-outline" size={32} color={colors.primary} />
             <Text style={styles.disclaimerTitle}>Before you start chatting</Text>
             <Text style={styles.disclaimerBody}>
-              Keep the whole conversation and every payment on PakwanHus — we can only help
+              Keep the whole conversation and every payment on FoodPal — we can only help
               with an order we can see. Never share bank or card details, and use this chat
               for questions about this order only.
             </Text>

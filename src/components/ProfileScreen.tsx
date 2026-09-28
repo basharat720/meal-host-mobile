@@ -467,7 +467,7 @@ export const ProfileScreen = () => {
               )}
               {isChef && (
                 <View style={styles.cameraOverlay}>
-                  <Ionicons name="camera" size={14} color="#fff" />
+                  <Ionicons name="camera" size={14} color={colors.white} />
                 </View>
               )}
             </Pressable>

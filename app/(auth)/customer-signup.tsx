@@ -125,7 +125,7 @@ export default function CustomerSignupScreen() {
           <View style={styles.header}>
             <Logo size="lg" showText={true} variant="customer" />
             <Text style={styles.title}>Create account</Text>
-            <Text style={styles.subtitle}>Join Pakwanhus as a customer</Text>
+            <Text style={styles.subtitle}>Join FoodPal as a customer</Text>
           </View>
 
           <View style={styles.form}>

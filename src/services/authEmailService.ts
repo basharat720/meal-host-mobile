@@ -3,7 +3,7 @@ import { apiRequest, publicApiRequest } from "./client";
 /**
  * Account emails (verification, password reset).
  *
- * These are sent by our backend through Resend so they carry Pakwanhus
+ * These are sent by our backend through Resend so they carry FoodPal
  * branding. Firebase still owns the flow itself — it mints and validates the
  * link — but its own email templates have a locked body, so we can't style
  * them. Do not reintroduce the firebase/auth sendEmailVerification or

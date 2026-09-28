@@ -53,28 +53,28 @@ export default function ChefAgreementScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           <Ionicons name="ribbon-outline" size={48} color={colors.primary} />
-          <Text style={styles.pageTitle}>Pakwanhus Partner Terms &amp; Payment Agreement</Text>
+          <Text style={styles.pageTitle}>FoodPal Partner Terms &amp; Payment Agreement</Text>
         </View>
 
         <Paragraph>
           This Agreement sets out the key commercial terms and conditions between Bridging People
-          (SMC-Pvt limited) referred as Pakwanhus ("Pakwanhus", "we", "us") and the registered home
-          chef ("Chef", "you") using the Pakwanhus platform.
+          (SMC-Pvt limited) referred as FoodPal ("FoodPal", "we", "us") and the registered home
+          chef ("Chef", "you") using the FoodPal platform.
         </Paragraph>
         <Paragraph>
-          By registering as a Chef and accepting orders through Pakwanhus, you agree to the
+          By registering as a Chef and accepting orders through FoodPal, you agree to the
           following terms.
         </Paragraph>
 
         <SectionTitle>1. Initial Three-Month Commission-Free Period</SectionTitle>
         <Clause n="1.1">
-          Chefs may join Pakwanhus without paying any sign-up, registration, or membership fee
+          Chefs may join FoodPal without paying any sign-up, registration, or membership fee
           during the initial three-month period.
         </Clause>
         <Clause n="1.2">
-          The initial three-month period will begin on the official launch date of Pakwanhus for
+          The initial three-month period will begin on the official launch date of FoodPal for
           customers, being the date on which customers can begin placing orders through the
-          platform. This date will be publicly communicated by Pakwanhus.
+          platform. This date will be publicly communicated by FoodPal.
         </Clause>
         <Clause n="1.3">
           The three-month period applies equally to all Chefs onboarded under the initial launch
@@ -83,7 +83,7 @@ export default function ChefAgreementScreen() {
 
         <SectionTitle>2. Chef Payment and Commission</SectionTitle>
         <Clause n="2.1">
-          During the initial three-month period, Pakwanhus will charge 0% commission on completed
+          During the initial three-month period, FoodPal will charge 0% commission on completed
           orders.
         </Clause>
         <Clause n="2.2">
@@ -92,7 +92,7 @@ export default function ChefAgreementScreen() {
           resulting from the Chef's actions or failure to fulfil an order.
         </Clause>
         <Clause n="2.3">
-          Following the initial three-month period, Pakwanhus may introduce a fixed commission
+          Following the initial three-month period, FoodPal may introduce a fixed commission
           percentage on the applicable order value.
         </Clause>
         <Clause n="2.4">
@@ -100,23 +100,23 @@ export default function ChefAgreementScreen() {
           before they become effective.
         </Clause>
         <Clause n="2.5">
-          Continued use of the Pakwanhus platform after the new commission structure takes effect
+          Continued use of the FoodPal platform after the new commission structure takes effect
           constitutes acceptance of the updated commercial terms.
         </Clause>
 
         <SectionTitle>3. Delivery</SectionTitle>
         <Clause n="3.1">
-          During the initial three-month period, Pakwanhus may assist Chefs with arranging or
+          During the initial three-month period, FoodPal may assist Chefs with arranging or
           facilitating delivery where operationally feasible and geographically available.
         </Clause>
         <Clause n="3.2">
-          Pakwanhus may introduce its own delivery service or engage third-party delivery partners
+          FoodPal may introduce its own delivery service or engage third-party delivery partners
           in the future and may revise the delivery model accordingly.
         </Clause>
 
         <SectionTitle>4. Payments to Chefs</SectionTitle>
         <Clause n="4.1">
-          Payments due to the Chef will be processed in accordance with Pakwanhus' payment and
+          Payments due to the Chef will be processed in accordance with FoodPal' payment and
           settlement procedures.
         </Clause>
         <Clause n="4.2">
@@ -130,27 +130,27 @@ export default function ChefAgreementScreen() {
 
         <SectionTitle>5. Changes and Termination</SectionTitle>
         <Clause n="5.1">
-          Pakwanhus reserves the right to update these Terms and its commercial structure from time
+          FoodPal reserves the right to update these Terms and its commercial structure from time
           to time. Any material changes affecting commission or payment terms will be communicated
           to Chefs in advance.
         </Clause>
         <Clause n="5.2">
-          Pakwanhus may suspend or terminate a Chef's access to the platform where there are serious
+          FoodPal may suspend or terminate a Chef's access to the platform where there are serious
           food safety concerns, repeated customer complaints, fraudulent activity, repeated order
           cancellations, or any material breach of these Terms.
         </Clause>
         <Clause n="5.3">
-          The Chef may stop using the Pakwanhus platform at any time, provided all accepted orders
+          The Chef may stop using the FoodPal platform at any time, provided all accepted orders
           have been fulfilled and any outstanding financial obligations have been resolved.
         </Clause>
 
         <SectionTitle>6. Marketplace Role</SectionTitle>
         <Clause n="6.1">
-          Pakwanhus operates solely as a digital marketplace connecting independent home chefs with
+          FoodPal operates solely as a digital marketplace connecting independent home chefs with
           customers.
         </Clause>
         <Clause n="6.2">
-          Pakwanhus does not prepare, cook, package, store, transport, or own the food listed on the
+          FoodPal does not prepare, cook, package, store, transport, or own the food listed on the
           platform.
         </Clause>
         <Clause n="6.3">
@@ -179,7 +179,7 @@ export default function ChefAgreementScreen() {
         <Bullet>Known allergens</Bullet>
         <Clause n="7.3">
           The Chef is responsible for ensuring that all photographs and descriptions uploaded to
-          Pakwanhus accurately represent the food being offered.
+          FoodPal accurately represent the food being offered.
         </Clause>
         <Clause n="7.4">
           The Chef agrees to prepare accepted orders in accordance with the order details and make
@@ -191,7 +191,7 @@ export default function ChefAgreementScreen() {
         </Clause>
         <Clause n="7.6">
           The Chef agrees to communicate professionally and respectfully with customers and
-          Pakwanhus regarding orders, questions, and any issues that may arise.
+          FoodPal regarding orders, questions, and any issues that may arise.
         </Clause>
         <Clause n="7.7">
           The Chef is responsible for ensuring that any dietary or religious claims made about food
@@ -200,13 +200,13 @@ export default function ChefAgreementScreen() {
         </Clause>
         <Clause n="7.8">
           The Chef remains solely responsible for the quality, safety, ingredients, preparation,
-          packaging, and legality of all food sold through the Pakwanhus platform.
+          packaging, and legality of all food sold through the FoodPal platform.
         </Clause>
 
         <SectionTitle>8. Acceptance</SectionTitle>
         <Clause n="8.1">
           By registering as a Chef, electronically accepting these Terms, or accepting orders
-          through the Pakwanhus platform, the Chef confirms that they have read, understood, and
+          through the FoodPal platform, the Chef confirms that they have read, understood, and
           agree to be bound by these Terms.
         </Clause>
 
@@ -214,7 +214,7 @@ export default function ChefAgreementScreen() {
           <Text style={styles.infoText}>
             <Text style={styles.bold}>Legal Entity:</Text> This agreement is between the Chef and{" "}
             <Text style={styles.bold}>BRIDGING PEOPLE (SMC-PRIVATE) LIMITED</Text>, operating under
-            the brand name "Pakwanhus".
+            the brand name "FoodPal".
           </Text>
         </View>
       </ScrollView>

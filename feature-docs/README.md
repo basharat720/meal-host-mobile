@@ -35,3 +35,5 @@ between the two.
 | [Where the App Differs from the Website](05-parity-with-the-website.md) | A current, honest list of what the website does that the app does not yet |
 | [Order Chat in the App](06-order-chat.md) | The chat screen, keyboard handling, notification taps, and reconnecting after the app sleeps |
 | [Delivery & Pickup in the App](07-ordering-zone-in-the-app.md) | When delivery is offered and when an order is pickup-only, and how the app confirms where you are without interrupting checkout |
+| [The FoodPal Look in the App](08-the-foodpal-look-in-the-app.md) | The blue/orange/cream re-skin that brings the app onto the website's palette, and what it deliberately leaves alone |
+| [Becoming FoodPal](09-becoming-foodpal.md) | The rename: new name, icon, splash and logo, why the app does not become a new download, and what keeps working |

@@ -96,7 +96,7 @@ export default function ContactScreen() {
         <SectionTitle>Office Address</SectionTitle>
         <Paragraph>Visit us or send correspondence to:</Paragraph>
         <View style={styles.infoBox}>
-          <Text style={styles.contactName}>Pakwanhus</Text>
+          <Text style={styles.contactName}>FoodPal</Text>
           <Text style={styles.infoText}>H.227, Sector E</Text>
           <Text style={styles.infoText}>Askari-X, AOHC</Text>
           <Text style={styles.infoText}>Lahore, Pakistan</Text>
@@ -128,16 +128,16 @@ export default function ContactScreen() {
                 Linking.openURL("https://www.facebook.com/profile.php?id=61591270821942")
               }
             >
-              Pakwanhus
+              FoodPal
             </Text>
           </Text>
           <Text style={styles.infoText}>
             <Text style={styles.bold}>Instagram:</Text>{" "}
             <Text
               style={styles.link}
-              onPress={() => Linking.openURL("https://www.instagram.com/pakwanhus/")}
+              onPress={() => Linking.openURL("https://www.instagram.com/FoodPal/")}
             >
-              @pakwanhus
+              @FoodPal
             </Text>
           </Text>
         </View>

@@ -1,8 +1,14 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { colors, radius, typography } from "@/constants/theme";
+import type { StatusTone } from "@/lib/orderStatus";
 
-type Variant = "default" | "success" | "warning" | "destructive" | "outline";
+/**
+ * `success` / `warning` / `destructive` are generic tones for anything that is
+ * not an order — dish availability, request state. An order's status uses a
+ * `StatusTone` instead, so it keeps the exact colour the website gives it.
+ */
+type Variant = "default" | "success" | "warning" | "destructive" | "outline" | StatusTone;
 
 export const Badge = ({ label, variant = "default" }: { label: string; variant?: Variant }) => (
   <View style={[styles.base, styles[variant]]}>
@@ -10,19 +16,41 @@ export const Badge = ({ label, variant = "default" }: { label: string; variant?:
   </View>
 );
 
+// Status tones carry a border as well as a fill — the paler status fills need
+// the edge to stay legible against a white card.
+const tone = (t: StatusTone) => ({
+  backgroundColor: colors.status[t].bg,
+  borderWidth: 1,
+  borderColor: colors.status[t].border,
+});
+
 const styles = StyleSheet.create({
   base: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.full, alignSelf: "flex-start" },
   text: { ...typography.xs, fontWeight: "600" },
 
   default: { backgroundColor: colors.muted },
-  success: { backgroundColor: "#DCFCE7" },
-  warning: { backgroundColor: "#FEF9C3" },
-  destructive: { backgroundColor: "#FEE2E2" },
+  success: { backgroundColor: colors.successSubtle },
+  warning: { backgroundColor: colors.warningSubtle },
+  destructive: { backgroundColor: colors.status.cancelled.bg },
   outline: { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border },
 
+  pending: tone("pending"),
+  active: tone("active"),
+  ready: tone("ready"),
+  done: tone("done"),
+  closed: tone("closed"),
+  cancelled: tone("cancelled"),
+
   text_default: { color: colors.mutedForeground },
-  text_success: { color: "#166534" },
-  text_warning: { color: "#92400E" },
-  text_destructive: { color: "#991B1B" },
+  text_success: { color: colors.successSubtleForeground },
+  text_warning: { color: colors.warningSubtleForeground },
+  text_destructive: { color: colors.status.cancelled.fg },
   text_outline: { color: colors.foreground },
+
+  text_pending: { color: colors.status.pending.fg },
+  text_active: { color: colors.status.active.fg },
+  text_ready: { color: colors.status.ready.fg },
+  text_done: { color: colors.status.done.fg },
+  text_closed: { color: colors.status.closed.fg },
+  text_cancelled: { color: colors.status.cancelled.fg },
 });

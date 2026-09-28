@@ -48,7 +48,7 @@ export default function HowItWorksScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           <Ionicons name="restaurant-outline" size={48} color={colors.primary} />
-          <Text style={styles.pageTitle}>Why Pakwanhus?</Text>
+          <Text style={styles.pageTitle}>Why FoodPal?</Text>
           <Text style={styles.updated}>From home kitchens</Text>
         </View>
 

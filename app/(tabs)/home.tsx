@@ -33,7 +33,7 @@ const SORT_OPTIONS = [
 
 const PAGE_SIZE = 12;
 
-// Deep forest green → warm gold, matching the web request hero's
+// Brand blue deepening into brand orange, matching the web request hero's
 // primary → accent gradient.
 const REQUEST_CTA_GRADIENT: [string, string, string] = [
   colors.gradientPrimaryStart,
@@ -500,7 +500,7 @@ export default function HomeScreen() {
       >
         <View style={styles.requestCtaHeader}>
           <View style={styles.requestCtaIcon}>
-            <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" />
+            <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.white} />
           </View>
           <View style={styles.requestCtaCopy}>
             <Text style={styles.requestCtaTitle}>Want something specific? Request it!</Text>
@@ -525,7 +525,7 @@ export default function HomeScreen() {
               style={({ pressed }) => [styles.requestCtaSecondary, pressed && styles.requestCtaPressed]}
               onPress={() => router.push("/(tabs)/my-requests")}
             >
-              <Ionicons name="document-text-outline" size={16} color="#fff" />
+              <Ionicons name="document-text-outline" size={16} color={colors.white} />
               <Text style={styles.requestCtaSecondaryText}>My Requests</Text>
             </Pressable>
           )}
@@ -661,7 +661,7 @@ export default function HomeScreen() {
                   disabled={!manualAddress.trim() || geocoding}
                 >
                   {geocoding
-                    ? <ActivityIndicator size="small" color="#fff" />
+                    ? <ActivityIndicator size="small" color={colors.white} />
                     : <Text style={styles.manualBtnText}>Set</Text>}
                 </Pressable>
               </View>
@@ -833,7 +833,7 @@ const styles = StyleSheet.create({
   // <Text> that first mounts via the async cuisine fetch renders blank on iOS
   // until a re-render. Dish titles avoid this by using fontWeight too.
   cuisineChipText: { ...typography.sm, fontWeight: "600", color: colors.mutedForeground },
-  cuisineChipTextActive: { color: "#fff", fontWeight: "600" },
+  cuisineChipTextActive: { color: colors.white, fontWeight: "600" },
   cuisineChipReset: {
     flexDirection: "row", alignItems: "center", gap: 4,
     paddingHorizontal: spacing.md, paddingVertical: 7,
@@ -864,13 +864,13 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
   requestCtaCopy: { flex: 1, gap: 2 },
-  requestCtaTitle: { ...typography.md, fontFamily: fonts.sansBold, fontWeight: "700", color: "#fff" },
+  requestCtaTitle: { ...typography.md, fontFamily: fonts.sansBold, fontWeight: "700", color: colors.white },
   requestCtaSub: { ...typography.xs, fontFamily: fonts.sans, color: "rgba(255,255,255,0.88)" },
   requestCtaActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   requestCtaPrimary: {
     flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
     gap: 6, height: 42, paddingHorizontal: spacing.md,
-    borderRadius: radius.full, backgroundColor: "#fff",
+    borderRadius: radius.full, backgroundColor: colors.white,
   },
   requestCtaPrimaryText: { ...typography.sm, fontFamily: fonts.sansBold, fontWeight: "700", color: colors.primary },
   requestCtaSecondary: {
@@ -880,7 +880,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: "rgba(255,255,255,0.55)",
     backgroundColor: "rgba(255,255,255,0.12)",
   },
-  requestCtaSecondaryText: { ...typography.sm, fontFamily: fonts.sansSemiBold, fontWeight: "600", color: "#fff" },
+  requestCtaSecondaryText: { ...typography.sm, fontFamily: fonts.sansSemiBold, fontWeight: "600", color: colors.white },
   requestCtaPressed: { opacity: 0.85 },
 
   resultsHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
@@ -912,7 +912,7 @@ const styles = StyleSheet.create({
   modalCuisineChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface, marginRight: spacing.sm, marginBottom: spacing.sm },
   modalCuisineChipActive: { borderColor: colors.primary, backgroundColor: colors.primary },
   modalCuisineText: { ...typography.sm, fontFamily: fonts.sans, color: colors.mutedForeground },
-  modalCuisineTextActive: { color: "#fff", fontFamily: fonts.sansSemiBold, fontWeight: "600" },
+  modalCuisineTextActive: { color: colors.white, fontFamily: fonts.sansSemiBold, fontWeight: "600" },
   modalFooter: { flexDirection: "row", gap: spacing.md, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
   modalBtn: { flex: 1 },
 
@@ -948,7 +948,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary, alignItems: "center", justifyContent: "center",
   },
   manualBtnDisabled: { opacity: 0.5 },
-  manualBtnText: { ...typography.sm, fontFamily: fonts.sansSemiBold, fontWeight: "600", color: "#fff" },
+  manualBtnText: { ...typography.sm, fontFamily: fonts.sansSemiBold, fontWeight: "600", color: colors.white },
   radiusRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   radiusChip: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.full,
@@ -956,7 +956,7 @@ const styles = StyleSheet.create({
   },
   radiusChipActive: { borderColor: colors.primary, backgroundColor: colors.primary },
   radiusChipText: { ...typography.sm, fontFamily: fonts.sans, color: colors.mutedForeground },
-  radiusChipTextActive: { color: "#fff", fontFamily: fonts.sansSemiBold, fontWeight: "600" },
+  radiusChipTextActive: { color: colors.white, fontFamily: fonts.sansSemiBold, fontWeight: "600" },
 
   // Main-screen location banner
   locBanner: {

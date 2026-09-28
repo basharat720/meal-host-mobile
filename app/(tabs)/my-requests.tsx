@@ -243,7 +243,7 @@ export default function MyRequestsScreen() {
       label: "Offers",
       value: totalOffers,
       icon: "restaurant-outline",
-      color: colors.accent,
+      color: colors.secondaryStrong,
     },
   ];
 
