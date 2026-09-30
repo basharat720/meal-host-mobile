@@ -32,6 +32,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { chefDisplayName } from "@/lib/chefName";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
+import { getListingStartingPrice } from "@/lib/listingVariants";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -215,13 +216,13 @@ export default function ChefMenuScreen() {
             id={item.id.toString()}
             name={item.title}
             description={item.description}
-            price={item.price}
+            price={getListingStartingPrice(item) ?? 0}
             image={primaryImage(item)}
             chefId={id ?? ""}
             chefName={chef?.name ?? ""}
             isVeg={isVeg(item)}
             rating={chef?.rating}
-            availableQty={item.available_quantity}
+            hasVariants={item.has_variants}
             preparationTimeMinutes={item.preparation_time_minutes}
             isChefOffline={isChefOffline}
           />
@@ -230,13 +231,13 @@ export default function ChefMenuScreen() {
               id={next.id.toString()}
               name={next.title}
               description={next.description}
-              price={next.price}
+              price={getListingStartingPrice(next) ?? 0}
               image={primaryImage(next)}
               chefId={id ?? ""}
               chefName={chef?.name ?? ""}
               isVeg={isVeg(next)}
               rating={chef?.rating}
-              availableQty={next.available_quantity}
+              hasVariants={next.has_variants}
               preparationTimeMinutes={next.preparation_time_minutes}
               isChefOffline={isChefOffline}
             />

@@ -38,6 +38,15 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { isChefActive } from "@/lib/chefStatus";
 import { uploadFoodImage } from "@/services/imageService";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
+import {
+  MAX_LISTING_VARIANTS,
+  buildListingPricingPayload,
+  emptyVariantField,
+  getActiveListingVariants,
+  getListingStartingPrice,
+  listingToPricingState,
+  type ListingPricingState,
+} from "@/lib/listingVariants";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -45,8 +54,8 @@ import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 interface DishForm {
   title: string;
   description: string;
-  price: string;
-  available_quantity: string;
+  /** Flat price, or the named options the dish is sold by. */
+  pricing: ListingPricingState;
   preparation_time_minutes: string;
   dietary_tag_ids: number[];
   cuisine_type_ids: number[];
@@ -80,8 +89,7 @@ const prepMinutesToInput = (minutes?: number | null): string => {
 const EMPTY_FORM: DishForm = {
   title: "",
   description: "",
-  price: "",
-  available_quantity: "",
+  pricing: listingToPricingState(),
   preparation_time_minutes: "",
   dietary_tag_ids: [],
   cuisine_type_ids: [],
@@ -145,8 +153,18 @@ function DishRow({
         <Text style={styles.rowTitle} numberOfLines={1}>
           {item.title}
         </Text>
-        <Text style={styles.rowPrice}>{formatPrice(item.price)}</Text>
-        <Text style={styles.rowQty}>Qty: {item.available_quantity}</Text>
+        <Text style={styles.rowPrice}>
+          {getListingStartingPrice(item) === null
+            ? "No price"
+            : item.has_variants
+              ? `From ${formatPrice(getListingStartingPrice(item)!)}`
+              : formatPrice(getListingStartingPrice(item)!)}
+        </Text>
+        {item.has_variants && (
+          <Text style={styles.rowQty}>
+            {getActiveListingVariants(item.variants ?? []).length} options
+          </Text>
+        )}
         {item.dietary_tags?.length > 0 && (
           <View style={styles.rowTags}>
             {item.dietary_tags.slice(0, 3).map((t) => (
@@ -321,22 +339,138 @@ function DishModal({
               numberOfLines={3}
               style={{ minHeight: 80, textAlignVertical: "top" }}
             />
-            <Input
-              label="Price ($) *"
-              placeholder="0.00"
-              value={form.price}
-              onChangeText={(v) => setForm((f) => ({ ...f, price: v }))}
-              keyboardType="decimal-pad"
-            />
-            <Input
-              label="Available Quantity *"
-              placeholder="10"
-              value={form.available_quantity}
-              onChangeText={(v) =>
-                setForm((f) => ({ ...f, available_quantity: v }))
-              }
-              keyboardType="number-pad"
-            />
+            {/* Pricing: one flat price, or several named options. The server
+                accepts exactly one of the two, never both. */}
+            <Text style={styles.sectionLabel}>Pricing *</Text>
+            <View style={styles.modeRow}>
+              {(["single", "variants"] as const).map((mode) => {
+                const selected = form.pricing.mode === mode;
+                return (
+                  <Pressable
+                    key={mode}
+                    style={[styles.modeBtn, selected && styles.modeBtnSelected]}
+                    onPress={() =>
+                      setForm((f) => ({ ...f, pricing: { ...f.pricing, mode } }))
+                    }
+                  >
+                    <Text
+                      style={[styles.modeText, selected && styles.modeTextSelected]}
+                    >
+                      {mode === "single" ? "One price" : "Multiple options"}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {form.pricing.mode === "single" ? (
+              <Input
+                label="Price ($) *"
+                placeholder="0.00"
+                value={form.pricing.price}
+                onChangeText={(v) =>
+                  setForm((f) => ({ ...f, pricing: { ...f.pricing, price: v } }))
+                }
+                keyboardType="decimal-pad"
+              />
+            ) : (
+              <>
+                <Input
+                  label="Option prompt"
+                  placeholder="Choose a size"
+                  value={form.pricing.variantLabel}
+                  onChangeText={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      pricing: { ...f.pricing, variantLabel: v },
+                    }))
+                  }
+                />
+                {form.pricing.variants.map((variant, index) => (
+                  <View key={index} style={styles.variantRow}>
+                    <View style={styles.variantNameField}>
+                      <Input
+                        label={index === 0 ? "Option" : undefined}
+                        placeholder="Large"
+                        value={variant.name}
+                        onChangeText={(v) =>
+                          setForm((f) => ({
+                            ...f,
+                            pricing: {
+                              ...f.pricing,
+                              variants: f.pricing.variants.map((row, i) =>
+                                i === index ? { ...row, name: v } : row,
+                              ),
+                            },
+                          }))
+                        }
+                      />
+                    </View>
+                    <View style={styles.variantPriceField}>
+                      <Input
+                        label={index === 0 ? "Price ($)" : undefined}
+                        placeholder="0.00"
+                        value={variant.price}
+                        onChangeText={(v) =>
+                          setForm((f) => ({
+                            ...f,
+                            pricing: {
+                              ...f.pricing,
+                              variants: f.pricing.variants.map((row, i) =>
+                                i === index ? { ...row, price: v } : row,
+                              ),
+                            },
+                          }))
+                        }
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                    <Pressable
+                      style={[
+                        styles.variantRemove,
+                        index === 0 && styles.variantRemoveFirst,
+                      ]}
+                      onPress={() =>
+                        setForm((f) => ({
+                          ...f,
+                          pricing: {
+                            ...f.pricing,
+                            variants: f.pricing.variants.filter(
+                              (_, i) => i !== index,
+                            ),
+                          },
+                        }))
+                      }
+                      accessibilityLabel={`Remove option ${index + 1}`}
+                      hitSlop={6}
+                    >
+                      <Ionicons
+                        name="close-circle"
+                        size={22}
+                        color={colors.mutedForeground}
+                      />
+                    </Pressable>
+                  </View>
+                ))}
+                {form.pricing.variants.length < MAX_LISTING_VARIANTS && (
+                  <Pressable
+                    style={styles.addVariantBtn}
+                    onPress={() =>
+                      setForm((f) => ({
+                        ...f,
+                        pricing: {
+                          ...f.pricing,
+                          variants: [...f.pricing.variants, emptyVariantField()],
+                        },
+                      }))
+                    }
+                  >
+                    <Ionicons name="add" size={16} color={colors.primary} />
+                    <Text style={styles.addVariantText}>Add option</Text>
+                  </Pressable>
+                )}
+              </>
+            )}
             <Input
               label="Preparation Time (hours)"
               placeholder="2"
@@ -617,8 +751,7 @@ export default function MenuScreen() {
     setEditForm({
       title: item.title,
       description: item.description ?? "",
-      price: item.price.toString(),
-      available_quantity: item.available_quantity.toString(),
+      pricing: listingToPricingState(item),
       preparation_time_minutes: prepMinutesToInput(
         item.preparation_time_minutes,
       ),
@@ -662,14 +795,9 @@ export default function MenuScreen() {
       Alert.alert("Validation", "Title is required.");
       return;
     }
-    const price = parseFloat(addForm.price);
-    if (isNaN(price) || price < 0) {
-      Alert.alert("Validation", "Enter a valid price.");
-      return;
-    }
-    const qty = parseInt(addForm.available_quantity);
-    if (isNaN(qty) || qty < 0) {
-      Alert.alert("Validation", "Enter a valid quantity.");
+    const pricing = buildListingPricingPayload(addForm.pricing);
+    if (pricing.error || !pricing.payload) {
+      Alert.alert("Validation", pricing.error ?? "Check the pricing details.");
       return;
     }
     if (!dbUser?.locations || dbUser.locations.length === 0) {
@@ -713,8 +841,7 @@ export default function MenuScreen() {
         {
           title: addForm.title.trim(),
           description: addForm.description.trim() || undefined,
-          price,
-          available_quantity: qty,
+          ...pricing.payload,
           status: addForm.isAvailable ? "ACTIVE" : "INACTIVE",
           pickup_location_id: pickupLocationId,
           dietary_tag_ids: addForm.dietary_tag_ids,
@@ -750,6 +877,11 @@ export default function MenuScreen() {
       Alert.alert("Validation", prep.error);
       return;
     }
+    const pricing = buildListingPricingPayload(editForm.pricing);
+    if (pricing.error || !pricing.payload) {
+      Alert.alert("Validation", pricing.error ?? "Check the pricing details.");
+      return;
+    }
 
     let imageUrl: string | undefined;
     if (editForm.imageUri) {
@@ -769,8 +901,7 @@ export default function MenuScreen() {
         {
           title: editForm.title.trim(),
           description: editForm.description.trim() || undefined,
-          price: parseFloat(editForm.price) || 0,
-          available_quantity: parseInt(editForm.available_quantity) || 0,
+          ...pricing.payload,
           status: editForm.isAvailable ? "ACTIVE" : "INACTIVE",
           pickup_location_id: pickupLocationId,
           dietary_tag_ids: editForm.dietary_tag_ids,
@@ -944,6 +1075,36 @@ const styles = StyleSheet.create({
   rowTitle: { ...typography.base, fontWeight: "600", color: colors.foreground },
   rowPrice: { ...typography.sm, color: colors.primary, fontWeight: "700" },
   rowQty: { ...typography.xs, color: colors.mutedForeground },
+  sectionLabel: {
+    ...typography.sm,
+    fontWeight: "700",
+    color: colors.foreground,
+    marginBottom: spacing.xs,
+  },
+  modeRow: { flexDirection: "row", gap: spacing.xs, marginBottom: spacing.sm },
+  modeBtn: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+  },
+  modeBtnSelected: { borderColor: colors.primary, backgroundColor: colors.accentSubtle },
+  modeText: { ...typography.sm, color: colors.mutedForeground, fontWeight: "600" },
+  modeTextSelected: { color: colors.primary },
+  variantRow: { flexDirection: "row", alignItems: "flex-end", gap: spacing.xs },
+  variantNameField: { flex: 2 },
+  variantPriceField: { flex: 1 },
+  variantRemove: { paddingBottom: spacing.sm },
+  variantRemoveFirst: { paddingBottom: spacing.sm },
+  addVariantBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: spacing.sm,
+  },
+  addVariantText: { ...typography.sm, fontWeight: "600", color: colors.primary },
   rowTags: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 3 },
   rowActions: {
     alignItems: "center",

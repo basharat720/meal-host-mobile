@@ -105,6 +105,9 @@ export default function CartScreen() {
         <Text style={styles.itemName} numberOfLines={2}>
           {item.name}
         </Text>
+        {!!item.variantName && (
+          <Text style={styles.chefName}>{item.variantName}</Text>
+        )}
         <Text style={styles.chefName}>{item.chefName}</Text>
         <Text style={styles.itemPrice}>{formatPrice(item.price)}</Text>
         <View style={styles.qtyRow}>

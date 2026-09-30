@@ -27,7 +27,7 @@ import { validatePhoneNumber } from "@/lib/phone";
 import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
 import { getCheckoutError } from "@/lib/errorMessages";
 import { orderService } from "@/services/orderService";
-import type { OrderCreate } from "@/services/types";
+import { buildCartOrderPayload } from "@/lib/orderPayload";
 import { requestService } from "@/services/requestService";
 import { userService } from "@/services/userService";
 import { dishService } from "@/services/dishService";
@@ -106,7 +106,7 @@ export default function CheckoutScreen() {
     () =>
       isOfferMode
         ? []
-        : items.map((item) => Number(item.id)).filter((id) => !isNaN(id)),
+        : items.map((item) => Number(item.foodListingId)).filter((id) => !isNaN(id)),
     [isOfferMode, items]
   );
 
@@ -147,7 +147,9 @@ export default function CheckoutScreen() {
   // Fetch ETA estimate for cart items (not offer mode)
   useEffect(() => {
     if (isOfferMode || items.length === 0) return;
-    const listingIds = [...new Set(items.map((i) => parseInt(i.id, 10)).filter((n) => !isNaN(n)))];
+    const listingIds = [
+      ...new Set(items.map((i) => Number(i.foodListingId)).filter((n) => !isNaN(n))),
+    ];
     Promise.allSettled(listingIds.map((id) => dishService.getListingEta(id))).then(
       (results) => {
         let maxMinutes = 0;
@@ -351,41 +353,20 @@ export default function CheckoutScreen() {
       } else {
         // The cart is restricted to one kitchen, so it becomes ONE order
         // carrying one line per dish — not an order per dish.
-        const chefId = items[0].chefId;
         const finalAddress =
           deliveryType === "delivery" ? deliveryAddress.trim() : pickupAddress;
-        const orderLines = items.map((item) => {
-          const foodListingId = parseInt(item.id, 10);
-          if (isNaN(foodListingId)) {
-            throw new Error(`Invalid food listing ID: ${item.id}`);
-          }
-          return { food_listing_id: foodListingId, quantity: item.quantity };
+        // Nothing price-bearing is sent: the server prices every line from the
+        // dish and the variant chosen on it, takes the customer from the auth
+        // token, and rejects extra keys outright. Sending the confirmed
+        // position means it checks the zone against the same place the app
+        // just checked, instead of the saved profile address.
+        const payload = buildCartOrderPayload(items, {
+          deliveryType,
+          deliveryAddress: finalAddress,
+          deliveryPhone: phone,
+          specialInstructions: instructions.trim() || undefined,
+          locationPayload: gate.orderLocationPayload,
         });
-        // delivery_type and the customer coordinates are accepted by the
-        // backend but not yet in the OrderCreate type; widen the payload so
-        // they are serialized. Sending the confirmed position means the server
-        // checks the zone against the same place the app just checked, instead
-        // of falling back to the saved profile address.
-        const payload: OrderCreate & {
-          delivery_type: "pickup" | "delivery";
-          customer_latitude?: number;
-          customer_longitude?: number;
-          customer_location_accuracy_m?: number;
-        } = {
-          quantity: items.reduce((sum, item) => sum + item.quantity, 0),
-          total_amount: items.reduce(
-            (sum, item) => sum + item.price * item.quantity,
-            0,
-          ),
-          customer_id: user.id,
-          chef_id: chefId,
-          items: orderLines,
-          delivery_address: finalAddress,
-          delivery_phone: phone,
-          delivery_type: deliveryType,
-          ...gate.orderLocationPayload,
-          special_instructions: instructions.trim() || undefined,
-        };
         const order = await orderService.createOrder(payload);
         await orderService.payOrder(order.id, { method: "CASH" });
         createdOrderIds.push(order.id);
@@ -460,7 +441,8 @@ export default function CheckoutScreen() {
               {items.map((item) => (
                 <View key={item.id} style={styles.summaryRow}>
                   <Text style={styles.summaryItemName} numberOfLines={1}>
-                    {item.name} × {item.quantity}
+                    {item.variantName ? `${item.name} (${item.variantName})` : item.name} ×{" "}
+                    {item.quantity}
                   </Text>
                   <Text style={styles.summaryItemPrice}>
                     {formatPrice(item.price * item.quantity)}

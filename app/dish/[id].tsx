@@ -23,6 +23,12 @@ import { dishService, menuService, availabilityService } from "@/services/api";
 import { FoodListing, ChefAvailabilityStatus } from "@/services/types";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 import { formatDuration } from "@/lib/duration";
+import {
+  getActiveListingVariants,
+  getListingStartingPrice,
+} from "@/lib/listingVariants";
+
+const MAX_ORDER_QUANTITY = 100;
 
 // "HH:MM" (24h) -> "9:00 AM" (12h) for display.
 function displayTime(hhmm: string): string {
@@ -60,6 +66,7 @@ export default function DishDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
   const hasLoadedRef = useRef(false);
 
   const load = useCallback(async (silent = false) => {
@@ -71,11 +78,14 @@ export default function DishDetailScreen() {
     try {
       const data = await dishService.getDish(Number(id));
       setDish(data);
-      setQuantity((q) => {
-        // Keep the selection valid against the freshly-loaded stock.
-        const max = data.available_quantity > 0 ? data.available_quantity : 1;
-        return Math.min(Math.max(q, 1), max);
-      });
+      // Preselect the first variant, and drop a selection the chef has since
+      // removed so the Add button can never post a dead variant id.
+      const active = getActiveListingVariants(data.variants ?? []);
+      setSelectedVariantId((current) =>
+        current !== null && active.some((v) => v.id === current)
+          ? current
+          : active[0]?.id ?? null,
+      );
 
       // Availability + sibling dishes are best-effort; never block the page.
       const [statusRes, listingsRes] = await Promise.allSettled([
@@ -133,9 +143,12 @@ export default function DishDetailScreen() {
   // fallback for when the status call fails. Either saying "offline" blocks
   // ordering, so a missing/true listing flag can't re-enable the Add button.
   const isChefOffline = dish.chef_is_available === false || status?.is_open === false;
-  const isOutOfStock = dish.available_quantity <= 0;
-  const isLowStock = dish.available_quantity > 0 && dish.available_quantity <= 3;
-  const orderDisabled = isOutOfStock || isChefOffline;
+  const variants = getActiveListingVariants(dish.variants ?? []);
+  const selectedVariant = variants.find((v) => v.id === selectedVariantId) ?? null;
+  // A variant-priced dish can't be ordered until one is picked.
+  const needsVariantChoice = variants.length > 0 && !selectedVariant;
+  const unitPrice = selectedVariant?.price ?? getListingStartingPrice(dish) ?? 0;
+  const orderDisabled = isChefOffline || needsVariantChoice;
   const image = primaryImage(dish);
   const isVeg = isVegListing(dish);
   const chefName = dish.chef_name || "Chef";
@@ -145,30 +158,22 @@ export default function DishDetailScreen() {
       : "Chef offline";
 
   const incrementQuantity = () => {
-    setQuantity((q) => (q < dish.available_quantity ? q + 1 : q));
+    setQuantity((q) => (q < MAX_ORDER_QUANTITY ? q + 1 : q));
   };
   const decrementQuantity = () => {
     setQuantity((q) => (q > 1 ? q - 1 : q));
   };
 
   const cartItem = {
-    id: dish.id.toString(),
+    foodListingId: dish.id.toString(),
     name: dish.title,
-    price: dish.price,
+    price: unitPrice,
     image,
     chefId: dish.chef_id,
     chefName,
-  };
-
-  const addRemaining = () => {
-    // First unit already added by the caller; top up the rest, respecting the cap.
-    for (let i = 1; i < quantity; i++) {
-      const r = addItem(cartItem, dish.available_quantity);
-      if (!r.success) {
-        if (r.message) Alert.alert("Can't Add", r.message);
-        break;
-      }
-    }
+    ...(selectedVariant
+      ? { variantId: selectedVariant.id, variantName: selectedVariant.name }
+      : {}),
   };
 
   const confirmAdded = () => {
@@ -180,27 +185,25 @@ export default function DishDetailScreen() {
 
   const handleAddToCart = () => {
     if (orderDisabled) return;
-    const first = addItem(cartItem, dish.available_quantity);
-    if (!first.success) {
-      if (first.requiresSwitch && first.pendingItem) {
-        Alert.alert("Switch Chef?", first.message, [
+    const result = addItem(cartItem, quantity);
+    if (!result.success) {
+      if (result.requiresSwitch && result.pendingItem) {
+        Alert.alert("Switch Chef?", result.message, [
           { text: "Cancel", style: "cancel" },
           {
             text: "Switch",
             style: "destructive",
             onPress: () => {
-              switchChefAndAdd(first.pendingItem!, dish.available_quantity);
-              addRemaining();
+              switchChefAndAdd(result.pendingItem!, quantity);
               confirmAdded();
             },
           },
         ]);
-      } else if (first.message) {
-        Alert.alert("Can't Add", first.message);
+      } else if (result.message) {
+        Alert.alert("Can't Add", result.message);
       }
       return;
     }
-    addRemaining();
     confirmAdded();
   };
 
@@ -247,10 +250,6 @@ export default function DishDetailScreen() {
             <Text style={styles.title}>{dish.title}</Text>
             {isChefOffline ? (
               <Badge label="Chef offline" variant="default" />
-            ) : isOutOfStock ? (
-              <Badge label="Sold out" variant="destructive" />
-            ) : isLowStock ? (
-              <Badge label={`Only ${dish.available_quantity} left`} variant="warning" />
             ) : (
               <Badge label="Available" variant="success" />
             )}
@@ -314,8 +313,38 @@ export default function DishDetailScreen() {
 
         {/* Price + quantity + add to cart */}
         <View style={styles.card}>
+          {variants.length > 0 && (
+            <View style={styles.variantSection}>
+              <Text style={styles.variantLabel}>
+                {dish.variant_label || "Choose an option"}
+              </Text>
+              {variants.map((variant) => {
+                const selected = variant.id === selectedVariantId;
+                return (
+                  <Pressable
+                    key={variant.id}
+                    style={[styles.variantRow, selected && styles.variantRowSelected]}
+                    onPress={() => setSelectedVariantId(variant.id)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected }}
+                  >
+                    <Ionicons
+                      name={selected ? "radio-button-on" : "radio-button-off"}
+                      size={20}
+                      color={selected ? colors.primary : colors.mutedForeground}
+                    />
+                    <Text style={styles.variantName} numberOfLines={1}>
+                      {variant.name}
+                    </Text>
+                    <Text style={styles.variantPrice}>{formatPrice(variant.price)}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
           <View style={styles.priceRow}>
-            <Text style={styles.price}>{formatPrice(dish.price)}</Text>
+            <Text style={styles.price}>{formatPrice(unitPrice)}</Text>
             {!orderDisabled && (
               <View style={styles.qtySelector}>
                 <Pressable
@@ -328,24 +357,20 @@ export default function DishDetailScreen() {
                 </Pressable>
                 <Text style={styles.qtyValue}>{quantity}</Text>
                 <Pressable
-                  style={[styles.qtyBtn, quantity >= dish.available_quantity && styles.qtyBtnDisabled]}
+                  style={[styles.qtyBtn, quantity >= MAX_ORDER_QUANTITY && styles.qtyBtnDisabled]}
                   onPress={incrementQuantity}
-                  disabled={quantity >= dish.available_quantity}
+                  disabled={quantity >= MAX_ORDER_QUANTITY}
                   hitSlop={6}
                 >
                   <Ionicons
                     name="add"
                     size={18}
-                    color={quantity >= dish.available_quantity ? colors.mutedForeground : colors.foreground}
+                    color={quantity >= MAX_ORDER_QUANTITY ? colors.mutedForeground : colors.foreground}
                   />
                 </Pressable>
               </View>
             )}
           </View>
-
-          {isLowStock && !orderDisabled && (
-            <Text style={styles.lowStockWarn}>Hurry! Only {dish.available_quantity} servings left.</Text>
-          )}
 
           <Button
             size="lg"
@@ -355,9 +380,9 @@ export default function DishDetailScreen() {
           >
             {isChefOffline
               ? "Chef Not Available"
-              : isOutOfStock
-              ? "Sold Out"
-              : `Add ${quantity > 1 ? `${quantity} × ` : ""}${formatPrice(dish.price * quantity)}`}
+              : needsVariantChoice
+              ? dish.variant_label || "Choose an option"
+              : `Add ${quantity > 1 ? `${quantity} × ` : ""}${formatPrice(unitPrice * quantity)}`}
           </Button>
         </View>
 
@@ -377,13 +402,13 @@ export default function DishDetailScreen() {
                   id={d.id.toString()}
                   name={d.title}
                   description={d.description}
-                  price={d.price}
+                  price={getListingStartingPrice(d) ?? 0}
                   image={primaryImage(d)}
                   chefId={d.chef_id}
                   chefName={d.chef_name || chefName}
                   isVeg={isVegListing(d)}
                   rating={d.chef_rating_avg}
-                  availableQty={d.available_quantity}
+                  hasVariants={d.has_variants}
                   preparationTimeMinutes={d.preparation_time_minutes}
                   // Same chef as the dish above, so it shares its offline state.
                   isChefOffline={isChefOffline || d.chef_is_available === false}
@@ -499,7 +524,32 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  lowStockWarn: { ...typography.xs, fontWeight: "600", color: colors.destructive },
+  variantSection: {
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  variantLabel: {
+    ...typography.sm,
+    fontWeight: "700",
+    color: colors.foreground,
+    marginBottom: 2,
+  },
+  variantRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+  },
+  variantRowSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.accentSubtle,
+  },
+  variantName: { ...typography.sm, color: colors.foreground, flex: 1 },
+  variantPrice: { ...typography.sm, fontWeight: "700", color: colors.foreground },
   addBtn: { marginTop: spacing.xs },
 
   moreSection: { marginTop: spacing.sm, gap: spacing.sm },

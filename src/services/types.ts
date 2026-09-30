@@ -114,12 +114,35 @@ export interface FoodImage {
   created_at: string;
 }
 
+export interface FoodListingVariant {
+  id: number;
+  name: string;
+  price: number;
+  display_order: number;
+  archived_at?: string | null;
+  created_at: string;
+}
+
+/** A variant as sent back to the server. `id` marks an existing row to keep. */
+export interface FoodListingVariantInput {
+  id?: number;
+  name: string;
+  price: number;
+  display_order?: number;
+}
+
 export interface FoodListing {
   id: number;
   title: string;
   description?: string;
-  price: number;
-  available_quantity: number;
+  /** Null when the dish is priced through variants instead. */
+  price: number | null;
+  /** The prompt shown above the variant picker, e.g. "Choose a size". */
+  variant_label?: string | null;
+  variants: FoodListingVariant[];
+  /** Cheapest variant price, or `price` for a flat-priced dish. */
+  starting_price?: number | null;
+  has_variants: boolean;
   status: "ACTIVE" | "INACTIVE";
   pickup_location_id?: number;
   chef_id: string;
@@ -137,8 +160,9 @@ export interface FoodListing {
 export interface FoodListingCreate {
   title: string;
   description?: string;
-  price: number;
-  available_quantity: number;
+  price: number | null;
+  variant_label?: string | null;
+  variants?: FoodListingVariantInput[];
   status: "ACTIVE" | "INACTIVE";
   pickup_location_id: number;
   dietary_tag_ids?: number[];
@@ -150,8 +174,9 @@ export interface FoodListingCreate {
 export interface FoodListingUpdate {
   title?: string;
   description?: string;
-  price?: number;
-  available_quantity?: number;
+  price?: number | null;
+  variant_label?: string | null;
+  variants?: FoodListingVariantInput[];
   status?: "ACTIVE" | "INACTIVE";
   pickup_location_id?: number;
   dietary_tag_ids?: number[];
@@ -162,7 +187,10 @@ export interface FoodListingUpdate {
 /** One dish line on an order. Title and price are snapshotted server-side. */
 export interface OrderItem {
   food_listing_id: number;
+  food_listing_variant_id?: number | null;
   item_title: string;
+  /** The variant chosen on this line, snapshotted at order time. */
+  variant_name?: string | null;
   quantity: number;
   unit_price: number;
 }
@@ -180,6 +208,11 @@ export interface Order {
   /** The kitchen's name — who the customer is talking to in the order chat. */
   chef_name?: string;
   food_listing_id?: number;
+  food_listing_variant_id?: number | null;
+  /** Dish title and variant as they read at order time, kept after edits. */
+  listing_title_snapshot?: string | null;
+  variant_name_snapshot?: string | null;
+  unit_price_snapshot?: number | null;
   food_request_id?: number;
   created_at: string;
   delivery_type?: "pickup" | "delivery";
@@ -204,26 +237,38 @@ export interface Order {
 /** A requested dish line. The server resolves its price and title. */
 export interface OrderItemCreate {
   food_listing_id: number;
+  /** Required for a variant-priced dish, omitted for a flat-priced one. */
+  food_listing_variant_id?: number;
   quantity: number;
 }
 
+/**
+ * What the client may send to place an order.
+ *
+ * The server's schema is `extra="forbid"`: price, total and status are its to
+ * decide, and the customer comes from the auth token. Sending `total_amount`,
+ * `customer_id` or `status` is a 422, not something quietly ignored.
+ */
 export interface OrderCreate {
   quantity: number;
-  total_amount: number;
-  status?: "PENDING";
-  customer_id: string; // Changed to string (firebase_uid)
-  chef_id: string;     // Changed to string (firebase_uid)
+  chef_id?: number;
   /**
-   * The whole basket, one entry per distinct dish — a cart is one order.
-   * `food_listing_id` below is the legacy single-dish form, still accepted.
+   * The whole basket, one entry per distinct dish/variant — a cart is one
+   * order. `food_listing_id` below is the legacy single-dish form, still
+   * accepted.
    */
   items?: OrderItemCreate[];
   food_listing_id?: number;
+  food_listing_variant_id?: number;
   food_request_id?: number;
   delivery_type?: "pickup" | "delivery";
   delivery_address?: string;
   delivery_phone?: string;
   special_instructions?: string;
+  /** Live position, used only for the delivery-zone check and then discarded. */
+  customer_latitude?: number;
+  customer_longitude?: number;
+  customer_location_accuracy_m?: number;
 }
 
 export interface OrderUpdate {

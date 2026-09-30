@@ -39,6 +39,7 @@ import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
 import { orderStatusTone } from "@/lib/orderStatus";
 import { getUserFriendlyError } from "@/lib/errorMessages";
 import { useChatUnread } from "@/hooks/useOrderChat";
+import { getOrderItemKey, getOrderItemName } from "@/lib/listingVariants";
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 
@@ -294,7 +295,7 @@ function OrderCard({
   // A multi-dish order names its first dish and counts the rest; the detail
   // section lists them all. Titles come from the order's own snapshotted lines.
   const itemNames = order.items?.length
-    ? order.items.map((i) => i.item_title)
+    ? order.items.map(getOrderItemName)
     : [
         dish?.title ??
           requestInfo?.title ??
@@ -423,10 +424,10 @@ function OrderCard({
                 {order.items?.length ? (
                   order.items.map((orderItem) => (
                     <Text
-                      key={orderItem.food_listing_id}
+                      key={getOrderItemKey(orderItem)}
                       style={cardStyles.detailSubText}
                     >
-                      {orderItem.quantity} × {orderItem.item_title} ·{" "}
+                      {orderItem.quantity} × {getOrderItemName(orderItem)} ·{" "}
                       {formatPrice(orderItem.unit_price * orderItem.quantity)}
                     </Text>
                   ))

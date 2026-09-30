@@ -23,6 +23,7 @@ import { colors, fonts, radius, spacing, typography } from "@/constants/theme";
 import { Logo } from "@/components/Logo";
 import { NotificationBell } from "@/components/NotificationBell";
 import { router, useFocusEffect } from "expo-router";
+import { getListingStartingPrice } from "@/lib/listingVariants";
 
 const SORT_OPTIONS = [
   { value: "relevance", label: "Relevance" },
@@ -121,7 +122,7 @@ export default function HomeScreen() {
         chef: d.chef_name || "Home Chef",
         chefId: d.chef_id?.toString() ?? "",
         image: d.images?.find((i: any) => i.is_primary)?.image_url || d.images?.[0]?.image_url || "",
-        price: d.price,
+        price: getListingStartingPrice(d) ?? 0,
         rating: d.chef_rating_avg ?? 0,
         reviews: d.chef_review_count ?? 0,
         isVegan:     d.dietary_tags?.some((t: any) => t.code === "VEGAN") || false,
@@ -135,7 +136,7 @@ export default function HomeScreen() {
         description: d.description || "",
         cuisineTypes: d.cuisine_types || [],
         preparationTimeMinutes: d.preparation_time_minutes,
-        availableQty: d.available_quantity,
+        hasVariants: d.has_variants,
         chefIsAvailable: d.chef_is_available !== false,
         createdAt: d.created_at ? new Date(d.created_at).getTime() : 0,
       }));
@@ -372,7 +373,7 @@ export default function HomeScreen() {
           id={item.id} name={item.name} description={item.description}
           price={item.price} image={item.image} chefId={item.chefId}
           chefName={item.chef} isVeg={item.isVeg} rating={item.rating}
-          availableQty={item.availableQty} preparationTimeMinutes={item.preparationTimeMinutes}
+          hasVariants={item.hasVariants} preparationTimeMinutes={item.preparationTimeMinutes}
           isChefOffline={!item.chefIsAvailable}
         />
         {next ? (
@@ -380,7 +381,7 @@ export default function HomeScreen() {
             id={next.id} name={next.name} description={next.description}
             price={next.price} image={next.image} chefId={next.chefId}
             chefName={next.chef} isVeg={next.isVeg} rating={next.rating}
-            availableQty={next.availableQty} preparationTimeMinutes={next.preparationTimeMinutes}
+            hasVariants={next.hasVariants} preparationTimeMinutes={next.preparationTimeMinutes}
             isChefOffline={!next.chefIsAvailable}
           />
         ) : <View style={{ flex: 1 }} />}

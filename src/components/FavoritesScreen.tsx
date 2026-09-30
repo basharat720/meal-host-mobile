@@ -22,6 +22,7 @@ import { favoriteService } from "@/services/favoriteService";
 import { ChefListItem, FoodListing } from "@/services/types";
 import { chefDisplayName } from "@/lib/chefName";
 import { colors, radius, spacing, typography } from "@/constants/theme";
+import { getListingStartingPrice } from "@/lib/listingVariants";
 
 type FavoritesTab = "chefs" | "dishes";
 
@@ -251,7 +252,7 @@ export default function FavoritesScreen() {
                 id={String(dish.id)}
                 name={dish.title}
                 description={dish.description}
-                price={dish.price}
+                price={getListingStartingPrice(dish) ?? 0}
                 image={
                   dish.images?.find(i => i.is_primary)?.image_url ||
                   dish.images?.[0]?.image_url ||
@@ -264,7 +265,7 @@ export default function FavoritesScreen() {
                 )}
                 cuisineTypes={dish.cuisine_types ?? []}
                 rating={dish.chef_rating_avg ?? 0}
-                availableQty={dish.available_quantity}
+                hasVariants={dish.has_variants}
                 preparationTimeMinutes={dish.preparation_time_minutes}
                 isChefOffline={dish.chef_is_available === false}
               />

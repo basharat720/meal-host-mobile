@@ -27,6 +27,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 import { orderStatusTone } from "@/lib/orderStatus";
 import { useChatUnread } from "@/hooks/useOrderChat";
+import { getOrderItemKey, getOrderItemName } from "@/lib/listingVariants";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -121,7 +122,7 @@ function OrderCard({
   // so a multi-dish order names its first and counts the rest; the summary
   // below lists every line.
   const itemNames = order.items?.length
-    ? order.items.map((i) => i.item_title)
+    ? order.items.map(getOrderItemName)
     : [
         dishInfo?.title ||
           (order.food_listing_id != null
@@ -238,8 +239,8 @@ function OrderCard({
               <Text style={styles.summaryTitle} numberOfLines={2}>{orderTitle}</Text>
               {order.items?.length ? (
                 order.items.map((orderItem) => (
-                  <Text key={orderItem.food_listing_id} style={styles.summaryQty}>
-                    {orderItem.quantity} × {orderItem.item_title} ·{" "}
+                  <Text key={getOrderItemKey(orderItem)} style={styles.summaryQty}>
+                    {orderItem.quantity} × {getOrderItemName(orderItem)} ·{" "}
                     {formatPrice(orderItem.unit_price * orderItem.quantity)}
                   </Text>
                 ))

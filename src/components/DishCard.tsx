@@ -21,7 +21,8 @@ interface DishCardProps {
   chefName: string;
   isVeg?: boolean;
   rating?: number;
-  availableQty?: number;
+  /** True when the dish is priced by variant — the card then sends to detail. */
+  hasVariants?: boolean;
   preparationTimeMinutes?: number;
   isChefOffline?: boolean;
   /** Optional cuisine chips shown under the dish name. */
@@ -34,7 +35,7 @@ interface DishCardProps {
 
 export const DishCard = ({
   id, name, description, price, image, chefId, chefName,
-  isVeg = false, rating, availableQty, preparationTimeMinutes,
+  isVeg = false, rating, hasVariants = false, preparationTimeMinutes,
   isChefOffline = false, cuisineTypes = [], isPopular = false, offlineMessage,
 }: DishCardProps) => {
   const { addItem, switchChefAndAdd } = useCart();
@@ -43,15 +44,18 @@ export const DishCard = ({
   const { width } = useWindowDimensions();
   const cardWidth = (width - spacing.md * 2 - spacing.sm) / 2;
 
-  const isOutOfStock = typeof availableQty === "number" && availableQty === 0;
-  const isLowStock =
-    typeof availableQty === "number" && availableQty > 0 && availableQty <= 3;
-  const orderDisabled = isOutOfStock || isChefOffline;
+  // Stock tracking is gone: only the chef's schedule blocks ordering now.
+  const orderDisabled = isChefOffline;
   const displayedCuisines = cuisineTypes.slice(0, 2);
 
   const handleAddToCart = () => {
     if (orderDisabled) return;
-    const result = addItem({ id, name, price, image, chefId, chefName }, availableQty);
+    // A variant-priced dish needs a choice before it can go in the cart.
+    if (hasVariants) {
+      router.push(`/dish/${id}`);
+      return;
+    }
+    const result = addItem({ foodListingId: id, name, price, image, chefId, chefName });
     if (result.success) {
       showToast({ message: `${name} added to cart`, variant: "success" });
       return;
@@ -63,7 +67,7 @@ export const DishCard = ({
           text: "Switch",
           style: "destructive",
           onPress: () => {
-            switchChefAndAdd(result.pendingItem!, availableQty);
+            switchChefAndAdd(result.pendingItem!);
             showToast({ message: `${name} added to cart`, variant: "success" });
           },
         },
@@ -95,10 +99,6 @@ export const DishCard = ({
           <View style={styles.offlineBadge}>
             <Text style={styles.offlineText}>Chef offline</Text>
           </View>
-        ) : isOutOfStock ? (
-          <View style={styles.soldOutBadge}>
-            <Text style={styles.offlineText}>Sold out</Text>
-          </View>
         ) : isPopular ? (
           <View style={styles.popularBadge}>
             <Text style={styles.popularText}>Popular</Text>
@@ -110,7 +110,11 @@ export const DishCard = ({
           hitSlop={8}
           disabled={orderDisabled}
         >
-          <Ionicons name={orderDisabled ? "close" : "add"} size={18} color={colors.white} />
+          <Ionicons
+            name={orderDisabled ? "close" : hasVariants ? "options-outline" : "add"}
+            size={18}
+            color={colors.white}
+          />
         </Pressable>
       </View>
 
@@ -132,12 +136,12 @@ export const DishCard = ({
 
         {isChefOffline ? (
           <Text style={styles.offlineNote} numberOfLines={1}>{offlineMessage || "Chef offline"}</Text>
-        ) : isLowStock ? (
-          <Text style={styles.lowStock} numberOfLines={1}>Only {availableQty} left!</Text>
         ) : null}
 
         <View style={styles.footer}>
-          <Text style={styles.price}>{formatPrice(price)}</Text>
+          <Text style={styles.price}>
+            {hasVariants ? `From ${formatPrice(price)}` : formatPrice(price)}
+          </Text>
           <View style={styles.meta}>
             {!!rating && (
               <View style={styles.metaItem}>
@@ -180,11 +184,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.55)",
     borderRadius: radius.full, paddingHorizontal: 7, paddingVertical: 3,
   },
-  soldOutBadge: {
-    position: "absolute", bottom: 6, left: 6,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    borderRadius: radius.full, paddingHorizontal: 7, paddingVertical: 3,
-  },
   offlineText: { fontSize: 10, fontWeight: "600", color: colors.white },
   popularBadge: {
     position: "absolute", bottom: 6, left: 6,
@@ -216,7 +215,6 @@ const styles = StyleSheet.create({
   cuisineText: { fontSize: 10, fontWeight: "600", color: colors.accentSubtleForeground },
   chefName: { ...typography.xs, color: colors.mutedForeground, marginTop: 2 },
   offlineNote: { ...typography.xs, fontWeight: "600", color: colors.mutedForeground, marginTop: 2 },
-  lowStock: { ...typography.xs, fontWeight: "600", color: colors.destructive, marginTop: 2 },
   footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.xs, paddingTop: spacing.xs, borderTopWidth: 1, borderTopColor: colors.border },
   price: { ...typography.sm, fontWeight: "800", color: colors.foreground },
   meta: { flexDirection: "row", gap: 6 },
