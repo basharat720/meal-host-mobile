@@ -5,6 +5,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Button } from "@/components/ui/Button";
 import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
+import { toTitleCase } from "@/lib/titleCase";
 
 export default function OrderSuccessScreen() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function OrderSuccessScreen() {
     .map((id) => id.trim())
     .filter((id) => id.length > 0);
   const etaLabel = params.eta?.trim() || null;
-  const chefName = params.chefName?.trim() || null;
+  const chefName = toTitleCase(params.chefName?.trim()) || null;
 
   return (
     <SafeAreaView style={styles.safeArea}>

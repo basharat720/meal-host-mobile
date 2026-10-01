@@ -6,6 +6,7 @@ import { useI18n } from "@/i18n/context";
 import { MatchedDish } from "@/services/types";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 import { FavoriteButton } from "@/components/FavoriteButton";
+import { toTitleCase } from "@/lib/titleCase";
 
 export interface ChefCardProps {
   id: string;
@@ -146,7 +147,7 @@ export const ChefCard = ({
             {matchedDishes.map((dish) => (
               <View key={dish.id} style={styles.matchedRow}>
                 <Text style={styles.matchedTitle} numberOfLines={1}>
-                  {dish.title}
+                  {toTitleCase(dish.title)}
                 </Text>
                 <Text style={styles.matchedPrice}>{formatPrice(dish.price)}</Text>
               </View>

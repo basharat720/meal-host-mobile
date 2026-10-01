@@ -20,6 +20,7 @@ import {
 import { colors, fonts, radius, shadow, spacing, typography } from "@/constants/theme";
 import { orderStatusTone } from "@/lib/orderStatus";
 import type { Order } from "@/services/types";
+import { toTitleCase } from "@/lib/titleCase";
 
 const PAGE_SIZE = 20;
 
@@ -322,7 +323,7 @@ export default function ChefEarningsScreen() {
                           })}
                         </Text>
                         <Text style={styles.orderItem} numberOfLines={1}>
-                          {order.item_title ?? "Dish unavailable"}
+                          {toTitleCase(order.item_title) || "Dish unavailable"}
                           {order.quantity > 1 ? ` × ${order.quantity}` : ""}
                         </Text>
                         <Text style={styles.orderCustomer} numberOfLines={1}>

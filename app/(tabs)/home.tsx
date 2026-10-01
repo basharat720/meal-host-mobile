@@ -16,9 +16,11 @@ import { CuisineType } from "@/services/types";
 import { useI18n } from "@/i18n/context";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  LocationPreference, LocationMode, RADIUS_OPTIONS, DEFAULT_LOCATION_PREFERENCE,
+  LocationPreference, LocationMode, DEFAULT_LOCATION_PREFERENCE,
+  RADIUS_MIN_KM, RADIUS_MAX_KM, RADIUS_STEP_KM,
   loadLocationPreference, saveLocationPreference,
 } from "@/lib/locationPreference";
+import { Slider } from "@/components/ui/Slider";
 import { colors, fonts, radius, spacing, typography } from "@/constants/theme";
 import { Logo } from "@/components/Logo";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -96,7 +98,7 @@ export default function HomeScreen() {
   const fetchDishes = useCallback(async (
     lat?: number,
     lon?: number,
-    radiusKm?: number | null,
+    radiusKm?: number,
     silent = false,
     cuisineCodes: string[] = [],
   ) => {
@@ -106,8 +108,8 @@ export default function HomeScreen() {
       if (!silent) setIsLoading(true);
       setFetchError(false);
       const params: any = { limit: 100 };
-      // A null radius ("Any distance") or missing coordinates means "search
-      // everywhere" — send an empty query so the backend returns all dishes.
+      // Without coordinates there is nothing to search around — send an empty
+      // query so the backend returns all dishes rather than none.
       if (lat && lon && radiusKm != null) { params.lat = lat; params.lon = lon; params.radius_km = radiusKm; }
       else { params.query = ""; }
       // Filter by cuisine on the server too. The client-side pass below still
@@ -186,11 +188,6 @@ export default function HomeScreen() {
   // screen while refetching (screen refocus / pull-to-refresh / filter change).
   const loadDishes = useCallback(async (silent = false) => {
     const cuisineCodes = cuisineCodesKey === "" ? [] : cuisineCodesKey.split(",");
-    // "Any distance" needs no coordinates — search everywhere.
-    if (locationPref.radiusKm == null) {
-      await fetchDishes(undefined, undefined, null, silent, cuisineCodes);
-      return;
-    }
     const coords = await resolveCoords();
     await fetchDishes(coords?.lat, coords?.lon, locationPref.radiusKm, silent, cuisineCodes);
   }, [fetchDishes, resolveCoords, locationPref.radiusKm, cuisineCodesKey]);
@@ -240,6 +237,13 @@ export default function HomeScreen() {
       return next;
     });
   }, []);
+
+  // The slider's live position. It tracks the stored preference, but moves on
+  // its own while the thumb is being dragged.
+  const [radiusDraft, setRadiusDraft] = useState(locationPref.radiusKm);
+  useEffect(() => {
+    setRadiusDraft(locationPref.radiusKm);
+  }, [locationPref.radiusKm]);
 
   const setLocationMode = useCallback((mode: LocationMode) => {
     // Switching away from a stale denied-GPS state should clear the banner.
@@ -329,7 +333,6 @@ export default function HomeScreen() {
 
   // Human-readable heading describing what area the feed currently covers.
   const searchAreaLabel = useMemo(() => {
-    if (locationPref.radiusKm == null) return "Popular Everywhere";
     if (locationPref.mode === "profile") return "Near Your Saved Address";
     if (locationPref.mode === "manual" && locationPref.manual) return `Near ${locationPref.manual.label}`;
     return "Popular Near You";
@@ -673,25 +676,25 @@ export default function HomeScreen() {
               </Text>
             )}
 
-            {/* Distance / radius */}
-            <Text style={styles.sectionSubTitle}>Distance</Text>
-            <View style={styles.radiusRow}>
-              {RADIUS_OPTIONS.map((opt) => {
-                const active = locationPref.radiusKm === opt.value;
-                return (
-                  <Pressable
-                    key={String(opt.value)}
-                    style={[styles.radiusChip, active && styles.radiusChipActive]}
-                    onPress={() => updateLocationPref({ radiusKm: opt.value })}
-                  >
-                    <Text style={[styles.radiusChipText, active && styles.radiusChipTextActive]}>{opt.label}</Text>
-                  </Pressable>
-                );
-              })}
+            {/* Distance: dragged freely, committed once the thumb is released
+                so a drag doesn't fire a search per step. */}
+            <View style={styles.radiusHeader}>
+              <Text style={styles.sectionSubTitle}>Distance</Text>
+              <Text style={styles.radiusValue}>{radiusDraft} km</Text>
             </View>
-            {locationPref.radiusKm == null && (
-              <Text style={styles.priceHint}>Showing dishes everywhere, regardless of distance.</Text>
-            )}
+            <Slider
+              value={radiusDraft}
+              min={RADIUS_MIN_KM}
+              max={RADIUS_MAX_KM}
+              step={RADIUS_STEP_KM}
+              accessibilityLabel="Distance"
+              onValueChange={setRadiusDraft}
+              onValueCommit={(value) => updateLocationPref({ radiusKm: value })}
+            />
+            <View style={styles.radiusBounds}>
+              <Text style={styles.radiusBoundText}>{RADIUS_MIN_KM} km</Text>
+              <Text style={styles.radiusBoundText}>{RADIUS_MAX_KM} km</Text>
+            </View>
 
             {/* Sort */}
             <Text style={styles.sectionTitle}>Sort By</Text>
@@ -950,14 +953,13 @@ const styles = StyleSheet.create({
   },
   manualBtnDisabled: { opacity: 0.5 },
   manualBtnText: { ...typography.sm, fontFamily: fonts.sansSemiBold, fontWeight: "600", color: colors.white },
-  radiusRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  radiusChip: {
-    paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.full,
-    borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface,
+  radiusHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  radiusValue: {
+    ...typography.sm, fontFamily: fonts.sansSemiBold, fontWeight: "600",
+    color: colors.foreground, marginTop: spacing.md, marginBottom: spacing.sm,
   },
-  radiusChipActive: { borderColor: colors.primary, backgroundColor: colors.primary },
-  radiusChipText: { ...typography.sm, fontFamily: fonts.sans, color: colors.mutedForeground },
-  radiusChipTextActive: { color: colors.white, fontFamily: fonts.sansSemiBold, fontWeight: "600" },
+  radiusBounds: { flexDirection: "row", justifyContent: "space-between" },
+  radiusBoundText: { ...typography.xs, fontFamily: fonts.sans, color: colors.mutedForeground },
 
   // Main-screen location banner
   locBanner: {

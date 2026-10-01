@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { toTitleCase } from "@/lib/titleCase";
 
 export interface CartItem {
   /** Composite key: a dish appears once per variant. */
@@ -63,6 +64,9 @@ const migrateStoredCart = (parsed: unknown): CartItem[] => {
         ...(raw as CartItem),
         foodListingId,
         id: getCartItemId(foodListingId, raw.variantId),
+        // Carts saved before display-casing existed keep the raw chef-typed case.
+        name: toTitleCase(raw.name),
+        chefName: toTitleCase(raw.chefName),
         quantity: clampQuantity(raw.quantity ?? 1),
       },
     ];
@@ -101,7 +105,14 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     });
   }, [items]);
 
-  const addItem = (newItem: CartItemInput, quantity = 1): AddItemResult => {
+  const addItem = (item: CartItemInput, quantity = 1): AddItemResult => {
+    // Dish and kitchen names are chef-typed free text; store them display-cased
+    // so every cart, checkout and toast reads the same way.
+    const newItem: CartItemInput = {
+      ...item,
+      name: toTitleCase(item.name),
+      chefName: toTitleCase(item.chefName),
+    };
     const cartChefId = items.length > 0 ? items[0].chefId : null;
     if (cartChefId && cartChefId !== newItem.chefId) {
       // Return info to caller so it can show a native Alert

@@ -24,9 +24,11 @@ import { FoodListing, ChefAvailabilityStatus } from "@/services/types";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 import { formatDuration } from "@/lib/duration";
 import {
+  DEFAULT_VARIANT_LABEL,
   getActiveListingVariants,
   getListingStartingPrice,
 } from "@/lib/listingVariants";
+import { toTitleCase } from "@/lib/titleCase";
 
 const MAX_ORDER_QUANTITY = 100;
 
@@ -151,7 +153,13 @@ export default function DishDetailScreen() {
   const orderDisabled = isChefOffline || needsVariantChoice;
   const image = primaryImage(dish);
   const isVeg = isVegListing(dish);
-  const chefName = dish.chef_name || "Chef";
+  const chefName = toTitleCase(dish.chef_name) || "Chef";
+  // Chef-typed free text, display-cased here so the page, the cart and the
+  // toast all read the same way.
+  const dishTitle = toTitleCase(dish.title);
+  // The server never stores a blank label — it defaults one in on write — but
+  // fall back anyway so an older row can't render an empty heading.
+  const variantLabel = dish.variant_label?.trim() || DEFAULT_VARIANT_LABEL;
   const offlineMessage =
     status && !status.is_open && status.next_open_day_label && status.next_open_time
       ? `Opens ${status.next_open_day_label} ${displayTime(status.next_open_time)}`
@@ -178,7 +186,7 @@ export default function DishDetailScreen() {
 
   const confirmAdded = () => {
     showToast({
-      message: `${quantity} × ${dish.title} added to cart`,
+      message: `${quantity} × ${dishTitle} added to cart`,
       variant: "success",
     });
   };
@@ -239,7 +247,7 @@ export default function DishDetailScreen() {
           <FavoriteButton
             type="dish"
             id={dish.id}
-            label={dish.title}
+            label={dishTitle}
             style={styles.favoriteButton}
           />
         </View>
@@ -247,7 +255,7 @@ export default function DishDetailScreen() {
         {/* Title + chef */}
         <View style={styles.card}>
           <View style={styles.titleRow}>
-            <Text style={styles.title}>{dish.title}</Text>
+            <Text style={styles.title}>{dishTitle}</Text>
             {isChefOffline ? (
               <Badge label="Chef offline" variant="default" />
             ) : (
@@ -315,9 +323,7 @@ export default function DishDetailScreen() {
         <View style={styles.card}>
           {variants.length > 0 && (
             <View style={styles.variantSection}>
-              <Text style={styles.variantLabel}>
-                {dish.variant_label || "Choose an option"}
-              </Text>
+              <Text style={styles.variantLabel}>{variantLabel}</Text>
               {variants.map((variant) => {
                 const selected = variant.id === selectedVariantId;
                 return (
@@ -381,7 +387,7 @@ export default function DishDetailScreen() {
             {isChefOffline
               ? "Chef Not Available"
               : needsVariantChoice
-              ? dish.variant_label || "Choose an option"
+              ? variantLabel
               : `Add ${quantity > 1 ? `${quantity} × ` : ""}${formatPrice(unitPrice * quantity)}`}
           </Button>
         </View>

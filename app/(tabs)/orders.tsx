@@ -40,6 +40,7 @@ import { orderStatusTone } from "@/lib/orderStatus";
 import { getUserFriendlyError } from "@/lib/errorMessages";
 import { useChatUnread } from "@/hooks/useOrderChat";
 import { getOrderItemKey, getOrderItemName } from "@/lib/listingVariants";
+import { toTitleCase } from "@/lib/titleCase";
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 
@@ -593,7 +594,7 @@ function OrderCard({
                 onPress={() => onOpenChat(order)}
               >
                 {order.chat_can_send
-                  ? `Chat with ${order.chef_name ?? "the chef"}`
+                  ? `Chat with ${toTitleCase(order.chef_name) || "the chef"}`
                   : "View chat"}
                 {unreadMessages > 0 ? ` (${unreadMessages})` : ""}
               </Button>
@@ -1384,7 +1385,7 @@ export default function OrdersScreen() {
                   pathname: "/order-chat/[id]",
                   params: {
                     id: String(order.id),
-                    name: order.chef_name ?? "the chef",
+                    name: toTitleCase(order.chef_name) || "the chef",
                   },
                 })
               }

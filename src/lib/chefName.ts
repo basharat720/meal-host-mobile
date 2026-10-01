@@ -1,3 +1,5 @@
+import { toTitleCase } from "@/lib/titleCase";
+
 /**
  * The shape any chef-ish record needs for a display name to be resolved.
  *
@@ -23,5 +25,5 @@ export const chefDisplayName = (
 ): string => {
   if (!chef) return fallback;
   const kitchenName = chef.kitchen_name ?? chef.chef_profile?.kitchen_name;
-  return kitchenName?.trim() || chef.name?.trim() || fallback;
+  return toTitleCase(kitchenName?.trim() || chef.name?.trim()) || fallback;
 };

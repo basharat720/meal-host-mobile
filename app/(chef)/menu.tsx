@@ -40,6 +40,7 @@ import { uploadFoodImage } from "@/services/imageService";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 import {
   MAX_LISTING_VARIANTS,
+  MAX_VARIANT_NAME_LENGTH,
   buildListingPricingPayload,
   emptyVariantField,
   getActiveListingVariants,
@@ -47,6 +48,7 @@ import {
   listingToPricingState,
   type ListingPricingState,
 } from "@/lib/listingVariants";
+import { toTitleCase } from "@/lib/titleCase";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -151,7 +153,7 @@ function DishRow({
 
       <View style={styles.rowInfo}>
         <Text style={styles.rowTitle} numberOfLines={1}>
-          {item.title}
+          {toTitleCase(item.title)}
         </Text>
         <Text style={styles.rowPrice}>
           {getListingStartingPrice(item) === null
@@ -376,8 +378,10 @@ function DishModal({
             ) : (
               <>
                 <Input
-                  label="Option prompt"
+                  label="Question customers see *"
                   placeholder="Choose a size"
+                  helperText="Shown above the choices on your dish page."
+                  maxLength={MAX_VARIANT_NAME_LENGTH}
                   value={form.pricing.variantLabel}
                   onChangeText={(v) =>
                     setForm((f) => ({

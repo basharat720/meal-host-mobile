@@ -9,6 +9,9 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, router } from "expo-router";
@@ -22,6 +25,7 @@ import { isChefActive } from "@/lib/chefStatus";
 import { formatDurationRange } from "@/lib/duration";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
@@ -95,6 +99,7 @@ interface OrderCardProps {
   expanded: boolean;
   onToggle: () => void;
   onUpdateStatus: (id: number, status: Order["status"]) => void;
+  onConfirm: (order: Order) => void;
   onReject: (order: Order) => void;
   updatingId: number | null;
   dishInfo?: DishInfo | null;
@@ -108,6 +113,7 @@ function OrderCard({
   expanded,
   onToggle,
   onUpdateStatus,
+  onConfirm,
   onReject,
   updatingId,
   dishInfo,
@@ -166,6 +172,12 @@ function OrderCard({
 
   const handleActionPress = () => {
     if (!nextAction) return;
+    // Confirming is the one step that carries an estimate, so it opens a
+    // prompt rather than firing the status change straight away.
+    if (nextAction.status === "CONFIRMED") {
+      onConfirm(order);
+      return;
+    }
     onUpdateStatus(order.id, nextAction.status);
   };
 
@@ -482,6 +494,57 @@ export default function ChefOrdersScreen() {
     return true;
   };
 
+  // The order awaiting a confirmation ETA, and the minutes typed into the prompt.
+  const [confirmOrderId, setConfirmOrderId] = useState<number | null>(null);
+  const [confirmEta, setConfirmEta] = useState("");
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  const closeConfirmDialog = () => {
+    setConfirmOrderId(null);
+    setConfirmEta("");
+  };
+
+  const openConfirmDialog = (order: Order) => {
+    if (!requireActive()) return;
+    setConfirmOrderId(order.id);
+    setConfirmEta("");
+  };
+
+  /**
+   * Confirm the order, optionally replacing the tentative estimate shown at
+   * checkout. A blank field keeps whatever estimate the dish already implied.
+   */
+  const submitConfirmOrder = async () => {
+    if (confirmOrderId === null) return;
+    const trimmed = confirmEta.trim();
+    let etaMinutes: number | undefined;
+    if (trimmed) {
+      const parsed = Number(trimmed);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        Alert.alert("Invalid time", "Enter the number of minutes, or leave it blank.");
+        return;
+      }
+      etaMinutes = Math.round(parsed);
+    }
+
+    setIsConfirming(true);
+    setUpdatingId(confirmOrderId);
+    try {
+      const updated = await orderService.updateOrderStatus(
+        confirmOrderId,
+        "CONFIRMED",
+        etaMinutes
+      );
+      setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+      closeConfirmDialog();
+    } catch (err: any) {
+      Alert.alert("Error", err?.message ?? "Failed to confirm order.");
+    } finally {
+      setIsConfirming(false);
+      setUpdatingId(null);
+    }
+  };
+
   const handleUpdateStatus = async (orderId: number, status: Order["status"]) => {
     if (!requireActive()) return;
     setUpdatingId(orderId);
@@ -595,6 +658,7 @@ export default function ChefOrdersScreen() {
             expanded={expandedId === item.id}
             onToggle={() => toggleExpand(item.id)}
             onUpdateStatus={handleUpdateStatus}
+            onConfirm={openConfirmDialog}
             onReject={handleReject}
             updatingId={updatingId}
             dishInfo={(() => {
@@ -640,11 +704,77 @@ export default function ChefOrdersScreen() {
         }
       />
 
+      <Modal
+        visible={confirmOrderId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isConfirming) closeConfirmDialog();
+        }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.modalBackdrop}
+        >
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Confirm order #{confirmOrderId}</Text>
+            <Text style={styles.modalDescription}>
+              Tell the customer how long this order will take. This replaces the
+              tentative estimate shown at checkout.
+            </Text>
+
+            <Input
+              label="Ready in (minutes)"
+              placeholder="e.g. 45"
+              helperText="Leave blank to keep the existing estimate."
+              keyboardType="number-pad"
+              value={confirmEta}
+              onChangeText={setConfirmEta}
+              editable={!isConfirming}
+            />
+
+            <View style={styles.modalActions}>
+              <Button
+                variant="outline"
+                onPress={closeConfirmDialog}
+                disabled={isConfirming}
+                style={styles.modalButton}
+              >
+                Cancel
+              </Button>
+              <Button
+                onPress={submitConfirmOrder}
+                loading={isConfirming}
+                style={styles.modalButton}
+              >
+                Confirm order
+              </Button>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    paddingHorizontal: spacing.lg,
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  modalTitle: { ...typography.lg, fontWeight: "700", color: colors.foreground },
+  modalDescription: { ...typography.sm, color: colors.mutedForeground },
+  modalActions: { flexDirection: "row", gap: spacing.sm },
+  modalButton: { flex: 1 },
+
   orderIdRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   chatBadge: {
     flexDirection: "row",

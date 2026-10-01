@@ -10,6 +10,7 @@ import { CuisineType } from "@/services/types";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 import { formatDuration } from "@/lib/duration";
 import { FavoriteButton } from "@/components/FavoriteButton";
+import { toTitleCase } from "@/lib/titleCase";
 
 interface DishCardProps {
   id: string;
@@ -34,10 +35,13 @@ interface DishCardProps {
 }
 
 export const DishCard = ({
-  id, name, description, price, image, chefId, chefName,
+  id, name: rawName, description, price, image, chefId, chefName: rawChefName,
   isVeg = false, rating, hasVariants = false, preparationTimeMinutes,
   isChefOffline = false, cuisineTypes = [], isPopular = false, offlineMessage,
 }: DishCardProps) => {
+  /** Dish titles are chef-typed free text; shown title-cased everywhere. */
+  const name = toTitleCase(rawName);
+  const chefName = toTitleCase(rawChefName);
   const { addItem, switchChefAndAdd } = useCart();
   const { showToast } = useToast();
   const { formatPrice } = useI18n();

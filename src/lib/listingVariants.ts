@@ -6,6 +6,8 @@ import type {
   OrderItem,
 } from "@/services/types";
 
+import { toTitleCase } from "@/lib/titleCase";
+
 export const MAX_LISTING_VARIANTS = 10;
 export const MAX_VARIANT_NAME_LENGTH = 80;
 
@@ -107,7 +109,9 @@ export const buildListingPricingPayload = (
       : { payload: { price, variant_label: null, variants: [] } };
   }
 
-  const variantLabel = pricing.variantLabel.trim() || DEFAULT_VARIANT_LABEL;
+  const variantLabel = pricing.variantLabel.trim();
+  if (!variantLabel) return { error: "Enter the question customers will see" };
+
   const variants = pricing.variants.map((variant, displayOrder) => ({
     ...(variant.id !== undefined ? { id: variant.id } : {}),
     name: variant.name.trim(),
@@ -129,7 +133,7 @@ export const listingToPricingState = (
     return {
       mode: "variants",
       price: "",
-      variantLabel: listing?.variant_label ?? DEFAULT_VARIANT_LABEL,
+      variantLabel: listing?.variant_label ?? "",
       variants: variants.map((variant) => ({
         id: variant.id,
         name: variant.name,
@@ -140,7 +144,7 @@ export const listingToPricingState = (
   return {
     mode: "single",
     price: listing?.price != null ? String(listing.price) : "",
-    variantLabel: DEFAULT_VARIANT_LABEL,
+    variantLabel: "",
     variants: [emptyVariantField(), emptyVariantField()],
   };
 };
@@ -149,7 +153,7 @@ export const getOrderListingName = (
   order: Pick<Order, "listing_title_snapshot" | "variant_name_snapshot">,
   fallbackTitle: string,
 ): string => {
-  const title = order.listing_title_snapshot || fallbackTitle;
+  const title = toTitleCase(order.listing_title_snapshot || fallbackTitle);
   return order.variant_name_snapshot
     ? `${title} (${order.variant_name_snapshot})`
     : title;
@@ -164,7 +168,9 @@ export const getOrderListingName = (
 export const getOrderItemName = (
   item: Pick<OrderItem, "item_title" | "variant_name">,
 ): string =>
-  item.variant_name ? `${item.item_title} (${item.variant_name})` : item.item_title;
+  item.variant_name
+    ? `${toTitleCase(item.item_title)} (${item.variant_name})`
+    : toTitleCase(item.item_title);
 
 /** A stable list key for an order line: a dish may appear once per variant. */
 export const getOrderItemKey = (

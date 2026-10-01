@@ -14,22 +14,24 @@ export interface ManualLocation {
 
 export interface LocationPreference {
   mode: LocationMode;
-  // Search radius in km. `null` means "any distance" — search everywhere,
-  // ignoring location entirely.
-  radiusKm: number | null;
+  // Search radius in km. Mirrors the website's slider: a radius is always in
+  // force, so there is no "any distance".
+  radiusKm: number;
   // Only set when mode === "manual".
   manual?: ManualLocation;
 }
 
-// Selectable radii shown in the filter sheet. `null` == "Any distance".
-export const RADIUS_OPTIONS: { value: number | null; label: string }[] = [
-  { value: 5, label: "5 km" },
-  { value: 10, label: "10 km" },
-  { value: 25, label: "25 km" },
-  { value: 50, label: "50 km" },
-  { value: 100, label: "100 km" },
-  { value: null, label: "Any distance" },
-];
+// Bounds of the distance slider shown in the filter sheet. Any radius in this
+// range is selectable, not just a handful of preset steps.
+export const RADIUS_MIN_KM = 1;
+export const RADIUS_MAX_KM = 50;
+export const RADIUS_STEP_KM = 1;
+
+// Pull a radius back into the slider's range, rounded to a whole step.
+export function clampRadiusKm(value: number): number {
+  const stepped = Math.round(value / RADIUS_STEP_KM) * RADIUS_STEP_KM;
+  return Math.min(RADIUS_MAX_KM, Math.max(RADIUS_MIN_KM, stepped));
+}
 
 // Preserves the app's original behaviour: live GPS within 50 km.
 export const DEFAULT_LOCATION_PREFERENCE: LocationPreference = {
@@ -46,14 +48,13 @@ export async function loadLocationPreference(): Promise<LocationPreference> {
     const parsed = JSON.parse(raw) as Partial<LocationPreference>;
     const mode: LocationMode =
       parsed.mode === "profile" || parsed.mode === "manual" ? parsed.mode : "gps";
-    // radiusKm may legitimately be null ("any"); only fall back to the default
-    // when it's missing/invalid entirely.
+    // A radius stored by an older build may be null ("any distance") or sit
+    // outside the slider's range; fall back to the default in the first case
+    // and clamp in the second.
     const radiusKm =
-      parsed.radiusKm === null
-        ? null
-        : typeof parsed.radiusKm === "number"
-          ? parsed.radiusKm
-          : DEFAULT_LOCATION_PREFERENCE.radiusKm;
+      typeof parsed.radiusKm === "number" && Number.isFinite(parsed.radiusKm)
+        ? clampRadiusKm(parsed.radiusKm)
+        : DEFAULT_LOCATION_PREFERENCE.radiusKm;
     const manual =
       parsed.manual &&
       typeof parsed.manual.lat === "number" &&

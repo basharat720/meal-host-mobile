@@ -12,10 +12,19 @@ import { colors, fonts, radius, spacing, typography } from "@/constants/theme";
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
+  /** Guidance shown under the field. Hidden while an error is showing. */
+  helperText?: string;
   containerStyle?: ViewStyle;
 }
 
-export const Input = ({ label, error, containerStyle, style, ...props }: InputProps) => (
+export const Input = ({
+  label,
+  error,
+  helperText,
+  containerStyle,
+  style,
+  ...props
+}: InputProps) => (
   <View style={[styles.container, containerStyle]}>
     {label && <Text style={styles.label}>{label}</Text>}
     <TextInput
@@ -23,7 +32,11 @@ export const Input = ({ label, error, containerStyle, style, ...props }: InputPr
       placeholderTextColor={colors.mutedForeground}
       {...props}
     />
-    {error && <Text style={styles.error}>{error}</Text>}
+    {error ? (
+      <Text style={styles.error}>{error}</Text>
+    ) : helperText ? (
+      <Text style={styles.helper}>{helperText}</Text>
+    ) : null}
   </View>
 );
 
@@ -43,4 +56,5 @@ const styles = StyleSheet.create({
   },
   inputError: { borderColor: colors.destructive },
   error: { ...typography.xs, color: colors.destructive },
+  helper: { ...typography.xs, color: colors.mutedForeground },
 });
