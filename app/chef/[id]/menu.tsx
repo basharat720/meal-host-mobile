@@ -57,7 +57,7 @@ function StarRow({ stars }: { stars: number }) {
           key={n}
           name={n <= stars ? "star" : "star-outline"}
           size={12}
-          color={n <= stars ? colors.warning : colors.border}
+          color={n <= stars ? colors.accent : colors.border}
         />
       ))}
     </View>
@@ -347,7 +347,7 @@ export default function ChefMenuScreen() {
             <View style={styles.chefBadgeRow}>
               {chef.rating > 0 ? (
                 <View style={styles.ratingPill}>
-                  <Ionicons name="star" size={12} color={colors.warning} />
+                  <Ionicons name="star" size={12} color={colors.accent} />
                   <Text style={styles.ratingPillText}>
                     {chef.rating.toFixed(1)}
                   </Text>
@@ -753,7 +753,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  availBadgeOpen: { backgroundColor: colors.success },
+  availBadgeOpen: { backgroundColor: colors.secondaryStrong },
   availDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.white },
   availBadgeOpenText: { ...typography.xs, fontWeight: "700", color: colors.white },
   availBadgeOffline: {

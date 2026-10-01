@@ -149,7 +149,7 @@ export const DishCard = ({
           <View style={styles.meta}>
             {!!rating && (
               <View style={styles.metaItem}>
-                <Ionicons name="star" size={11} color={colors.warning} />
+                <Ionicons name="star" size={11} color={colors.accent} />
                 <Text style={styles.metaText}>{rating.toFixed(1)}</Text>
               </View>
             )}
@@ -198,7 +198,8 @@ const styles = StyleSheet.create({
   addButton: {
     position: "absolute", bottom: 6, right: 6,
     width: 30, height: 30, borderRadius: 15,
-    backgroundColor: colors.primary,
+    // Orange, not blue — the web's dish-card add button is bg-secondary-strong.
+    backgroundColor: colors.secondaryStrong,
     alignItems: "center", justifyContent: "center",
     ...shadow.md,
   },

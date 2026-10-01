@@ -42,7 +42,7 @@ function StarRow({ stars, size = "sm" }: { stars: number; size?: "sm" | "lg" }) 
           key={n}
           name={n <= stars ? "star" : "star-outline"}
           size={iconSize}
-          color={n <= stars ? colors.warning : colors.border}
+          color={n <= stars ? colors.accent : colors.border}
         />
       ))}
     </View>
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     marginTop: 6,
   },
-  availBadgeOpen: { backgroundColor: colors.success },
+  availBadgeOpen: { backgroundColor: colors.secondaryStrong },
   availDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.white },
   availBadgeOpenText: { ...typography.xs, fontWeight: "700", color: colors.white },
   availBadgeOffline: { backgroundColor: colors.muted },

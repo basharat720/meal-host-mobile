@@ -322,7 +322,7 @@ export default function RequestDetailScreen() {
               <Ionicons
                 name="information-circle-outline"
                 size={16}
-                color={colors.primary}
+                color={colors.accentSubtleForeground}
                 style={styles.infoIcon}
               />
               <Text style={styles.infoText}>
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typography.lg,
     fontWeight: "700",
-    color: colors.foreground,
+    color: colors.secondaryStrong,
     marginBottom: spacing.sm,
   },
 
@@ -604,13 +604,14 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: colors.primary + "33",
+    borderColor: colors.accentSubtleForeground + "33",
   },
   infoIcon: { marginRight: spacing.xs, marginTop: 1 },
+  // accentSubtle's designed partner: blue on the orange tint measures 2.96:1.
   infoText: {
     flex: 1,
     ...typography.sm,
-    color: colors.primary,
+    color: colors.accentSubtleForeground,
   },
 
   // Empty offers
@@ -641,7 +642,7 @@ const styles = StyleSheet.create({
     ...shadow.sm,
   },
   offerCardAccepted: {
-    borderColor: colors.primary,
+    borderColor: colors.secondaryStrong,
     backgroundColor: colors.accentSubtle,
   },
   offerCardRejected: {

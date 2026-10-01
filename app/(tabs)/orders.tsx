@@ -170,7 +170,7 @@ function ReviewModal({ order, customerId, onClose, onSubmitted }: ReviewModalPro
                 <Ionicons
                   name={n <= stars ? "star" : "star-outline"}
                   size={36}
-                  color={n <= stars ? colors.warning : colors.mutedForeground}
+                  color={n <= stars ? colors.accent : colors.mutedForeground}
                 />
               </Pressable>
             ))}
@@ -623,7 +623,7 @@ function OrderCard({
           {order.status === "RECEIVED" && !hasReviewed && (
             <View style={cardStyles.actionSection}>
               <View style={cardStyles.reviewPromptRow}>
-                <Ionicons name="star" size={16} color={colors.warning} />
+                <Ionicons name="star" size={16} color={colors.accent} />
                 <Text style={cardStyles.reviewPromptText}>How was your order?</Text>
               </View>
               <Button
@@ -771,7 +771,7 @@ const cardStyles = StyleSheet.create({
     backgroundColor: colors.accentSubtle,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: `${colors.accentForeground}22`,
+    borderColor: `${colors.accentSubtleForeground}33`,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },

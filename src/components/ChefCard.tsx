@@ -85,7 +85,7 @@ export const ChefCard = ({
         {/* Rating pill — hidden until the chef has been rated */}
         {rating > 0 && (
           <View style={styles.ratingPill}>
-            <Ionicons name="star" size={11} color={colors.warning} />
+            <Ionicons name="star" size={11} color={colors.accent} />
             <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
             {reviews > 0 && (
               <Text style={styles.reviewsText}>({reviews})</Text>
@@ -235,7 +235,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: colors.success,
+    // Orange, matching the web chef card's open-now badge.
+    backgroundColor: colors.secondaryStrong,
     borderRadius: radius.full,
     paddingHorizontal: 7,
     paddingVertical: 3,

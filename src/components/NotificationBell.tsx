@@ -14,7 +14,11 @@ interface Props {
   size?: number;
 }
 
-export function NotificationBell({ color = colors.foreground, size = 24 }: Props) {
+// Brand orange by default. `colors.accent` is the literal guideline hex
+// (#FF3903), not the darkened `secondaryStrong` — nothing sits on top of a
+// glyph, so it does not need the AA-safe shade, and the stroke clears the 3:1
+// non-text floor on both the cream and the pale-blue headers it appears on.
+export function NotificationBell({ color = colors.accent, size = 24 }: Props) {
   const { user } = useAuth();
 
   const { data } = useQuery({

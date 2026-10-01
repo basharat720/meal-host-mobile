@@ -269,7 +269,7 @@ export default function DishDetailScreen() {
             {!!dish.chef_rating_avg && dish.chef_rating_avg > 0 && (
               <>
                 <Text style={styles.dot}>•</Text>
-                <Ionicons name="star" size={12} color={colors.warning} />
+                <Ionicons name="star" size={12} color={colors.accent} />
                 <Text style={styles.chefRating}>{dish.chef_rating_avg.toFixed(1)}</Text>
                 {!!dish.chef_review_count && (
                   <Text style={styles.chefReviews}>({dish.chef_review_count})</Text>
@@ -337,7 +337,7 @@ export default function DishDetailScreen() {
                     <Ionicons
                       name={selected ? "radio-button-on" : "radio-button-off"}
                       size={20}
-                      color={selected ? colors.primary : colors.mutedForeground}
+                      color={selected ? colors.secondaryStrong : colors.mutedForeground}
                     />
                     <Text style={styles.variantName} numberOfLines={1}>
                       {variant.name}
@@ -379,6 +379,7 @@ export default function DishDetailScreen() {
           </View>
 
           <Button
+            variant="secondary"
             size="lg"
             onPress={handleAddToCart}
             disabled={orderDisabled}
@@ -551,7 +552,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   variantRowSelected: {
-    borderColor: colors.primary,
+    borderColor: colors.secondaryStrong,
     backgroundColor: colors.accentSubtle,
   },
   variantName: { ...typography.sm, color: colors.foreground, flex: 1 },

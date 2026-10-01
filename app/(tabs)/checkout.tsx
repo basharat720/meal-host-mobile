@@ -412,7 +412,7 @@ export default function CheckoutScreen() {
             <View style={styles.stepBadge}>
               <Text style={styles.stepBadgeText}>1</Text>
             </View>
-            <Ionicons name="receipt-outline" size={18} color={colors.primary} />
+            <Ionicons name="receipt-outline" size={18} color={colors.secondaryStrong} />
             <Text style={styles.sectionTitle}>Order Summary</Text>
           </View>
 
@@ -489,7 +489,7 @@ export default function CheckoutScreen() {
             <View style={styles.stepBadge}>
               <Text style={styles.stepBadgeText}>2</Text>
             </View>
-            <Ionicons name="person-outline" size={18} color={colors.primary} />
+            <Ionicons name="person-outline" size={18} color={colors.secondaryStrong} />
             <Text style={styles.sectionTitle}>Contact Information</Text>
           </View>
 
@@ -529,7 +529,7 @@ export default function CheckoutScreen() {
             <View style={styles.stepBadge}>
               <Text style={styles.stepBadgeText}>3</Text>
             </View>
-            <Ionicons name="location-outline" size={18} color={colors.primary} />
+            <Ionicons name="location-outline" size={18} color={colors.secondaryStrong} />
             <Text style={styles.sectionTitle}>Delivery Method</Text>
           </View>
 
@@ -670,7 +670,7 @@ export default function CheckoutScreen() {
             <View style={styles.stepBadge}>
               <Text style={styles.stepBadgeText}>4</Text>
             </View>
-            <Ionicons name="cash-outline" size={18} color={colors.primary} />
+            <Ionicons name="cash-outline" size={18} color={colors.secondaryStrong} />
             <Text style={styles.sectionTitle}>Payment</Text>
           </View>
 

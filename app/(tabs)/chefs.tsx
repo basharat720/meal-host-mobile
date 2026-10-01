@@ -19,6 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { ChefCard } from "@/components/ChefCard";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { NotificationBell } from "@/components/NotificationBell";
 import { FullScreenLoader } from "@/components/ui/LoadingSpinner";
 import { Button } from "@/components/ui/Button";
 import { chefService, cuisineService } from "@/services/api";
@@ -286,7 +287,7 @@ export default function ChefsScreen() {
           Post a request and let home chefs bid to cook it for you.
         </Text>
       </View>
-      <Ionicons name="arrow-forward-circle" size={28} color={colors.primaryForeground} />
+      <Ionicons name="arrow-forward-circle" size={28} color={colors.secondaryForeground} />
     </Pressable>
   );
 
@@ -294,6 +295,7 @@ export default function ChefsScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.header}>
         <Logo size="md" showText={true} />
+        <NotificationBell />
       </View>
 
       {/* Search + filters */}
@@ -500,7 +502,7 @@ export default function ChefsScreen() {
           </ScrollView>
 
           <View style={styles.sheetFooter}>
-            <Button variant="outline" onPress={resetFilters} style={styles.sheetFooterButton}>
+            <Button variant="accentOutline" onPress={resetFilters} style={styles.sheetFooterButton}>
               Reset
             </Button>
             <Button onPress={() => setFiltersOpen(false)} style={styles.sheetFooterButton}>
@@ -517,6 +519,10 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
 
   header: {
+    // Row, so the bell sits opposite the logo the way the home top bar does.
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
@@ -582,7 +588,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    backgroundColor: colors.primary,
+    // Orange: the custom-request surface is the web's orange panel, not a
+    // primary action.
+    backgroundColor: colors.secondaryStrong,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.md,
@@ -593,11 +601,11 @@ const styles = StyleSheet.create({
     ...typography.base,
     fontFamily: fonts.sansBold,
     fontWeight: "700",
-    color: colors.primaryForeground,
+    color: colors.secondaryForeground,
   },
   requestBannerBody: {
     ...typography.xs,
-    color: colors.primaryForeground,
+    color: colors.secondaryForeground,
     opacity: 0.9,
   },
 
@@ -624,7 +632,7 @@ const styles = StyleSheet.create({
     ...typography.lg,
     fontFamily: fonts.sansBold,
     fontWeight: "700",
-    color: colors.foreground,
+    color: colors.secondaryStrong,
   },
   sheetContent: { padding: spacing.md, paddingBottom: spacing["2xl"] },
   sheetSectionTitle: {

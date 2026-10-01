@@ -84,11 +84,12 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.primary,
+    // Orange, like the web's floating action button.
+    backgroundColor: colors.secondaryStrong,
     alignItems: "center",
     justifyContent: "center",
     // Elevation / shadow so it reads as floating
-    shadowColor: colors.primary,
+    shadowColor: colors.secondaryStrong,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,

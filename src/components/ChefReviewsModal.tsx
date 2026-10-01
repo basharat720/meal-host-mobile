@@ -28,7 +28,7 @@ export const StarRow = ({
         key={i}
         name={i <= stars ? "star" : "star-outline"}
         size={size}
-        color={i <= stars ? colors.warning : colors.mutedForeground}
+        color={i <= stars ? colors.accent : colors.mutedForeground}
       />
     ))}
   </View>

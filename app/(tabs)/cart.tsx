@@ -116,7 +116,7 @@ export default function CartScreen() {
             onPress={() => updateQuantity(item.id, item.quantity - 1)}
             hitSlop={8}
           >
-            <Ionicons name="remove" size={16} color={colors.primary} />
+            <Ionicons name="remove" size={16} color={colors.accentSubtleForeground} />
           </Pressable>
           <Text style={styles.qtyText}>{item.quantity}</Text>
           <Pressable
@@ -124,7 +124,7 @@ export default function CartScreen() {
             onPress={() => updateQuantity(item.id, item.quantity + 1)}
             hitSlop={8}
           >
-            <Ionicons name="add" size={16} color={colors.primary} />
+            <Ionicons name="add" size={16} color={colors.accentSubtleForeground} />
           </Pressable>
         </View>
       </View>
@@ -281,7 +281,9 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: radius.sm,
-    backgroundColor: colors.secondary,
+    // The tinted orange, not the full brand orange: the glyph on top needs a
+    // surface it can clear AA against.
+    backgroundColor: colors.accentSubtle,
     alignItems: "center",
     justifyContent: "center",
   },

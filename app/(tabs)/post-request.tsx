@@ -191,7 +191,7 @@ export default function PostRequestScreen() {
           <Ionicons name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
         <View style={styles.headerTitle}>
-          <Ionicons name="clipboard-outline" size={22} color={colors.primary} />
+          <Ionicons name="clipboard-outline" size={22} color={colors.secondaryStrong} />
           <Text style={styles.headerText}>Post a Food Request</Text>
         </View>
       </View>
@@ -287,7 +287,7 @@ export default function PostRequestScreen() {
                     size={18}
                     color={
                       locationId === null
-                        ? colors.primary
+                        ? colors.secondaryStrong
                         : colors.mutedForeground
                     }
                   />
@@ -310,7 +310,7 @@ export default function PostRequestScreen() {
                         }
                         size={18}
                         color={
-                          selected ? colors.primary : colors.mutedForeground
+                          selected ? colors.secondaryStrong : colors.mutedForeground
                         }
                       />
                       <Text style={styles.locationText} numberOfLines={2}>
@@ -362,6 +362,7 @@ export default function PostRequestScreen() {
         </Card>
 
         <Button
+          variant="secondary"
           size="lg"
           loading={isSubmitting}
           onPress={handleSubmit}
@@ -510,7 +511,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   locationRowSelected: {
-    borderColor: colors.primary,
+    borderColor: colors.secondaryStrong,
     backgroundColor: colors.accentSubtle,
   },
   locationText: {
@@ -537,16 +538,17 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
+  // Solid orange, as on the web's post-request cuisine chips.
   tagChipSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.accentSubtle,
+    borderColor: colors.secondaryStrong,
+    backgroundColor: colors.secondaryStrong,
   },
   tagText: {
     ...typography.sm,
     fontWeight: "600",
     color: colors.mutedForeground,
   },
-  tagTextSelected: { color: colors.primary },
+  tagTextSelected: { color: colors.secondaryForeground },
 
   submitBtn: { marginTop: spacing.sm },
 
@@ -581,6 +583,6 @@ const styles = StyleSheet.create({
   iosPickerDone: {
     ...typography.md,
     fontWeight: "700",
-    color: colors.primary,
+    color: colors.secondaryStrong,
   },
 });

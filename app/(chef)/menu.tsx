@@ -1094,9 +1094,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     alignItems: "center",
   },
-  modeBtnSelected: { borderColor: colors.primary, backgroundColor: colors.accentSubtle },
+  modeBtnSelected: { borderColor: colors.secondaryStrong, backgroundColor: colors.accentSubtle },
   modeText: { ...typography.sm, color: colors.mutedForeground, fontWeight: "600" },
-  modeTextSelected: { color: colors.primary },
+  modeTextSelected: { color: colors.accentSubtleForeground },
   variantRow: { flexDirection: "row", alignItems: "flex-end", gap: spacing.xs },
   variantNameField: { flex: 2 },
   variantPriceField: { flex: 1 },
@@ -1207,7 +1207,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.muted,
   },
   tagChipSelected: {
-    borderColor: colors.primary,
+    borderColor: colors.secondaryStrong,
     backgroundColor: colors.accentSubtle,
   },
   tagChipText: {
@@ -1215,5 +1215,5 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.mutedForeground,
   },
-  tagChipTextSelected: { color: colors.primary },
+  tagChipTextSelected: { color: colors.accentSubtleForeground },
 });

@@ -157,7 +157,10 @@ export default function DashboardScreen() {
               </View>
             )}
           </View>
-          <NotificationBell color={colors.foreground} />
+          {/* The chef header sits on the pale-blue wash, where the brand
+              orange is 2.95:1 — under the 3:1 non-text floor. The darkened
+              orange clears it at 4.05:1. */}
+          <NotificationBell color={colors.secondaryStrong} />
         </View>
 
         {/* Inactive-account banner */}

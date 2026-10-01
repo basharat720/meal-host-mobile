@@ -337,11 +337,14 @@ export default function MyRequestsScreen() {
                   </Text>
                 </View>
               )}
-              <Text style={styles.metaText}>
-                {offerCount === 0
-                  ? "No offers yet"
-                  : `${offerCount} offer${offerCount > 1 ? "s" : ""}`}
-              </Text>
+              {offerCount === 0 ? (
+                <Text style={styles.metaText}>No offers yet</Text>
+              ) : (
+                <Badge
+                  variant="accent"
+                  label={`${offerCount} offer${offerCount > 1 ? "s" : ""}`}
+                />
+              )}
             </View>
 
             {item.dietary_tags.length > 0 && (
@@ -544,8 +547,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.muted,
   },
   tabActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: colors.secondaryStrong,
+    borderColor: colors.secondaryStrong,
   },
   tabText: {
     ...typography.sm,
@@ -553,7 +556,7 @@ const styles = StyleSheet.create({
     color: colors.mutedForeground,
   },
   tabTextActive: {
-    color: colors.primaryForeground,
+    color: colors.secondaryForeground,
   },
 
   filteredEmpty: {

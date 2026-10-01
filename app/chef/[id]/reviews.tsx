@@ -25,7 +25,7 @@ function StarRow({ stars, size = 12 }: { stars: number; size?: number }) {
           key={n}
           name={n <= stars ? "star" : "star-outline"}
           size={size}
-          color={n <= stars ? colors.warning : colors.border}
+          color={n <= stars ? colors.accent : colors.border}
         />
       ))}
     </View>

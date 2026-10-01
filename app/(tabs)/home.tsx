@@ -36,12 +36,13 @@ const SORT_OPTIONS = [
 
 const PAGE_SIZE = 12;
 
-// Brand blue deepening into brand orange, matching the web request hero's
-// primary → accent gradient.
+// Brand orange, warming into the AA-safe shade. The web's custom-request
+// section (CustomRequestCta) is a solid bg-secondary-strong panel; the sweep
+// is the mobile reading of it.
 const REQUEST_CTA_GRADIENT: [string, string, string] = [
-  colors.gradientPrimaryStart,
-  colors.primary,
-  colors.accent,
+  colors.gradientSecondaryStart,
+  colors.gradientSecondaryEnd,
+  colors.secondaryStrong,
 ];
 
 export default function HomeScreen() {
@@ -439,7 +440,7 @@ export default function HomeScreen() {
             )}
           </View>
           <Pressable style={styles.filterButton} onPress={() => setFilterModalVisible(true)}>
-            <Ionicons name="options-outline" size={20} color={hasActiveFilters ? colors.primary : colors.foreground} />
+            <Ionicons name="options-outline" size={20} color={hasActiveFilters ? colors.secondaryStrong : colors.foreground} />
             {hasActiveFilters && <View style={styles.filterDot} />}
           </Pressable>
         </View>
@@ -519,9 +520,9 @@ export default function HomeScreen() {
             style={({ pressed }) => [styles.requestCtaPrimary, pressed && styles.requestCtaPressed]}
             onPress={() => router.push("/(tabs)/post-request")}
           >
-            <Ionicons name="add-circle" size={18} color={colors.primary} />
+            <Ionicons name="add-circle" size={18} color={colors.secondaryStrong} />
             <Text style={styles.requestCtaPrimaryText}>Post Your Request</Text>
-            <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+            <Ionicons name="arrow-forward" size={16} color={colors.secondaryStrong} />
           </Pressable>
 
           {user && (
@@ -807,7 +808,7 @@ const styles = StyleSheet.create({
   },
   filterDot: {
     position: "absolute", top: 8, right: 8,
-    width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary,
+    width: 8, height: 8, borderRadius: 4, backgroundColor: colors.secondaryStrong,
   },
 
   // Cuisine chips horizontal scroll. No maxHeight on purpose: the row must be
@@ -829,9 +830,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
+  // Orange, the way the web's cuisine bar marks its active cuisine.
   cuisineChipActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
+    borderColor: colors.secondaryStrong,
+    backgroundColor: colors.secondaryStrong,
   },
   // System font (fontWeight, no custom fontFamily) on purpose: a custom-font
   // <Text> that first mounts via the async cuisine fetch renders blank on iOS
@@ -855,7 +857,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     gap: spacing.md,
     // Lift the card off the feed the way the web hero's shadow does.
-    shadowColor: colors.primary,
+    shadowColor: colors.secondaryStrong,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 12,
@@ -876,7 +878,7 @@ const styles = StyleSheet.create({
     gap: 6, height: 42, paddingHorizontal: spacing.md,
     borderRadius: radius.full, backgroundColor: colors.white,
   },
-  requestCtaPrimaryText: { ...typography.sm, fontFamily: fonts.sansBold, fontWeight: "700", color: colors.primary },
+  requestCtaPrimaryText: { ...typography.sm, fontFamily: fonts.sansBold, fontWeight: "700", color: colors.secondaryStrong },
   requestCtaSecondary: {
     flexDirection: "row", alignItems: "center", gap: 6,
     height: 42, paddingHorizontal: spacing.md,
@@ -914,7 +916,7 @@ const styles = StyleSheet.create({
   priceHint: { ...typography.xs, fontFamily: fonts.sans, color: colors.mutedForeground, marginTop: spacing.xs },
   cuisineGrid: { flexDirection: "row", flexWrap: "wrap" },
   modalCuisineChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface, marginRight: spacing.sm, marginBottom: spacing.sm },
-  modalCuisineChipActive: { borderColor: colors.primary, backgroundColor: colors.primary },
+  modalCuisineChipActive: { borderColor: colors.secondaryStrong, backgroundColor: colors.secondaryStrong },
   modalCuisineText: { ...typography.sm, fontFamily: fonts.sans, color: colors.mutedForeground },
   modalCuisineTextActive: { color: colors.white, fontFamily: fonts.sansSemiBold, fontWeight: "600" },
   modalFooter: { flexDirection: "row", gap: spacing.md, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
