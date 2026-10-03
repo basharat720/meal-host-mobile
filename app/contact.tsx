@@ -77,9 +77,9 @@ export default function ContactScreen() {
             <Text style={styles.bold}>Email:</Text>{" "}
             <Text
               style={styles.link}
-              onPress={() => Linking.openURL("mailto:contact@pakwanhus.com")}
+              onPress={() => Linking.openURL("mailto:contact@foodpal.co")}
             >
-              contact@pakwanhus.com
+              contact@foodpal.co
             </Text>
           </Text>
         </View>

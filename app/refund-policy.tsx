@@ -132,7 +132,7 @@ export default function RefundPolicyScreen() {
           </Bullet>
           <View style={styles.divider} />
           <Text style={styles.infoText}>
-            <Text style={styles.bold}>Contact:</Text> contact@pakwanhus.com
+            <Text style={styles.bold}>Contact:</Text> contact@foodpal.co
           </Text>
         </View>
 

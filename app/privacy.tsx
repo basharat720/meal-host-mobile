@@ -80,7 +80,7 @@ export default function PrivacyScreen() {
             If you have any questions regarding this Privacy Policy, you may contact us at:
           </Text>
           <Text style={styles.infoText}>
-            <Text style={styles.bold}>Email:</Text> contact@pakwanhus.com
+            <Text style={styles.bold}>Email:</Text> contact@foodpal.co
           </Text>
         </View>
 
@@ -325,10 +325,10 @@ export default function PrivacyScreen() {
         <View style={styles.infoBox}>
           <Text style={styles.contactName}>FoodPal</Text>
           <Text style={styles.infoText}>
-            <Text style={styles.bold}>Email:</Text> contact@pakwanhus.com
+            <Text style={styles.bold}>Email:</Text> contact@foodpal.co
           </Text>
           <Text style={styles.infoText}>
-            <Text style={styles.bold}>Website:</Text> www.pakwanhus.com
+            <Text style={styles.bold}>Website:</Text> www.foodpal.co
           </Text>
         </View>
       </ScrollView>

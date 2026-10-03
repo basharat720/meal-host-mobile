@@ -226,7 +226,7 @@ export default function FaqScreen() {
         </Paragraph>
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>
-            <Text style={styles.bold}>Email:</Text> contact@pakwanhus.com
+            <Text style={styles.bold}>Email:</Text> contact@foodpal.co
           </Text>
         </View>
       </ScrollView>
