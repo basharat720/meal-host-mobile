@@ -16,7 +16,8 @@
       "bundleIdentifier": "com.mealhost.mobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "buildNumber": "10"
     },
     "android": {
       "package": "com.mealhost.mobile",
@@ -33,7 +34,8 @@
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
         "android.permission.RECORD_AUDIO"
-      ]
+      ],
+      "versionCode": 2
     },
     "web": {
       "bundler": "metro",
