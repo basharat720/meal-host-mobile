@@ -12,8 +12,11 @@ import {
   ScrollView,
   Switch,
   useWindowDimensions,
+  Alert,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
@@ -31,8 +34,15 @@ import {
 } from "@/services/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { chefDisplayName } from "@/lib/chefName";
-import { colors, fonts, radius, spacing, typography, shadow } from "@/constants/theme";
+import { colors, fonts, radius, requestCtaGradient, spacing, typography, shadow } from "@/constants/theme";
 import { Logo } from "@/components/Logo";
+import { Slider } from "@/components/ui/Slider";
+import {
+  LocationPreference, LocationMode, DEFAULT_LOCATION_PREFERENCE,
+  RADIUS_MIN_KM, RADIUS_MAX_KM, RADIUS_STEP_KM,
+  loadLocationPreference, saveLocationPreference,
+} from "@/lib/locationPreference";
+import { FILTER_ACCENT, FILTER_ACCENT_SUBTLE } from "@/lib/filterStyles";
 
 const SORT_OPTIONS = [
   { value: "relevance", label: "Relevance" },
@@ -105,9 +115,31 @@ export default function ChefsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState(false);
 
-  // Customer coordinates, resolved once. `null` means "asked and unavailable".
-  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
+  // The device position, resolved once per session and used by "gps" mode.
+  // `null` means "asked and unavailable".
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [coordsResolved, setCoordsResolved] = useState(false);
+
+  // Where and how far to search from. Shares `locationPreference` with the
+  // Dishes feed — and matches the web kitchens listing, whose filter sheet
+  // leads with the same search-area block — so a search area set on one
+  // surface holds on the others.
+  const [locationPref, setLocationPref] =
+    useState<LocationPreference>(DEFAULT_LOCATION_PREFERENCE);
+  const [prefReady, setPrefReady] = useState(false);
+  // True when the user is on GPS mode but has denied the OS location permission.
+  const [locationDenied, setLocationDenied] = useState(false);
+  // Free-text address for "custom location" mode, plus its geocoding state.
+  const [manualAddress, setManualAddress] = useState("");
+  const [geocoding, setGeocoding] = useState(false);
+
+  // The user's saved profile address, if any — used by "profile" mode.
+  const profileLocation = useMemo(() => {
+    const loc = dbUser?.locations?.find((l) => l.is_primary) ?? dbUser?.locations?.[0];
+    return loc
+      ? { lat: loc.latitude, lon: loc.longitude, label: loc.address ?? "Saved address" }
+      : null;
+  }, [dbUser]);
 
   // Guards against a slow earlier request overwriting a newer result set.
   const requestIdRef = useRef(0);
@@ -131,7 +163,7 @@ export default function ChefsScreen() {
           accuracy: Location.Accuracy.Balanced,
         });
         if (!cancelled) {
-          setCoords({ lat: position.coords.latitude, lon: position.coords.longitude });
+          setGpsCoords({ lat: position.coords.latitude, lon: position.coords.longitude });
         }
       } catch {
         // Distance is an enhancement; searching without it is fine.
@@ -151,6 +183,109 @@ export default function ChefsScreen() {
       .catch(() => setCuisineTypes([]));
   }, []);
 
+  // Load the saved search area once on mount. `prefReady` gates the first
+  // search so it doesn't fire with the default and again with the stored value.
+  useEffect(() => {
+    loadLocationPreference().then((pref) => {
+      setLocationPref(pref);
+      setManualAddress(pref.manual?.label ?? "");
+      setPrefReady(true);
+    });
+  }, []);
+
+  // Merge a change into the search area and persist it; the search effect
+  // picks the new value up on its next run.
+  const updateLocationPref = useCallback((patch: Partial<LocationPreference>) => {
+    setLocationPref((prev) => {
+      const next = { ...prev, ...patch };
+      saveLocationPreference(next);
+      return next;
+    });
+  }, []);
+
+  // Ask for the OS permission only when the user actively picks GPS mode —
+  // the tab itself still opens without a system prompt.
+  const requestGpsCoords = useCallback(async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setLocationDenied(true);
+        return;
+      }
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setGpsCoords({ lat: position.coords.latitude, lon: position.coords.longitude });
+      setLocationDenied(false);
+    } catch {
+      setLocationDenied(true);
+    }
+  }, []);
+
+  const setLocationMode = useCallback(
+    (mode: LocationMode) => {
+      // Switching away from a stale denied-GPS state should clear the banner.
+      if (mode !== "gps") setLocationDenied(false);
+      updateLocationPref({ mode });
+      if (mode === "gps" && !gpsCoords) requestGpsCoords();
+    },
+    [updateLocationPref, gpsCoords, requestGpsCoords]
+  );
+
+  // Geocode the typed address and switch to "custom location" mode.
+  const applyManualLocation = useCallback(async () => {
+    const query = manualAddress.trim();
+    if (!query) return;
+    setGeocoding(true);
+    try {
+      const results = await Location.geocodeAsync(query);
+      if (results?.[0]) {
+        updateLocationPref({
+          mode: "manual",
+          manual: { lat: results[0].latitude, lon: results[0].longitude, label: query },
+        });
+        setLocationDenied(false);
+      } else {
+        Alert.alert(
+          "Location not found",
+          "We couldn't find that place. Try a more specific address, city, or postal code."
+        );
+      }
+    } catch {
+      Alert.alert(
+        "Location error",
+        "Couldn't look up that address. Please check your connection and try again."
+      );
+    } finally {
+      setGeocoding(false);
+    }
+  }, [manualAddress, updateLocationPref]);
+
+  const openLocationSettings = useCallback(() => {
+    Linking.openSettings().catch(() => {});
+  }, []);
+
+  // The slider's live position: it tracks the stored radius, but moves on its
+  // own while the thumb is being dragged.
+  const [radiusDraft, setRadiusDraft] = useState(locationPref.radiusKm);
+  useEffect(() => {
+    setRadiusDraft(locationPref.radiusKm);
+  }, [locationPref.radiusKm]);
+
+  // The coordinates the current mode searches from. `null` means the backend
+  // gets no origin, which it reads as "everywhere".
+  const coords = useMemo(() => {
+    if (locationPref.mode === "profile") {
+      return profileLocation ? { lat: profileLocation.lat, lon: profileLocation.lon } : null;
+    }
+    if (locationPref.mode === "manual") {
+      return locationPref.manual
+        ? { lat: locationPref.manual.lat, lon: locationPref.manual.lon }
+        : null;
+    }
+    return gpsCoords;
+  }, [locationPref, profileLocation, gpsCoords]);
+
   const searchParams: ChefSearchParams = useMemo(() => {
     const params: ChefSearchParams = { sort: sortBy, limit: PAGE_SIZE };
     if (debouncedSearch) params.query = debouncedSearch;
@@ -160,9 +295,18 @@ export default function ChefsScreen() {
     if (coords) {
       params.lat = coords.lat;
       params.lon = coords.lon;
+      params.radius_km = locationPref.radiusKm;
     }
     return params;
-  }, [debouncedSearch, selectedCuisines, sortBy, minRating, openNowOnly, coords]);
+  }, [
+    debouncedSearch,
+    selectedCuisines,
+    sortBy,
+    minRating,
+    openNowOnly,
+    coords,
+    locationPref.radiusKm,
+  ]);
 
   const runSearch = useCallback(
     async (nextPage: number, { append, silent }: { append: boolean; silent?: boolean }) => {
@@ -200,19 +344,19 @@ export default function ChefsScreen() {
   // Re-run whenever the query or any filter changes. Waiting for the location
   // lookup to settle avoids an immediate second request with coordinates.
   useEffect(() => {
-    if (!coordsResolved) return;
+    if (!coordsResolved || !prefReady) return;
     runSearch(0, { append: false });
-  }, [coordsResolved, runSearch]);
+  }, [coordsResolved, prefReady, runSearch]);
 
   // Refresh on refocus so availability and prices are never stale, but keep
   // the current list on screen while it reloads.
   const hasLoadedRef = useRef(false);
   useFocusEffect(
     useCallback(() => {
-      if (!coordsResolved) return;
+      if (!coordsResolved || !prefReady) return;
       if (hasLoadedRef.current) runSearch(0, { append: false, silent: true });
       hasLoadedRef.current = true;
-    }, [coordsResolved, runSearch])
+    }, [coordsResolved, prefReady, runSearch])
   );
 
   const onRefresh = useCallback(async () => {
@@ -243,13 +387,20 @@ export default function ChefsScreen() {
     selectedCuisines.size +
     (minRating > 0 ? 1 : 0) +
     (openNowOnly ? 1 : 0) +
-    (sortBy !== "relevance" ? 1 : 0);
+    (sortBy !== "relevance" ? 1 : 0) +
+    (locationPref.mode !== DEFAULT_LOCATION_PREFERENCE.mode ? 1 : 0) +
+    (locationPref.radiusKm !== DEFAULT_LOCATION_PREFERENCE.radiusKm ? 1 : 0);
 
   const resetFilters = () => {
     setSelectedCuisines(new Set());
     setSortBy("relevance");
     setMinRating(0);
     setOpenNowOnly(false);
+    // The web's reset returns the search area to the default too.
+    setLocationPref(DEFAULT_LOCATION_PREFERENCE);
+    saveLocationPreference(DEFAULT_LOCATION_PREFERENCE);
+    setManualAddress("");
+    setLocationDenied(false);
   };
 
   // Signed-in users go straight to the request form; otherwise send them to
@@ -280,14 +431,21 @@ export default function ChefsScreen() {
   );
 
   const listHeader = (
-    <Pressable style={styles.requestBanner} onPress={handlePostRequest}>
-      <View style={styles.requestBannerText}>
-        <Text style={styles.requestBannerTitle}>Want something specific?</Text>
-        <Text style={styles.requestBannerBody}>
-          Post a request and let home chefs bid to cook it for you.
-        </Text>
-      </View>
-      <Ionicons name="arrow-forward-circle" size={28} color={colors.secondaryForeground} />
+    <Pressable onPress={handlePostRequest}>
+      <LinearGradient
+        colors={requestCtaGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.requestBanner}
+      >
+        <View style={styles.requestBannerText}>
+          <Text style={styles.requestBannerTitle}>Want something specific?</Text>
+          <Text style={styles.requestBannerBody}>
+            Post a request and let home chefs bid to cook it for you.
+          </Text>
+        </View>
+        <Ionicons name="arrow-forward-circle" size={28} color={colors.secondaryForeground} />
+      </LinearGradient>
     </Pressable>
   );
 
@@ -330,7 +488,7 @@ export default function ChefsScreen() {
           <Ionicons
             name="options-outline"
             size={20}
-            color={activeFilterCount > 0 ? colors.primaryForeground : colors.foreground}
+            color={activeFilterCount > 0 ? FILTER_ACCENT : colors.foreground}
           />
           {activeFilterCount > 0 && (
             <View style={styles.filterCountDot}>
@@ -425,6 +583,122 @@ export default function ChefsScreen() {
           </View>
 
           <ScrollView contentContainerStyle={styles.sheetContent}>
+            {/* Search area — where to search from and how far. Mirrors the
+                web kitchens filter panel, which opens on the same block. */}
+            <Text style={styles.sheetSectionTitle}>Search area</Text>
+            <View style={styles.locModeRow}>
+              <Pressable
+                style={[styles.locMode, locationPref.mode === "gps" && styles.locModeActive]}
+                onPress={() => setLocationMode("gps")}
+              >
+                <Ionicons
+                  name="navigate-outline"
+                  size={16}
+                  color={locationPref.mode === "gps" ? FILTER_ACCENT : colors.mutedForeground}
+                />
+                <Text style={[styles.locModeText, locationPref.mode === "gps" && styles.locModeTextActive]}>
+                  Current location
+                </Text>
+              </Pressable>
+              {profileLocation && (
+                <Pressable
+                  style={[styles.locMode, locationPref.mode === "profile" && styles.locModeActive]}
+                  onPress={() => setLocationMode("profile")}
+                >
+                  <Ionicons
+                    name="home-outline"
+                    size={16}
+                    color={locationPref.mode === "profile" ? FILTER_ACCENT : colors.mutedForeground}
+                  />
+                  <Text style={[styles.locModeText, locationPref.mode === "profile" && styles.locModeTextActive]}>
+                    Saved address
+                  </Text>
+                </Pressable>
+              )}
+              <Pressable
+                style={[styles.locMode, locationPref.mode === "manual" && styles.locModeActive]}
+                onPress={() => setLocationMode("manual")}
+              >
+                <Ionicons
+                  name="location-outline"
+                  size={16}
+                  color={locationPref.mode === "manual" ? FILTER_ACCENT : colors.mutedForeground}
+                />
+                <Text style={[styles.locModeText, locationPref.mode === "manual" && styles.locModeTextActive]}>
+                  Custom
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* Contextual detail for the chosen mode */}
+            {locationPref.mode === "gps" && locationDenied && (
+              <View style={styles.locNotice}>
+                <Ionicons name="alert-circle-outline" size={16} color={colors.accent} />
+                <Text style={styles.locNoticeText}>
+                  Location is turned off for the app. Enable it in Settings, or pick a saved/custom location instead.
+                </Text>
+                <Pressable onPress={openLocationSettings} hitSlop={6}>
+                  <Text style={styles.locNoticeLink}>Open Settings</Text>
+                </Pressable>
+              </View>
+            )}
+            {locationPref.mode === "profile" && (
+              <Text style={styles.locDetail} numberOfLines={2}>
+                {profileLocation?.label ?? "No saved address yet."}
+              </Text>
+            )}
+            {locationPref.mode === "manual" && (
+              <View style={styles.manualRow}>
+                <View style={styles.manualInputWrap}>
+                  <Ionicons name="search-outline" size={16} color={colors.mutedForeground} />
+                  <TextInput
+                    style={styles.manualInput}
+                    placeholder="Enter a city, area or address"
+                    placeholderTextColor={colors.mutedForeground}
+                    value={manualAddress}
+                    onChangeText={setManualAddress}
+                    returnKeyType="search"
+                    onSubmitEditing={applyManualLocation}
+                  />
+                </View>
+                <Pressable
+                  style={[styles.manualBtn, (!manualAddress.trim() || geocoding) && styles.manualBtnDisabled]}
+                  onPress={applyManualLocation}
+                  disabled={!manualAddress.trim() || geocoding}
+                >
+                  {geocoding
+                    ? <ActivityIndicator size="small" color={colors.white} />
+                    : <Text style={styles.manualBtnText}>Set</Text>}
+                </Pressable>
+              </View>
+            )}
+            {locationPref.mode === "manual" && locationPref.manual && (
+              <Text style={styles.locDetail} numberOfLines={2}>
+                Searching around: {locationPref.manual.label}
+              </Text>
+            )}
+
+            {/* Distance: dragged freely, committed once the thumb is released
+                so a drag doesn't fire a search per step. */}
+            <View style={styles.radiusHeader}>
+              <Text style={styles.sheetSubSectionTitle}>Distance</Text>
+              <Text style={styles.radiusValue}>{radiusDraft} km</Text>
+            </View>
+            <Slider
+              value={radiusDraft}
+              min={RADIUS_MIN_KM}
+              max={RADIUS_MAX_KM}
+              step={RADIUS_STEP_KM}
+              accessibilityLabel="Distance"
+              tone="filter"
+              onValueChange={setRadiusDraft}
+              onValueCommit={(value) => updateLocationPref({ radiusKm: value })}
+            />
+            <View style={styles.radiusBounds}>
+              <Text style={styles.radiusBoundText}>{RADIUS_MIN_KM} km</Text>
+              <Text style={styles.radiusBoundText}>{RADIUS_MAX_KM} km</Text>
+            </View>
+
             <Text style={styles.sheetSectionTitle}>Sort by</Text>
             {SORT_OPTIONS.map((option) => (
               <Pressable
@@ -435,7 +709,7 @@ export default function ChefsScreen() {
                 <Ionicons
                   name={sortBy === option.value ? "radio-button-on" : "radio-button-off"}
                   size={20}
-                  color={sortBy === option.value ? colors.primary : colors.mutedForeground}
+                  color={sortBy === option.value ? FILTER_ACCENT : colors.mutedForeground}
                 />
                 <Text style={styles.radioLabel}>{option.label}</Text>
               </Pressable>
@@ -496,7 +770,7 @@ export default function ChefsScreen() {
               <Switch
                 value={openNowOnly}
                 onValueChange={setOpenNowOnly}
-                trackColor={{ true: colors.primary, false: colors.border }}
+                trackColor={{ true: FILTER_ACCENT, false: colors.border }}
               />
             </View>
           </ScrollView>
@@ -505,7 +779,11 @@ export default function ChefsScreen() {
             <Button variant="accentOutline" onPress={resetFilters} style={styles.sheetFooterButton}>
               Reset
             </Button>
-            <Button onPress={() => setFiltersOpen(false)} style={styles.sheetFooterButton}>
+            <Button
+              variant="secondary"
+              onPress={() => setFiltersOpen(false)}
+              style={styles.sheetFooterButton}
+            >
               Show results
             </Button>
           </View>
@@ -566,7 +844,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.surface,
   },
-  filterButtonActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  filterButtonActive: { backgroundColor: FILTER_ACCENT_SUBTLE, borderColor: FILTER_ACCENT },
   filterCountDot: {
     position: "absolute",
     top: -4,
@@ -577,7 +855,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.destructive,
+    backgroundColor: FILTER_ACCENT,
   },
   filterCountText: { fontSize: 10, fontWeight: "700", color: colors.white },
 
@@ -589,8 +867,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     // Orange: the custom-request surface is the web's orange panel, not a
-    // primary action.
-    backgroundColor: colors.secondaryStrong,
+    // primary action. The gradient itself comes from `requestCtaGradient`, so
+    // this banner and the Dishes feed's CTA sweep identically.
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.md,
@@ -643,11 +921,58 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
   },
+  sheetSubSectionTitle: {
+    ...typography.sm,
+    fontFamily: fonts.sansSemiBold,
+    fontWeight: "600",
+    color: colors.foreground,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
   sheetHint: {
     ...typography.xs,
     color: colors.mutedForeground,
     marginTop: spacing.xs,
   },
+
+  locModeRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  locMode: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.full,
+    borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface,
+  },
+  locModeActive: { borderColor: FILTER_ACCENT, backgroundColor: FILTER_ACCENT_SUBTLE },
+  locModeText: { ...typography.sm, fontFamily: fonts.sans, color: colors.mutedForeground },
+  locModeTextActive: { color: FILTER_ACCENT, fontFamily: fonts.sansSemiBold, fontWeight: "600" },
+  locDetail: { ...typography.xs, fontFamily: fonts.sans, color: colors.mutedForeground, marginTop: spacing.sm },
+  locNotice: {
+    flexDirection: "row", alignItems: "center", gap: spacing.sm,
+    marginTop: spacing.sm, padding: spacing.sm,
+    borderRadius: radius.md, backgroundColor: `${colors.accent}18`,
+    borderWidth: 1, borderColor: `${colors.accent}40`,
+  },
+  locNoticeText: { flex: 1, ...typography.xs, fontFamily: fonts.sans, color: colors.foreground },
+  locNoticeLink: { ...typography.xs, fontFamily: fonts.sansSemiBold, fontWeight: "600", color: colors.accent },
+  manualRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm },
+  manualInputWrap: {
+    flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm,
+    backgroundColor: colors.surface, borderRadius: radius.lg,
+    borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: spacing.md, height: 44,
+  },
+  manualInput: { flex: 1, ...typography.base, color: colors.foreground },
+  manualBtn: {
+    height: 44, paddingHorizontal: spacing.lg, borderRadius: radius.lg,
+    backgroundColor: FILTER_ACCENT, alignItems: "center", justifyContent: "center",
+  },
+  manualBtnDisabled: { opacity: 0.5 },
+  manualBtnText: { ...typography.sm, fontFamily: fonts.sansSemiBold, fontWeight: "600", color: colors.white },
+  radiusHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  radiusValue: {
+    ...typography.sm, fontFamily: fonts.sansSemiBold, fontWeight: "600",
+    color: colors.foreground, marginTop: spacing.md, marginBottom: spacing.sm,
+  },
+  radiusBounds: { flexDirection: "row", justifyContent: "space-between" },
+  radiusBoundText: { ...typography.xs, fontFamily: fonts.sans, color: colors.mutedForeground },
   radioRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -664,9 +989,9 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     backgroundColor: colors.surface,
   },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipActive: { backgroundColor: FILTER_ACCENT_SUBTLE, borderColor: FILTER_ACCENT },
   chipText: { ...typography.sm, color: colors.foreground },
-  chipTextActive: { color: colors.primaryForeground, fontWeight: "600" },
+  chipTextActive: { color: FILTER_ACCENT, fontWeight: "600" },
   switchRow: {
     flexDirection: "row",
     alignItems: "center",

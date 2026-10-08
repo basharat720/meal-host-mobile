@@ -7,6 +7,7 @@ import {
   ViewStyle,
 } from "react-native";
 import { colors, radius } from "@/constants/theme";
+import { FILTER_ACCENT, FILTER_ACCENT_TRACK } from "@/lib/filterStyles";
 
 const THUMB_SIZE = 24;
 const TRACK_HEIGHT = 4;
@@ -22,6 +23,12 @@ interface SliderProps {
   onValueCommit?: (value: number) => void;
   accessibilityLabel?: string;
   style?: ViewStyle;
+  /**
+   * Which palette to draw in. "primary" is brand blue, the app default;
+   * "filter" is the orange the filter panels use, mirroring the web's
+   * `FILTER_SLIDER` override.
+   */
+  tone?: "primary" | "filter";
 }
 
 /**
@@ -41,6 +48,7 @@ export const Slider = ({
   onValueCommit,
   accessibilityLabel,
   style,
+  tone = "primary",
 }: SliderProps) => {
   const [trackWidth, setTrackWidth] = useState(0);
 
@@ -99,6 +107,12 @@ export const Slider = ({
   const ratio =
     max > min ? (Math.min(max, Math.max(min, value)) - min) / (max - min) : 0;
 
+  // The orange range would vanish on the default neutral track, so the filter
+  // tone re-tints the track too — the same reason the web override does.
+  const isFilter = tone === "filter";
+  const accent = isFilter ? FILTER_ACCENT : colors.primary;
+  const trackTint = isFilter ? { backgroundColor: FILTER_ACCENT_TRACK } : null;
+
   return (
     <View
       style={[styles.container, style]}
@@ -109,10 +123,20 @@ export const Slider = ({
       accessibilityValue={{ min, max, now: value }}
       {...responder.panHandlers}
     >
-      <View style={styles.track}>
-        <View style={[styles.range, { width: Math.max(0, ratio * trackWidth) }]} />
+      <View style={[styles.track, trackTint]}>
+        <View
+          style={[
+            styles.range,
+            { width: Math.max(0, ratio * trackWidth), backgroundColor: accent },
+          ]}
+        />
       </View>
-      <View style={[styles.thumb, { left: ratio * trackWidth - THUMB_SIZE / 2 }]} />
+      <View
+        style={[
+          styles.thumb,
+          { left: ratio * trackWidth - THUMB_SIZE / 2, borderColor: accent },
+        ]}
+      />
     </View>
   );
 };

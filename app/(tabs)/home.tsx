@@ -21,7 +21,8 @@ import {
   loadLocationPreference, saveLocationPreference,
 } from "@/lib/locationPreference";
 import { Slider } from "@/components/ui/Slider";
-import { colors, fonts, radius, spacing, typography } from "@/constants/theme";
+import { FILTER_ACCENT, FILTER_ACCENT_SUBTLE } from "@/lib/filterStyles";
+import { colors, fonts, radius, requestCtaGradient, spacing, typography } from "@/constants/theme";
 import { Logo } from "@/components/Logo";
 import { NotificationBell } from "@/components/NotificationBell";
 import { router, useFocusEffect } from "expo-router";
@@ -35,15 +36,6 @@ const SORT_OPTIONS = [
 ];
 
 const PAGE_SIZE = 12;
-
-// Brand orange, warming into the AA-safe shade. The web's custom-request
-// section (CustomRequestCta) is a solid bg-secondary-strong panel; the sweep
-// is the mobile reading of it.
-const REQUEST_CTA_GRADIENT: [string, string, string] = [
-  colors.gradientSecondaryStart,
-  colors.gradientSecondaryEnd,
-  colors.secondaryStrong,
-];
 
 export default function HomeScreen() {
   const { formatPrice } = useI18n();
@@ -498,7 +490,7 @@ export default function HomeScreen() {
           plus a shortcut to the user's existing requests (previously only
           reachable from the Profile tab). */}
       <LinearGradient
-        colors={REQUEST_CTA_GRADIENT}
+        colors={requestCtaGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.requestCta}
@@ -608,7 +600,7 @@ export default function HomeScreen() {
                 style={[styles.locMode, locationPref.mode === "gps" && styles.locModeActive]}
                 onPress={() => setLocationMode("gps")}
               >
-                <Ionicons name="navigate-outline" size={16} color={locationPref.mode === "gps" ? colors.primary : colors.mutedForeground} />
+                <Ionicons name="navigate-outline" size={16} color={locationPref.mode === "gps" ? FILTER_ACCENT : colors.mutedForeground} />
                 <Text style={[styles.locModeText, locationPref.mode === "gps" && styles.locModeTextActive]}>Current location</Text>
               </Pressable>
               {profileLocation && (
@@ -616,7 +608,7 @@ export default function HomeScreen() {
                   style={[styles.locMode, locationPref.mode === "profile" && styles.locModeActive]}
                   onPress={() => setLocationMode("profile")}
                 >
-                  <Ionicons name="home-outline" size={16} color={locationPref.mode === "profile" ? colors.primary : colors.mutedForeground} />
+                  <Ionicons name="home-outline" size={16} color={locationPref.mode === "profile" ? FILTER_ACCENT : colors.mutedForeground} />
                   <Text style={[styles.locModeText, locationPref.mode === "profile" && styles.locModeTextActive]}>Saved address</Text>
                 </Pressable>
               )}
@@ -624,7 +616,7 @@ export default function HomeScreen() {
                 style={[styles.locMode, locationPref.mode === "manual" && styles.locModeActive]}
                 onPress={() => setLocationMode("manual")}
               >
-                <Ionicons name="location-outline" size={16} color={locationPref.mode === "manual" ? colors.primary : colors.mutedForeground} />
+                <Ionicons name="location-outline" size={16} color={locationPref.mode === "manual" ? FILTER_ACCENT : colors.mutedForeground} />
                 <Text style={[styles.locModeText, locationPref.mode === "manual" && styles.locModeTextActive]}>Custom</Text>
               </Pressable>
             </View>
@@ -689,6 +681,7 @@ export default function HomeScreen() {
               max={RADIUS_MAX_KM}
               step={RADIUS_STEP_KM}
               accessibilityLabel="Distance"
+              tone="filter"
               onValueChange={setRadiusDraft}
               onValueCommit={(value) => updateLocationPref({ radiusKm: value })}
             />
@@ -768,8 +761,8 @@ export default function HomeScreen() {
           </ScrollView>
 
           <View style={styles.modalFooter}>
-            <Button variant="outline" onPress={() => { resetFilters(); setFilterModalVisible(false); }} style={styles.modalBtn}>Reset</Button>
-            <Button onPress={() => setFilterModalVisible(false)} style={styles.modalBtn}>Apply</Button>
+            <Button variant="accentOutline" onPress={() => { resetFilters(); setFilterModalVisible(false); }} style={styles.modalBtn}>Reset</Button>
+            <Button variant="secondary" onPress={() => setFilterModalVisible(false)} style={styles.modalBtn}>Apply</Button>
           </View>
         </SafeAreaView>
       </Modal>
@@ -902,21 +895,21 @@ const styles = StyleSheet.create({
   // Modal
   modalSafe: { flex: 1, backgroundColor: colors.background },
   modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  modalTitle: { ...typography.xl, fontFamily: fonts.display, fontWeight: "700", color: colors.foreground },
+  modalTitle: { ...typography.xl, fontFamily: fonts.display, fontWeight: "700", color: FILTER_ACCENT },
   modalContent: { padding: spacing.md },
   sectionTitle: { ...typography.md, fontFamily: fonts.sansBold, fontWeight: "700", color: colors.foreground, marginTop: spacing.lg, marginBottom: spacing.sm },
   sortOptions: { gap: spacing.sm },
   sortOption: { padding: spacing.md, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface },
-  sortOptionActive: { borderColor: colors.primary, backgroundColor: colors.lightSage },
+  sortOptionActive: { borderColor: FILTER_ACCENT, backgroundColor: FILTER_ACCENT_SUBTLE },
   sortOptionText: { ...typography.base, fontFamily: fonts.sans, color: colors.foreground },
-  sortOptionTextActive: { color: colors.primary, fontFamily: fonts.sansBold, fontWeight: "700" },
+  sortOptionTextActive: { color: FILTER_ACCENT, fontFamily: fonts.sansBold, fontWeight: "700" },
   priceRow: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm },
   priceInput: { flex: 1 },
   priceDash: { ...typography.base, color: colors.mutedForeground, paddingBottom: 11 },
   priceHint: { ...typography.xs, fontFamily: fonts.sans, color: colors.mutedForeground, marginTop: spacing.xs },
   cuisineGrid: { flexDirection: "row", flexWrap: "wrap" },
   modalCuisineChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface, marginRight: spacing.sm, marginBottom: spacing.sm },
-  modalCuisineChipActive: { borderColor: colors.secondaryStrong, backgroundColor: colors.secondaryStrong },
+  modalCuisineChipActive: { borderColor: FILTER_ACCENT, backgroundColor: FILTER_ACCENT },
   modalCuisineText: { ...typography.sm, fontFamily: fonts.sans, color: colors.mutedForeground },
   modalCuisineTextActive: { color: colors.white, fontFamily: fonts.sansSemiBold, fontWeight: "600" },
   modalFooter: { flexDirection: "row", gap: spacing.md, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
@@ -930,9 +923,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.full,
     borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface,
   },
-  locModeActive: { borderColor: colors.primary, backgroundColor: colors.lightSage },
+  locModeActive: { borderColor: FILTER_ACCENT, backgroundColor: FILTER_ACCENT_SUBTLE },
   locModeText: { ...typography.sm, fontFamily: fonts.sans, color: colors.mutedForeground },
-  locModeTextActive: { color: colors.primary, fontFamily: fonts.sansSemiBold, fontWeight: "600" },
+  locModeTextActive: { color: FILTER_ACCENT, fontFamily: fonts.sansSemiBold, fontWeight: "600" },
   locDetail: { ...typography.xs, fontFamily: fonts.sans, color: colors.mutedForeground, marginTop: spacing.sm },
   locNotice: {
     flexDirection: "row", alignItems: "center", gap: spacing.sm,
@@ -951,7 +944,7 @@ const styles = StyleSheet.create({
   manualInput: { flex: 1, ...typography.base, color: colors.foreground },
   manualBtn: {
     height: 44, paddingHorizontal: spacing.lg, borderRadius: radius.lg,
-    backgroundColor: colors.primary, alignItems: "center", justifyContent: "center",
+    backgroundColor: FILTER_ACCENT, alignItems: "center", justifyContent: "center",
   },
   manualBtnDisabled: { opacity: 0.5 },
   manualBtnText: { ...typography.sm, fontFamily: fonts.sansSemiBold, fontWeight: "600", color: colors.white },

@@ -465,7 +465,7 @@ function OrderCard({
                 ) : null}
                 {address ? (
                   <View style={cardStyles.detailRow}>
-                    <Ionicons name="location" size={14} color={colors.primary} />
+                    <Ionicons name="location" size={14} color={colors.secondaryStrong} />
                     <View style={{ flex: 1 }}>
                       <Text style={cardStyles.detailText}>{address}</Text>
                       {!isDelivery ? (
@@ -476,7 +476,7 @@ function OrderCard({
                 ) : null}
                 {phone ? (
                   <View style={cardStyles.detailRow}>
-                    <Ionicons name="call" size={14} color={colors.primary} />
+                    <Ionicons name="call" size={14} color={colors.secondaryStrong} />
                     <Text style={cardStyles.detailText}>{phone}</Text>
                   </View>
                 ) : null}
@@ -705,7 +705,7 @@ const cardStyles = StyleSheet.create({
   metaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: spacing.xs },
   metaText: { ...typography.xs, color: colors.mutedForeground },
   statusRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  amount: { ...typography.sm, fontWeight: "700", color: colors.primary },
+  amount: { ...typography.sm, fontWeight: "700", color: colors.foreground },
   etaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
   etaConfirmed: { ...typography.xs, fontWeight: "600", color: colors.foreground },
   etaTentative: { ...typography.xs, color: colors.mutedForeground },
@@ -744,7 +744,7 @@ const cardStyles = StyleSheet.create({
   },
   summaryImage: { width: "100%", height: "100%" },
   totalRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 4 },
-  totalAmount: { ...typography.sm, fontWeight: "700", color: colors.primary },
+  totalAmount: { ...typography.sm, fontWeight: "700", color: colors.foreground },
   detailBox: {
     backgroundColor: colors.muted,
     borderRadius: radius.md,
@@ -803,7 +803,7 @@ const cardStyles = StyleSheet.create({
   stepperContainer: {
     paddingLeft: spacing.md,
     borderLeftWidth: 2,
-    borderLeftColor: colors.border,
+    borderLeftColor: `${colors.secondaryStrong}33`,
     gap: 2,
   },
   stepRow: {
@@ -817,7 +817,7 @@ const cardStyles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: radius.full,
-    backgroundColor: colors.success,
+    backgroundColor: colors.secondaryStrong,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -826,7 +826,7 @@ const cardStyles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: radius.full,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.secondaryStrong,
     flexShrink: 0,
   },
   stepDotInactive: {
@@ -849,8 +849,8 @@ const cardStyles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  stepLabelDone: { ...typography.sm, color: colors.success, fontWeight: "600" },
-  stepLabelCurrent: { ...typography.sm, color: colors.primary, fontWeight: "700" },
+  stepLabelDone: { ...typography.sm, color: colors.secondaryStrong, fontWeight: "600" },
+  stepLabelCurrent: { ...typography.sm, color: colors.secondaryStrong, fontWeight: "700" },
   stepLabelInactive: { ...typography.sm, color: colors.mutedForeground },
   stepDescription: { ...typography.xs, color: colors.mutedForeground, marginTop: 2 },
   stepLabelCancelled: { ...typography.sm, color: colors.destructive, fontWeight: "600" },

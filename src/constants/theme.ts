@@ -176,6 +176,16 @@ export const colors = {
   },
 };
 
+// The custom-request CTA sweep: brand orange warming into the AA-safe shade.
+// The web's CustomRequestCta is a solid `bg-secondary-strong` panel; this is
+// the mobile reading of it, and both the Dishes feed and the Home (kitchens)
+// listing draw their request banner from it so the two match.
+export const requestCtaGradient: [string, string, string] = [
+  colors.gradientSecondaryStart,
+  colors.gradientSecondaryEnd,
+  colors.secondaryStrong,
+];
+
 export const spacing = {
   xs: 4,
   sm: 8,
