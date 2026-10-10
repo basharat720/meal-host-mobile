@@ -716,6 +716,19 @@ export const ProfileScreen = () => {
           <Button variant="outline" onPress={handleSignOut} style={styles.signOutBtn}>
             Sign Out
           </Button>
+
+          {/* Delete account — last thing on the page, set apart from Sign Out
+              so nobody reaches it while looking for something else. Required
+              in-app by App Store Review Guideline 5.1.1(v); the confirmation
+              lives on its own screen. */}
+          <Pressable
+            onPress={() => router.push("/delete-account")}
+            style={({ pressed }) => [styles.deleteAccountRow, pressed && styles.linkRowPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Delete account"
+          >
+            <Text style={styles.deleteAccountText}>Delete Account</Text>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -783,6 +796,13 @@ const styles = StyleSheet.create({
   removePictureBtn: { alignSelf: "flex-start" },
   saveBtn: { marginTop: spacing.sm },
   signOutBtn: { borderColor: colors.destructive },
+  deleteAccountRow: { alignSelf: "center", paddingVertical: spacing.md, marginTop: spacing.sm },
+  deleteAccountText: {
+    ...typography.sm,
+    fontFamily: fonts.sansSemiBold,
+    fontWeight: "600",
+    color: colors.destructive,
+  },
 
   linkRow: {
     flexDirection: "row",

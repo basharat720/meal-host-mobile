@@ -49,10 +49,16 @@ export const userService = {
   },
 
   /**
-   * Delete user
+   * Permanently delete the signed-in user's own account.
+   *
+   * Irreversible. The server anonymises the account, removes saved addresses
+   * and favorites, takes a chef's kitchen off the marketplace and destroys the
+   * Firebase identity, so the current session stops working the moment this
+   * resolves. Rejects with the server's message when an order is still in
+   * flight (409). See feature-docs/10-deleting-your-account.md.
    */
-  deleteUser: async (firebaseUid: string): Promise<void> => {
-    return apiRequest<void>(`users/${firebaseUid}`, {
+  deleteAccount: async (): Promise<void> => {
+    return apiRequest<void>("users/me", {
       method: "DELETE"
     });
   },

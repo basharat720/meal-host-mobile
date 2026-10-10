@@ -95,6 +95,9 @@ export default function RootLayout() {
                     {/* One order's chat, reached from an order card or a
                         new-message notification. */}
                     <Stack.Screen name="order-chat/[id]" options={{ headerShown: false }} />
+                    {/* Reached from Profile; the same screen for customers and
+                        chefs, since one account sits behind both. */}
+                    <Stack.Screen name="delete-account" options={{ headerShown: false }} />
                   </Stack>
                 )}
                 {fontsLoaded && <FloatingCart />}

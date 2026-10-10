@@ -12,12 +12,12 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.mealhost.mobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "10"
+      "buildNumber": "11"
     },
     "android": {
       "package": "com.mealhost.mobile",
@@ -32,8 +32,7 @@
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.VIBRATE",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.VIBRATE"
       ],
       "versionCode": 2
     },
@@ -65,14 +64,17 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "FoodPal needs your location to show nearby home chefs."
+          "locationWhenInUsePermission": "Your location is used to show the home kitchens nearest to you, sort them by distance, and check that your delivery address is inside the area we deliver to. It is never used while the app is closed.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "FoodPal needs access to your photos to upload a profile picture or dish image.",
-          "cameraPermission": "FoodPal needs camera access to take a photo."
+          "photosPermission": "Your photo library is opened only when you choose a picture for your profile or for a dish on your menu.",
+          "cameraPermission": "Your camera is used only when you take a picture for your profile or for a dish on your menu.",
+          "microphonePermission": false
         }
       ],
       [
