@@ -50,3 +50,10 @@ firebase-service-account.json
 # local preview builds
 *.apk
 *.aab
+
+# Play Store listing images (screenshots, raw captures, icon, feature graphic).
+# Kept locally only; raw captures can contain personal data.
+playstore-listing/**/*.png
+playstore-listing/**/*.jpg
+playstore-listing/**/*.jpeg
+playstore-listing/**/*.webp

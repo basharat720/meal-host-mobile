@@ -1,0 +1,82 @@
+{
+  "project_info": {
+    "project_number": "837237844814",
+    "project_id": "mealhost-dev",
+    "storage_bucket": "mealhost-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:837237844814:android:fc78e5e547c581478e4c1f",
+        "android_client_info": {
+          "package_name": "com.mealhost.mobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "837237844814-vevq405rh0ga07g7e8ngkh74ktcuums4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBk546-bn2KrFWbCQ8bEdrT6PTESFHeh9g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "837237844814-vevq405rh0ga07g7e8ngkh74ktcuums4.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "837237844814-q6469baef68q5e5ofpthu3mnom2a7504.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "meal-host"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:837237844814:android:a57dd14644117cbc8e4c1f",
+        "android_client_info": {
+          "package_name": "com.mealhost.rider"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "837237844814-vevq405rh0ga07g7e8ngkh74ktcuums4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBk546-bn2KrFWbCQ8bEdrT6PTESFHeh9g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "837237844814-vevq405rh0ga07g7e8ngkh74ktcuums4.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "837237844814-q6469baef68q5e5ofpthu3mnom2a7504.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "meal-host"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
