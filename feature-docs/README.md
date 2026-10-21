@@ -38,3 +38,4 @@ between the two.
 | [The FoodPal Look in the App](08-the-foodpal-look-in-the-app.md) | The blue/orange/cream re-skin that brings the app onto the website's palette, and what it deliberately leaves alone |
 | [Becoming FoodPal](09-becoming-foodpal.md) | The rename: new name, icon, splash and logo, why the app does not become a new download, and what keeps working |
 | [Deleting Your Account](10-deleting-your-account.md) | Where Delete Account lives, what it removes, what stays on past orders, and when an in-flight order blocks it |
+| [Chef Launch Details in the App](11-chef-launch-details.md) | CNIC first/last name, bank details and NTN status on the chef Profile tab, and what Save requires |

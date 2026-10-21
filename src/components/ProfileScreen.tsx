@@ -27,6 +27,13 @@ import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { uploadProfilePicture } from "@/services/imageService";
 import { validatePhoneNumber } from "@/lib/phone";
 import {
+  type NtnStatus,
+  normalizeAccountNumber,
+  normalizeIban,
+  validateLaunchDetails,
+} from "@/lib/chefLaunchDetails";
+import type { User as DbUser } from "@/services/types";
+import {
   fieldToNumber,
   numberToField,
   sanitizeNumericInput,
@@ -80,6 +87,23 @@ const validateProfilePictureUrl = (value?: string | null): string | null => {
   return null;
 };
 
+// ---------------------------------------------------------------------------
+// Chef launch checklist (CNIC names, bank, NTN) — mirrors the web profile page
+// ---------------------------------------------------------------------------
+const cnicNameFrom = (dbUser: DbUser | null | undefined) => {
+  if (dbUser?.first_name || dbUser?.last_name) {
+    return { first: dbUser.first_name ?? "", last: dbUser.last_name ?? "" };
+  }
+  // Older accounts only have the joined name — split it as a starting guess.
+  const [first = "", ...rest] = (dbUser?.name ?? "").trim().split(/\s+/);
+  return { first, last: rest.join(" ") };
+};
+
+const NTN_OPTIONS: { value: NtnStatus; label: string }[] = [
+  { value: "filer", label: "Filer" },
+  { value: "non_filer", label: "Non-filer" },
+];
+
 // Legal & About links — fixed routes owned by another unit this phase.
 const LEGAL_LINKS: { label: string; icon: keyof typeof Ionicons.glyphMap; path: string }[] = [
   { label: "How It Works", icon: "help-buoy-outline", path: "/how-it-works" },
@@ -105,6 +129,20 @@ export const ProfileScreen = () => {
   const [address, setAddress] = useState(primaryLocation?.address ?? "");
   const [city, setCity] = useState(dbUser?.city ?? "");
   const [zip, setZip] = useState(dbUser?.zip_code ?? "");
+  const [firstName, setFirstName] = useState(cnicNameFrom(dbUser).first);
+  const [lastName, setLastName] = useState(cnicNameFrom(dbUser).last);
+  const [bankName, setBankName] = useState(dbUser?.chef_profile?.bank_name ?? "");
+  const [bankAccountTitle, setBankAccountTitle] = useState(
+    dbUser?.chef_profile?.bank_account_title ?? ""
+  );
+  const [bankAccountNumber, setBankAccountNumber] = useState(
+    dbUser?.chef_profile?.bank_account_number ?? ""
+  );
+  const [bankIban, setBankIban] = useState(dbUser?.chef_profile?.bank_iban ?? "");
+  const [ntnStatus, setNtnStatus] = useState<NtnStatus | "">(
+    dbUser?.chef_profile?.ntn_status ?? ""
+  );
+  const [launchErrors, setLaunchErrors] = useState<Record<string, string>>({});
   const [kitchenName, setKitchenName] = useState(
     dbUser?.chef_profile?.kitchen_name ?? dbUser?.name ?? ""
   );
@@ -144,6 +182,9 @@ export const ProfileScreen = () => {
     const primary =
       dbUser.locations?.find((l) => l.is_primary) ?? dbUser.locations?.[0];
     setName(dbUser.name ?? "");
+    const cnicName = cnicNameFrom(dbUser);
+    setFirstName(cnicName.first);
+    setLastName(cnicName.last);
     setPhone(dbUser.phone ?? "");
     setAddress(primary?.address ?? "");
     setCity(dbUser.city ?? "");
@@ -160,6 +201,11 @@ export const ProfileScreen = () => {
       setExperience(numberToField(dbUser.chef_profile.years_of_experience));
       setDeliveryRadius(numberToField(dbUser.chef_profile.delivery_radius_km));
       setProfilePictureUrl(dbUser.chef_profile.profile_picture_url ?? "");
+      setBankName(dbUser.chef_profile.bank_name ?? "");
+      setBankAccountTitle(dbUser.chef_profile.bank_account_title ?? "");
+      setBankAccountNumber(dbUser.chef_profile.bank_account_number ?? "");
+      setBankIban(dbUser.chef_profile.bank_iban ?? "");
+      setNtnStatus(dbUser.chef_profile.ntn_status ?? "");
     }
   }, [dbUser, isChef]);
 
@@ -242,15 +288,31 @@ export const ProfileScreen = () => {
       }
     }
 
-    // A blank kitchen name falls back to the chef's own name on save, so only
-    // a too-short value is worth blocking.
-    if (isChef && kitchenName.trim() && kitchenName.trim().length < 3) {
-      Alert.alert("Invalid Value", "Kitchen name must be at least 3 characters");
-      return;
+    if (isChef) {
+      // Every launch-checklist item is required for chefs; collect them all so
+      // the alert lists everything to fix in one go.
+      const errors: Record<string, string> = {};
+      if (!firstName.trim()) errors.firstName = "First name is required";
+      if (!lastName.trim()) errors.lastName = "Last name is required";
+      if (kitchenName.trim().length < 3) {
+        errors.kitchenName = kitchenName.trim()
+          ? "Kitchen name must be at least 3 characters"
+          : "Kitchen name is required";
+      }
+      Object.assign(
+        errors,
+        validateLaunchDetails({ bankName, bankAccountTitle, bankAccountNumber, bankIban, ntnStatus })
+      );
+      setLaunchErrors(errors);
+      if (Object.keys(errors).length > 0) {
+        Alert.alert("Complete your profile", Object.values(errors).join("\n"));
+        return;
+      }
     }
 
-    // Optional here, but validated against its own country when given.
-    const phoneResult = validatePhoneNumber(phone, false);
+    // Phone is on the chef launch checklist, so it is required for chefs;
+    // optional for customers but validated against its own country when given.
+    const phoneResult = validatePhoneNumber(phone, isChef);
     if (!phoneResult.isValid) {
       Alert.alert("Invalid Value", phoneResult.error!);
       return;
@@ -271,6 +333,14 @@ export const ProfileScreen = () => {
         city: city.trim(),
         zip_code: zip.trim(),
       };
+
+      if (isChef) {
+        // The server rebuilds `name` from the CNIC halves; sent joined too so
+        // older backends keep a correct display name.
+        updateData.first_name = firstName.trim();
+        updateData.last_name = lastName.trim();
+        updateData.name = `${firstName.trim()} ${lastName.trim()}`;
+      }
 
       if (!isChef) {
         updateData.delivery_instructions = deliveryInstructions.trim();
@@ -308,8 +378,12 @@ export const ProfileScreen = () => {
         const deliveryRadiusKm = fieldToNumber(deliveryRadius);
 
         updateData.chef_profile = {
-          // Blank falls back to the chef's own name rather than blocking a save.
-          kitchen_name: kitchenName.trim() || name.trim(),
+          kitchen_name: kitchenName.trim(),
+          bank_name: bankName.trim(),
+          bank_account_title: bankAccountTitle.trim(),
+          bank_account_number: normalizeAccountNumber(bankAccountNumber),
+          bank_iban: normalizeIban(bankIban),
+          ntn_status: ntnStatus as NtnStatus,
           kitchen_description: bio.trim(),
           ...(yearsOfExperience !== undefined
             ? { years_of_experience: yearsOfExperience }
@@ -479,12 +553,33 @@ export const ProfileScreen = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Account Information</Text>
 
-            <Input
-              label="Full Name"
-              placeholder="Your name"
-              value={name}
-              onChangeText={setName}
-            />
+            {isChef ? (
+              <>
+                <Input
+                  label="First Name (as per CNIC) *"
+                  placeholder="First name"
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  autoCapitalize="words"
+                  error={launchErrors.firstName}
+                />
+                <Input
+                  label="Last Name (as per CNIC) *"
+                  placeholder="Last name"
+                  value={lastName}
+                  onChangeText={setLastName}
+                  autoCapitalize="words"
+                  error={launchErrors.lastName}
+                />
+              </>
+            ) : (
+              <Input
+                label="Full Name"
+                placeholder="Your name"
+                value={name}
+                onChangeText={setName}
+              />
+            )}
 
             <Input
               label="Email"
@@ -495,7 +590,7 @@ export const ProfileScreen = () => {
             />
 
             <PhoneInput
-              label="Phone"
+              label={isChef ? "Phone *" : "Phone"}
               value={phone}
               onChangeText={setPhone}
             />
@@ -630,11 +725,12 @@ export const ProfileScreen = () => {
               )}
 
               <Input
-                label="Kitchen Name"
+                label="Kitchen Name *"
                 placeholder="e.g. Ammi's Kitchen"
                 value={kitchenName}
                 onChangeText={setKitchenName}
                 autoCapitalize="words"
+                error={launchErrors.kitchenName}
               />
               <Text style={styles.fieldHint}>
                 Shown to customers instead of your own name.
@@ -681,6 +777,80 @@ export const ProfileScreen = () => {
                   setDeliveryRadius(sanitizeNumericInput(v, { allowDecimal: true }))
                 }
               />
+            </View>
+          )}
+
+          {/* Bank & tax details (chef launch checklist) */}
+          {isChef && (
+            <View style={styles.section}>
+              <View style={styles.headerSection}>
+                <Text style={styles.sectionTitle}>Bank & Tax Details</Text>
+                <Text style={styles.fieldHint}>
+                  Used to pay you. Only you and the FoodPal team can see these.
+                </Text>
+              </View>
+
+              <Input
+                label="Bank Name *"
+                placeholder="e.g. Meezan Bank"
+                value={bankName}
+                onChangeText={setBankName}
+                autoCapitalize="words"
+                error={launchErrors.bankName}
+              />
+              <Input
+                label="Account Title *"
+                placeholder="Name the account is held in"
+                value={bankAccountTitle}
+                onChangeText={setBankAccountTitle}
+                autoCapitalize="words"
+                error={launchErrors.bankAccountTitle}
+              />
+              <Input
+                label="Account Number *"
+                placeholder="Digits only"
+                keyboardType="number-pad"
+                value={bankAccountNumber}
+                onChangeText={setBankAccountNumber}
+                error={launchErrors.bankAccountNumber}
+              />
+              <Input
+                label="IBAN *"
+                placeholder="PK00 XXXX 0000 0000 0000 0000"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                value={bankIban}
+                onChangeText={setBankIban}
+                error={launchErrors.bankIban}
+              />
+
+              <View style={styles.ntnGroup}>
+                <Text style={styles.ntnLabel}>NTN Status *</Text>
+                <View style={styles.ntnRow}>
+                  {NTN_OPTIONS.map((opt) => {
+                    const selected = ntnStatus === opt.value;
+                    return (
+                      <Pressable
+                        key={opt.value}
+                        onPress={() => setNtnStatus(opt.value)}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected }}
+                        style={[styles.ntnOption, selected && styles.ntnOptionSelected]}
+                      >
+                        <Ionicons
+                          name={selected ? "radio-button-on" : "radio-button-off"}
+                          size={18}
+                          color={selected ? colors.primary : colors.mutedForeground}
+                        />
+                        <Text style={styles.ntnOptionText}>{opt.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                {launchErrors.ntnStatus ? (
+                  <Text style={styles.ntnError}>{launchErrors.ntnStatus}</Text>
+                ) : null}
+              </View>
             </View>
           )}
 
@@ -794,6 +964,24 @@ const styles = StyleSheet.create({
   readOnly: { backgroundColor: colors.muted, color: colors.mutedForeground },
 
   removePictureBtn: { alignSelf: "flex-start" },
+  ntnGroup: { gap: 6 },
+  ntnLabel: { ...typography.sm, fontFamily: fonts.sansSemiBold, fontWeight: "600", color: colors.foreground },
+  ntnRow: { flexDirection: "row", gap: spacing.sm },
+  ntnOption: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 11,
+    backgroundColor: colors.surface,
+  },
+  ntnOptionSelected: { borderColor: colors.primary },
+  ntnOptionText: { ...typography.base, fontFamily: fonts.sans, color: colors.foreground },
+  ntnError: { ...typography.xs, color: colors.destructive },
   saveBtn: { marginTop: spacing.sm },
   signOutBtn: { borderColor: colors.destructive },
   deleteAccountRow: { alignSelf: "center", paddingVertical: spacing.md, marginTop: spacing.sm },

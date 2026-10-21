@@ -48,7 +48,8 @@ export default function ChefSignupScreen() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // The API takes a single name field, so the CNIC first/last names are joined.
+  // The CNIC halves are sent as first_name/last_name; `name` is the joined
+  // display name the rest of the app uses.
   const name = `${firstName.trim()} ${lastName.trim()}`.trim();
 
   const validateStep1 = () => {
@@ -142,6 +143,8 @@ export default function ChefSignupScreen() {
         // on the chef record and a missing value reads as "never agreed".
         terms_accepted: acceptedTerms,
         terms_accepted_at: new Date().toISOString(),
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
         chef_profile: {
           // Required, but never send a blank value — the backend would then
           // fall back to the chef's own name.

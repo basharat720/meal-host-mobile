@@ -125,7 +125,7 @@ export default function ContactScreen() {
             <Text
               style={styles.link}
               onPress={() =>
-                Linking.openURL("https://www.facebook.com/profile.php?id=61591270821942")
+                Linking.openURL("https://www.facebook.com/share/1HZRxtpRao/?mibextid=wwXIfr")
               }
             >
               FoodPal
@@ -135,9 +135,9 @@ export default function ContactScreen() {
             <Text style={styles.bold}>Instagram:</Text>{" "}
             <Text
               style={styles.link}
-              onPress={() => Linking.openURL("https://www.instagram.com/FoodPal/")}
+              onPress={() => Linking.openURL("https://www.instagram.com/foodpalco?srtk=OTk2OWhkMjc5bWcy")}
             >
-              @FoodPal
+              @foodpalco
             </Text>
           </Text>
         </View>

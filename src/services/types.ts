@@ -25,11 +25,20 @@ export interface ChefProfile {
   status?: string;
   food_safety_badge?: string[];
   created_at?: string;
+  // Chef launch checklist — private; only present on the chef's own profile.
+  bank_name?: string | null;
+  bank_account_title?: string | null;
+  bank_account_number?: string | null;
+  bank_iban?: string | null;
+  ntn_status?: "filer" | "non_filer" | null;
 }
 
 export interface User {
   id: number;
   name: string;
+  /** Legal name halves as on the CNIC; setting either rebuilds `name`. */
+  first_name?: string | null;
+  last_name?: string | null;
   email: string;
   phone?: string;
   city?: string | null;
@@ -46,6 +55,8 @@ export interface User {
 
 export interface UserRegisterRequest {
   name: string;
+  first_name?: string;
+  last_name?: string;
   email: string;
   phone?: string;
   is_customer?: boolean;
@@ -79,6 +90,8 @@ export interface UserLocationInput {
 
 export interface UserUpdate {
   name?: string;
+  first_name?: string;
+  last_name?: string;
   email?: string;
   phone?: string;
   city?: string | null;
