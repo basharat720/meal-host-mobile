@@ -17,6 +17,7 @@ import { Poppins_800ExtraBold } from "@expo-google-fonts/poppins/800ExtraBold";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
+import { DeliveryLocationProvider } from "@/contexts/DeliveryLocationContext";
 import { ToastProvider } from "@/components/ui/Toast";
 import { I18nProvider } from "@/i18n/context";
 import { colors } from "@/constants/theme";
@@ -76,6 +77,9 @@ export default function RootLayout() {
               <CartProvider>
                <FavoritesProvider>
                <ToastProvider>
+               {/* Under Auth (saved addresses are per account) and Toast (the
+                   address screens confirm with one). */}
+               <DeliveryLocationProvider>
                 <StatusBar
                   style={splashDone ? "dark" : "light"}
                   backgroundColor={splashDone ? colors.background : colors.primary}
@@ -104,6 +108,7 @@ export default function RootLayout() {
                 {fontsLoaded && !splashDone && (
                   <AnimatedSplash onComplete={handleSplashComplete} />
                 )}
+               </DeliveryLocationProvider>
                </ToastProvider>
                </FavoritesProvider>
               </CartProvider>

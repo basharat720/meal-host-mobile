@@ -5,7 +5,14 @@ export interface UserLocationResponse {
   longitude: number;
   address?: string;
   is_primary: boolean;
+  /** Saved-address details — see feature-docs/12-delivery-address-in-the-app.md. */
+  label?: string | null;
+  house_number?: string | null;
+  street?: string | null;
+  building_floor?: string | null;
+  delivery_instructions?: string | null;
   created_at: string;
+  updated_at?: string | null;
 }
 
 export interface ChefProfile {
@@ -245,6 +252,8 @@ export interface Order {
   chat_available?: boolean;
   /** False once the chat has been closed for more than 24 hours. */
   chat_can_send?: boolean;
+  /** How the order is paid. The app only places CASH orders; card orders come from the website. */
+  payment_method?: "CASH" | "STRIPE" | "PAYFAST";
 }
 
 /** A requested dish line. The server resolves its price and title. */

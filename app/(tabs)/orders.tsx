@@ -10,12 +10,12 @@ import {
   Text,
   FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
-  Modal,
   TextInput,
   Alert,
+  Linking,
   RefreshControl,
-  KeyboardAvoidingView,
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -32,61 +32,152 @@ import { userService } from "@/services/userService";
 import { Order, FoodRequest } from "@/services/types";
 import { formatDurationRange } from "@/lib/duration";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FullScreenLoader } from "@/components/ui/LoadingSpinner";
+import { Mascot, type MascotPose } from "@/components/Mascot";
 import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
-import { orderStatusTone } from "@/lib/orderStatus";
 import { getUserFriendlyError } from "@/lib/errorMessages";
 import { useChatUnread } from "@/hooks/useOrderChat";
-import { getOrderItemKey, getOrderItemName } from "@/lib/listingVariants";
+import {
+  getOrderItemKey,
+  getOrderItemName,
+  getOrderListingName,
+} from "@/lib/listingVariants";
 import { toTitleCase } from "@/lib/titleCase";
 
 // ── Status helpers ────────────────────────────────────────────────────────────
+// Ported from meal-host-frontend `src/pages/CustomerOrdersPage.tsx` so a card
+// says the same thing in the app as on the website.
 
-const STATUS_STEPS: Order["status"][] = [
-  "PENDING",
-  "CONFIRMED",
+// Pal reacts to where the order actually is. Cancelled gets no mascot — a
+// character has nothing useful to add to bad news.
+const STATUS_POSE: Partial<Record<Order["status"], MascotPose>> = {
+  PENDING: "idle",
+  CONFIRMED: "cooking",
+  READY_FOR_PICKUP: "delivering",
+  DELIVERED: "flying",
+  RECEIVED: "celebrating",
+  COMPLETED: "love",
+};
+
+// The status strip's tint, from the shared status palette.
+type StripTone = keyof typeof colors.status;
+const STRIP_TONE: Record<Order["status"], StripTone> = {
+  PENDING: "pending",
+  CONFIRMED: "active",
+  READY_FOR_PICKUP: "ready",
+  DELIVERED: "ready",
+  RECEIVED: "done",
+  COMPLETED: "done",
+  CANCELLED: "cancelled",
+};
+
+// What the strip says, in the customer's words rather than status names.
+const statusStripCopy = (
+  order: Order,
+  chefName: string,
+  reviewed: boolean,
+): { title: string; sub?: string } => {
+  const isDelivery = order.delivery_type === "delivery";
+  switch (order.status) {
+    case "PENDING":
+      return {
+        title: `Waiting for ${chefName} to confirm`,
+        sub: "Your order has been sent to the kitchen.",
+      };
+    case "CONFIRMED":
+      return {
+        title: `${chefName} is cooking your order`,
+        sub: "Your delicious meal is being prepared.",
+      };
+    case "READY_FOR_PICKUP":
+      return isDelivery
+        ? { title: "Packed and ready to go", sub: "It will be on its way shortly." }
+        : { title: "Your order is ready!", sub: "Head over to pick it up." };
+    case "DELIVERED":
+      return isDelivery
+        ? { title: "On its way to you", sub: "Confirm once it reaches your door." }
+        : { title: "Handed over", sub: "Confirm once you have it." };
+    case "RECEIVED":
+      return reviewed
+        ? { title: "Enjoy your meal!", sub: "Thanks for your review!" }
+        : {
+            title: "Enjoy your meal!",
+            sub: `How was it? Your rating helps ${chefName}.`,
+          };
+    case "COMPLETED":
+      return { title: "Hope you enjoyed it!", sub: "This order is complete." };
+    case "CANCELLED":
+      return {
+        title: "Order cancelled",
+        sub: order.cancellation_reason
+          ? `Reason: ${order.cancellation_reason}`
+          : undefined,
+      };
+  }
+};
+
+// The four-part bar on the strip. "Completed" shares the last part with
+// "Received". The part the order is in is half-filled; "Placed" happens the
+// moment the order exists, so it is filled straight away.
+const orderProgress = (
+  order: Order,
+): { steps: string[]; index: number; fill: number } | null => {
+  const isDelivery = order.delivery_type === "delivery";
+  const steps = [
+    "Placed",
+    "Preparing",
+    isDelivery ? "Out for delivery" : "Ready for pickup",
+    isDelivery ? "Received" : "Picked up",
+  ];
+  switch (order.status) {
+    case "PENDING":
+      return { steps, index: 0, fill: 1 };
+    case "CONFIRMED":
+      return { steps, index: 1, fill: 0.5 };
+    case "READY_FOR_PICKUP":
+      // A delivery order that is packed has not left yet.
+      return isDelivery
+        ? { steps, index: 2, fill: 0.15 }
+        : { steps, index: 2, fill: 1 };
+    case "DELIVERED":
+      return isDelivery
+        ? { steps, index: 2, fill: 0.5 }
+        : { steps, index: 3, fill: 0.5 };
+    default:
+      // Received and completed orders show stars or a finished note instead.
+      return null;
+  }
+};
+
+const UPCOMING_STATUSES = new Set<Order["status"]>(["PENDING", "CONFIRMED"]);
+const IN_TRANSIT_STATUSES = new Set<Order["status"]>([
   "READY_FOR_PICKUP",
   "DELIVERED",
-  "RECEIVED",
-  "COMPLETED",
+]);
+const COMPLETED_STATUSES = new Set<Order["status"]>(["RECEIVED", "COMPLETED"]);
+
+type TabType = "upcoming" | "in-transit" | "completed" | "cancelled";
+
+const TABS: { key: TabType; label: string }[] = [
+  { key: "upcoming", label: "Upcoming" },
+  { key: "in-transit", label: "In transit" },
+  { key: "completed", label: "Completed" },
+  { key: "cancelled", label: "Cancelled" },
 ];
 
-const STEP_LABELS: Record<Order["status"], string> = {
-  PENDING: "Order Placed",
-  CONFIRMED: "Chef Confirmed",
-  READY_FOR_PICKUP: "Ready for Pickup",
-  DELIVERED: "Delivered",
-  RECEIVED: "Received",
-  COMPLETED: "Completed",
-  CANCELLED: "Cancelled",
+const getTabForStatus = (status: Order["status"]): TabType => {
+  if (UPCOMING_STATUSES.has(status)) return "upcoming";
+  if (IN_TRANSIT_STATUSES.has(status)) return "in-transit";
+  if (COMPLETED_STATUSES.has(status)) return "completed";
+  return "cancelled";
 };
 
-const STEP_DESCRIPTIONS: Record<Order["status"], string> = {
-  PENDING: "Waiting for chef confirmation",
-  CONFIRMED: "Your delicious meal is being prepared",
-  READY_FOR_PICKUP: "Your order is ready!",
-  DELIVERED: "On its way to you",
-  RECEIVED: "Enjoy your meal!",
-  COMPLETED: "Hope you enjoyed it!",
-  CANCELLED: "This order was cancelled",
-};
-
-const ACTIVE_STATUSES = new Set<Order["status"]>([
-  "PENDING",
-  "CONFIRMED",
-  "READY_FOR_PICKUP",
-]);
-
-
+// Newest first.
 const sortOrders = (orders: Order[]): Order[] =>
-  [...orders].sort((a, b) => {
-    const aActive = ACTIVE_STATUSES.has(a.status) ? 1 : 0;
-    const bActive = ACTIVE_STATUSES.has(b.status) ? 1 : 0;
-    if (aActive !== bActive) return bActive - aActive;
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
+  [...orders].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
 
 const formatConfirmedEta = (order: Order): string | null => {
   if (!order.confirmed_eta_at) return null;
@@ -102,160 +193,98 @@ const formatTentativeEta = (order: Order): string | null => {
   return formatDurationRange(min, max);
 };
 
+/** Opens the platform's maps app on an address. */
+const openDirections = (address: string) => {
+  const q = encodeURIComponent(address);
+  const url =
+    Platform.OS === "ios"
+      ? `https://maps.apple.com/?q=${q}`
+      : `https://www.google.com/maps/search/?api=1&query=${q}`;
+  Linking.openURL(url).catch(() =>
+    Alert.alert("Couldn't open Maps", address),
+  );
+};
+
+const callPhone = (phone: string) => {
+  Linking.openURL(`tel:${phone.replace(/\s+/g, "")}`).catch(() =>
+    Alert.alert("Couldn't start a call", phone),
+  );
+};
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type DishInfo = { title: string; imageUrl: string | null };
 type RequestInfo = { title: string; description?: string };
 type ChefInfo = { address: string; phone?: string };
 
-// ── Review Modal ─────────────────────────────────────────────────────────────
+/** Every dish title on the order, from its own snapshotted lines when it has them. */
+const orderItemNames = (
+  order: Order,
+  dish: DishInfo | undefined,
+  requestInfo: RequestInfo | undefined,
+): string[] => {
+  if (order.items?.length) return order.items.map(getOrderItemName);
+  const fallback =
+    dish?.title ??
+    requestInfo?.title ??
+    (order.food_listing_id != null
+      ? `Dish #${order.food_listing_id}`
+      : order.food_request_id != null
+        ? `Custom Request #${order.food_request_id}`
+        : "Order");
+  return [getOrderListingName(order, fallback)];
+};
 
-interface ReviewModalProps {
-  order: Order;
-  customerId: number;
-  onClose: () => void;
-  onSubmitted: (orderId: number) => void;
-}
+// ── Small pieces ─────────────────────────────────────────────────────────────
 
-function ReviewModal({ order, customerId, onClose, onSubmitted }: ReviewModalProps) {
-  const [stars, setStars] = useState(0);
-  const [comment, setComment] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async () => {
-    if (stars === 0) {
-      setError("Please select a star rating.");
-      return;
-    }
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      await reviewService.submitReview(
-        order.id,
-        customerId,
-        stars,
-        comment.trim() || undefined
-      );
-      onSubmitted(order.id);
-      onClose();
-    } catch (err: any) {
-      setError(getUserFriendlyError(err, "Failed to submit review. Please try again."));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+function Tag({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label: string }) {
   return (
-    <Modal
-      visible
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <KeyboardAvoidingView
-        style={modalStyles.overlay}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <View style={modalStyles.sheet}>
-          <View style={modalStyles.handle} />
-
-          <Text style={modalStyles.title}>Leave a Review</Text>
-          <Text style={modalStyles.subtitle}>How was your order?</Text>
-
-          {/* Stars */}
-          <View style={modalStyles.starsRow}>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <Pressable key={n} onPress={() => setStars(n)} hitSlop={6}>
-                <Ionicons
-                  name={n <= stars ? "star" : "star-outline"}
-                  size={36}
-                  color={n <= stars ? colors.accent : colors.mutedForeground}
-                />
-              </Pressable>
-            ))}
-          </View>
-
-          {/* Comment */}
-          <TextInput
-            style={modalStyles.commentInput}
-            placeholder="Leave a comment... (optional)"
-            placeholderTextColor={colors.mutedForeground}
-            value={comment}
-            onChangeText={setComment}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-          />
-
-          {error ? <Text style={modalStyles.error}>{error}</Text> : null}
-
-          <View style={modalStyles.buttons}>
-            <Button variant="outline" size="md" style={modalStyles.cancelBtn} onPress={onClose}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              style={modalStyles.submitBtn}
-              onPress={handleSubmit}
-              loading={isSubmitting}
-              disabled={isSubmitting}
-            >
-              Submit
-            </Button>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    <View style={cardStyles.tag}>
+      <Ionicons name={icon} size={13} color={colors.foreground} />
+      <Text style={cardStyles.tagText}>{label}</Text>
+    </View>
   );
 }
 
-const modalStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
-    gap: spacing.md,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    backgroundColor: colors.border,
-    borderRadius: radius.full,
-    alignSelf: "center",
-    marginBottom: spacing.sm,
-  },
-  title: { ...typography.xl, fontWeight: "700", color: colors.foreground, textAlign: "center" },
-  subtitle: { ...typography.base, color: colors.mutedForeground, textAlign: "center" },
-  starsRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
-  commentInput: {
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    ...typography.base,
-    color: colors.foreground,
-    backgroundColor: colors.background,
-    minHeight: 80,
-  },
-  error: { ...typography.sm, color: colors.destructive, textAlign: "center" },
-  buttons: { flexDirection: "row", gap: spacing.sm },
-  cancelBtn: { flex: 1 },
-  submitBtn: { flex: 1 },
-});
+function ProgressBar({
+  progress,
+  tone,
+}: {
+  progress: { steps: string[]; index: number; fill: number };
+  tone: StripTone;
+}) {
+  return (
+    <View style={cardStyles.progressWrap}>
+      <View style={cardStyles.progressRow}>
+        {progress.steps.map((label, i) => {
+          const pct =
+            i < progress.index ? 100 : i === progress.index ? progress.fill * 100 : 0;
+          return (
+            <View key={label} style={cardStyles.progressTrack}>
+              <View style={[cardStyles.progressFill, { width: `${pct}%` }]} />
+            </View>
+          );
+        })}
+      </View>
+      <View style={cardStyles.progressRow}>
+        {progress.steps.map((label, i) => (
+          <Text
+            key={label}
+            numberOfLines={1}
+            style={[
+              cardStyles.progressLabel,
+              { color: colors.status[tone].fg, opacity: 0.75 },
+              i < progress.index && { opacity: 1 },
+              i === progress.index && cardStyles.progressLabelCurrent,
+            ]}
+          >
+            {label}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
+}
 
 // ── Order Card ────────────────────────────────────────────────────────────────
 
@@ -267,12 +296,14 @@ interface OrderCardProps {
   isExpanded: boolean;
   isReceiving: boolean;
   hasReviewed: boolean;
+  customerId: number | null;
   onToggle: (id: number) => void;
   onMarkReceived: (order: Order) => void;
-  onLeaveReview: (order: Order) => void;
+  onReviewSubmitted: (orderId: number) => void;
   /** Live unread count for this order's chat, ahead of the orders payload. */
   unreadMessages: number;
   onOpenChat: (order: Order) => void;
+  onOrderAgain: (listingId: number) => void;
 }
 
 function OrderCard({
@@ -283,53 +314,91 @@ function OrderCard({
   isExpanded,
   isReceiving,
   hasReviewed,
+  customerId,
   onToggle,
   onMarkReceived,
-  onLeaveReview,
+  onReviewSubmitted,
   unreadMessages,
   onOpenChat,
+  onOrderAgain,
 }: OrderCardProps) {
   const { formatPrice } = useI18n();
-  const currentIndex =
-    order.status === "CANCELLED" ? -1 : STATUS_STEPS.indexOf(order.status);
 
-  // A multi-dish order names its first dish and counts the rest; the detail
-  // section lists them all. Titles come from the order's own snapshotted lines.
-  const itemNames = order.items?.length
-    ? order.items.map(getOrderItemName)
-    : [
-        dish?.title ??
-          requestInfo?.title ??
-          (order.food_listing_id != null
-            ? `Dish #${order.food_listing_id}`
-            : order.food_request_id != null
-            ? `Custom Request #${order.food_request_id}`
-            : "Order"),
-      ];
+  // Inline review on the strip — a star opens the comment box.
+  const [stars, setStars] = useState(0);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+
+  const names = orderItemNames(order, dish, requestInfo);
   const dishName =
-    itemNames.length > 1
-      ? `${itemNames[0]} +${itemNames.length - 1} more`
-      : itemNames[0];
-
-  const confirmedEta = formatConfirmedEta(order);
-  const tentativeEta = formatTentativeEta(order);
-  const showEtaInHeader =
-    ACTIVE_STATUSES.has(order.status) &&
-    (confirmedEta != null || tentativeEta != null);
-
+    names.length > 1 ? `${names[0]} +${names.length - 1} more` : names[0];
+  const primaryListingId =
+    order.items?.[0]?.food_listing_id ?? order.food_listing_id;
+  const isDelivery = order.delivery_type === "delivery";
+  const isCancelled = order.status === "CANCELLED";
+  const chefName = toTitleCase(order.chef_name) || "the kitchen";
   const address = order.delivery_address || chefInfo?.address;
   const phone = order.delivery_phone || chefInfo?.phone;
-  const isDelivery = order.delivery_type === "delivery";
+  const itemCount = order.items?.length
+    ? order.items.reduce((sum, item) => sum + item.quantity, 0)
+    : order.quantity;
+  const progress = orderProgress(order);
+  const strip = statusStripCopy(order, chefName, hasReviewed);
+  const pose = STATUS_POSE[order.status];
+  const tone = STRIP_TONE[order.status];
+  const toneColors = colors.status[tone];
+  const canReview = order.status === "RECEIVED" && !hasReviewed;
+  const isActive =
+    UPCOMING_STATUSES.has(order.status) || IN_TRANSIT_STATUSES.has(order.status);
+  const confirmedEta = formatConfirmedEta(order);
+  const tentativeEta = formatTentativeEta(order);
+  const etaLabel = !isActive
+    ? null
+    : confirmedEta
+      ? `${isDelivery ? "Arriving" : "Ready"} by ${confirmedEta}`
+      : tentativeEta
+        ? `${isDelivery ? "Arrives" : "Ready"} in about ${tentativeEta}`
+        : null;
+
+  const submitReview = async () => {
+    if (!customerId) return;
+    if (stars === 0) {
+      setReviewError("Please select a star rating.");
+      return;
+    }
+    setReviewError(null);
+    setSubmitting(true);
+    try {
+      await reviewService.submitReview(
+        order.id,
+        customerId,
+        stars,
+        comment.trim() || undefined,
+      );
+      onReviewSubmitted(order.id);
+    } catch (err: any) {
+      setReviewError(
+        getUserFriendlyError(err, "Failed to submit. Please try again."),
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <View style={cardStyles.container}>
-      {/* Collapsed Header */}
+    <View
+      style={[cardStyles.container, isExpanded && cardStyles.containerExpanded]}
+    >
+      {/* ── Header: what, from whom, how much ── */}
       <Pressable
         style={cardStyles.header}
         onPress={() => onToggle(order.id)}
         android_ripple={{ color: colors.muted }}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: isExpanded }}
       >
-        <View style={cardStyles.imageBox}>
+        <View style={[cardStyles.imageBox, isCancelled && { opacity: 0.6 }]}>
           {dish?.imageUrl ? (
             <Image
               source={{ uri: dish.imageUrl }}
@@ -344,325 +413,325 @@ function OrderCard({
         </View>
 
         <View style={cardStyles.summary}>
-          <View style={cardStyles.titleRow}>
-            <Text style={cardStyles.dishName} numberOfLines={1}>
-              {dishName}
-            </Text>
-            <View style={cardStyles.orderIdBadge}>
-              <Text style={cardStyles.orderIdText}>#{order.id}</Text>
-            </View>
-            {unreadMessages > 0 && (
-              <View style={cardStyles.chatBadge}>
-                <Ionicons name="chatbubble" size={10} color={colors.primaryForeground} />
-                <Text style={cardStyles.chatBadgeText}>{unreadMessages}</Text>
-              </View>
-            )}
-          </View>
-          <View style={cardStyles.metaRow}>
-            <Ionicons name="time-outline" size={12} color={colors.mutedForeground} />
-            <Text style={cardStyles.metaText}>
-              {new Date(order.created_at).toLocaleDateString(undefined, {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })}
-              {" · "}Qty {order.quantity}
-            </Text>
-          </View>
-          <View style={cardStyles.statusRow}>
-            <Badge
-              label={STEP_LABELS[order.status]}
-              variant={orderStatusTone(order.status)}
-            />
-            <Text style={cardStyles.amount}>
-              {formatPrice(order.total_amount)}
-            </Text>
-          </View>
-          {showEtaInHeader && (
-            <View style={cardStyles.etaRow}>
-              <Ionicons name="time-outline" size={12} color={confirmedEta ? colors.foreground : colors.mutedForeground} />
-              <Text style={confirmedEta ? cardStyles.etaConfirmed : cardStyles.etaTentative}>
-                {confirmedEta
-                  ? `Arriving by ${confirmedEta}`
-                  : `Est. ${tentativeEta}`}
-              </Text>
-            </View>
-          )}
+          <Text
+            style={[cardStyles.dishName, isCancelled && cardStyles.mutedText]}
+            numberOfLines={1}
+          >
+            {dishName}
+          </Text>
+          <Text style={cardStyles.metaText} numberOfLines={2}>
+            {chefName}
+            {"  ·  "}
+            <Text style={cardStyles.orderId}>#{order.id}</Text>
+            {"  ·  "}
+            {new Date(order.created_at).toLocaleString(undefined, {
+              day: "numeric",
+              month: "short",
+              hour: "numeric",
+              minute: "2-digit",
+            })}
+          </Text>
         </View>
 
-        <Ionicons
-          name={isExpanded ? "chevron-up" : "chevron-down"}
-          size={18}
-          color={colors.mutedForeground}
-        />
+        <View style={cardStyles.priceCol}>
+          <Text
+            style={[cardStyles.amount, isCancelled && cardStyles.amountStruck]}
+          >
+            {formatPrice(order.total_amount)}
+          </Text>
+          <Text style={cardStyles.itemCount}>
+            {itemCount} {itemCount === 1 ? "item" : "items"}
+          </Text>
+        </View>
       </Pressable>
 
-      {/* Expanded Panel */}
-      {isExpanded && (
-        <View style={cardStyles.expandedPanel}>
-          <View style={cardStyles.separator} />
-
-          {/* Order Summary */}
-          <View style={cardStyles.detailSection}>
-            <Text style={cardStyles.detailSectionTitle}>
-              {"  ORDER SUMMARY"}
+      {/* ── Status strip: where the order is, in words ── */}
+      <View style={[cardStyles.strip, { backgroundColor: toneColors.bg }]}>
+        {pose ? (
+          <Mascot pose={pose} height={56} style={cardStyles.stripMascot} />
+        ) : (
+          <Ionicons
+            name="close-circle-outline"
+            size={20}
+            color={toneColors.fg}
+            style={{ alignSelf: "flex-start" }}
+          />
+        )}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[cardStyles.stripTitle, { color: toneColors.fg }]}>
+            {strip.title}
+          </Text>
+          {strip.sub ? (
+            <Text style={[cardStyles.stripSub, { color: toneColors.fg }]}>
+              {strip.sub}
             </Text>
-            <View style={cardStyles.summaryBox}>
-              <View style={cardStyles.summaryImageBox}>
-                {dish?.imageUrl ? (
-                  <Image source={{ uri: dish.imageUrl }} style={cardStyles.summaryImage} contentFit="cover" />
-                ) : (
-                  <View style={cardStyles.imagePlaceholder}>
-                    <Ionicons name="bag-outline" size={16} color={colors.mutedForeground} />
-                  </View>
-                )}
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={cardStyles.detailText} numberOfLines={2}>{dishName}</Text>
-                {requestInfo?.description ? (
-                  <Text style={cardStyles.detailSubText} numberOfLines={2}>{requestInfo.description}</Text>
-                ) : null}
-                {order.items?.length ? (
-                  order.items.map((orderItem) => (
-                    <Text
-                      key={getOrderItemKey(orderItem)}
-                      style={cardStyles.detailSubText}
-                    >
-                      {orderItem.quantity} × {getOrderItemName(orderItem)} ·{" "}
-                      {formatPrice(orderItem.unit_price * orderItem.quantity)}
-                    </Text>
-                  ))
-                ) : (
-                  <Text style={cardStyles.detailSubText}>
-                    {order.quantity} ×{" "}
-                    {formatPrice(order.total_amount / order.quantity)}
-                  </Text>
-                )}
-                <View style={cardStyles.totalRow}>
-                  <Text style={cardStyles.detailSubText}>Total</Text>
-                  <Text style={cardStyles.totalAmount}>
-                    {formatPrice(order.total_amount)}
-                  </Text>
-                </View>
-              </View>
+          ) : null}
+          {etaLabel ? (
+            <View style={cardStyles.etaPill}>
+              <Ionicons name="time-outline" size={12} color={colors.foreground} />
+              <Text style={cardStyles.etaText}>{etaLabel}</Text>
             </View>
-          </View>
+          ) : null}
+          {canReview ? (
+            <View
+              style={cardStyles.starsRow}
+              accessibilityRole="radiogroup"
+              accessibilityLabel="Rate this order"
+            >
+              {[1, 2, 3, 4, 5].map((n) => (
+                <Pressable
+                  key={n}
+                  onPress={() => setStars(n)}
+                  hitSlop={4}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: stars === n }}
+                  accessibilityLabel={`${n} star${n > 1 ? "s" : ""}`}
+                  style={cardStyles.starBtn}
+                >
+                  <Ionicons
+                    name={n <= stars ? "star" : "star-outline"}
+                    size={26}
+                    color={n <= stars ? colors.rating : toneColors.fg}
+                  />
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+          {progress ? <ProgressBar progress={progress} tone={tone} /> : null}
+        </View>
+      </View>
 
-          {/* Delivery / Pickup Details */}
-          {(address || phone) ? (
-            <View style={cardStyles.detailSection}>
-              <Text style={cardStyles.detailSectionTitle}>
-                {isDelivery ? "  DELIVERY INFORMATION" : "  PICKUP DETAILS"}
+      {/* A star opens the rest of the review. */}
+      {canReview && stars > 0 ? (
+        <View style={cardStyles.reviewBox}>
+          <TextInput
+            style={cardStyles.commentInput}
+            placeholder="Leave a comment... (optional)"
+            placeholderTextColor={colors.mutedForeground}
+            value={comment}
+            onChangeText={setComment}
+            multiline
+            numberOfLines={2}
+            textAlignVertical="top"
+          />
+          {reviewError ? (
+            <Text style={cardStyles.reviewError}>{reviewError}</Text>
+          ) : null}
+          <Button
+            size="sm"
+            onPress={submitReview}
+            loading={submitting}
+            disabled={submitting || !customerId}
+            style={{ alignSelf: "flex-start" }}
+          >
+            Submit rating
+          </Button>
+        </View>
+      ) : null}
+
+      {/* ── Expanded detail: where, and what was ordered ── */}
+      {isExpanded ? (
+        <View style={cardStyles.details}>
+          {address || phone ? (
+            <View style={cardStyles.panel}>
+              <Text style={cardStyles.panelTitle}>
+                {isDelivery ? "DELIVER TO" : "PICK UP FROM"}
               </Text>
-              <View style={isDelivery ? cardStyles.deliveryBox : cardStyles.detailBox}>
-                {isDelivery ? (
-                  <View style={cardStyles.detailRow}>
-                    <Ionicons name="cube-outline" size={14} color={colors.primary} />
-                    <Text style={cardStyles.deliveryNote}>
-                      Will be delivered to your address
-                    </Text>
-                  </View>
-                ) : null}
-                {address ? (
-                  <View style={cardStyles.detailRow}>
-                    <Ionicons name="location" size={14} color={colors.secondaryStrong} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={cardStyles.detailText}>{address}</Text>
-                      {!isDelivery ? (
-                        <Text style={cardStyles.detailSubText}>Chef's location</Text>
-                      ) : null}
-                    </View>
-                  </View>
+              {address ? (
+                <View style={cardStyles.detailRow}>
+                  <Ionicons name="location-outline" size={16} color={colors.primary} />
+                  <Text style={cardStyles.detailText}>{address}</Text>
+                </View>
+              ) : null}
+              <View style={cardStyles.panelActions}>
+                {address && !isDelivery ? (
+                  <Pressable
+                    style={cardStyles.pillBtn}
+                    onPress={() => openDirections(address)}
+                    accessibilityRole="link"
+                  >
+                    <Ionicons name="navigate-outline" size={15} color={colors.primary} />
+                    <Text style={cardStyles.pillBtnText}>Directions</Text>
+                  </Pressable>
                 ) : null}
                 {phone ? (
-                  <View style={cardStyles.detailRow}>
-                    <Ionicons name="call" size={14} color={colors.secondaryStrong} />
-                    <Text style={cardStyles.detailText}>{phone}</Text>
-                  </View>
+                  <Pressable
+                    style={cardStyles.pillBtn}
+                    onPress={() => callPhone(phone)}
+                    accessibilityRole="link"
+                    accessibilityLabel={`Call ${phone}`}
+                  >
+                    <Ionicons name="call-outline" size={15} color={colors.primary} />
+                    <Text style={cardStyles.pillBtnText}>{phone}</Text>
+                  </Pressable>
                 ) : null}
               </View>
             </View>
           ) : null}
 
-          {/* Special Instructions */}
-          {order.special_instructions ? (
-            <View style={cardStyles.detailSection}>
-              <Text style={cardStyles.detailSectionTitle}>
-                {"  SPECIAL INSTRUCTIONS"}
-              </Text>
-              <View style={cardStyles.instructionsBox}>
-                <Text style={cardStyles.instructionsText}>
-                  "{order.special_instructions}"
+          <View style={cardStyles.panel}>
+            <Text style={cardStyles.panelTitle}>YOUR ORDER</Text>
+            {order.items?.length ? (
+              order.items.map((item) => (
+                <View key={getOrderItemKey(item)} style={cardStyles.lineRow}>
+                  <Text style={cardStyles.lineText}>
+                    {item.quantity} × {getOrderItemName(item)}
+                  </Text>
+                  <Text style={cardStyles.linePrice}>
+                    {formatPrice(item.unit_price * item.quantity)}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <View style={cardStyles.lineRow}>
+                <Text style={cardStyles.lineText}>
+                  {order.quantity} × {dishName}
+                </Text>
+                <Text style={cardStyles.linePrice}>
+                  {formatPrice(order.total_amount)}
                 </Text>
               </View>
-            </View>
-          ) : null}
-
-          {/* Note from chef */}
-          {order.order_notes ? (
-            <View style={cardStyles.detailSection}>
-              <Text style={cardStyles.detailSectionTitle}>
-                {"  NOTE FROM CHEF"}
+            )}
+            <View style={cardStyles.totalRow}>
+              <Text style={cardStyles.totalText}>
+                Total
+                {order.payment_method
+                  ? ` · ${order.payment_method === "CASH" ? "cash" : "paid by card"}`
+                  : ""}
               </Text>
-              <View style={cardStyles.noteBox}>
-                <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.primary} />
-                <Text style={cardStyles.noteText}>"{order.order_notes}"</Text>
-              </View>
-            </View>
-          ) : null}
-
-          {/* Cancellation reason */}
-          {order.status === "CANCELLED" && order.cancellation_reason ? (
-            <View style={cardStyles.detailSection}>
-              <Text style={cardStyles.detailSectionTitle}>
-                {"  CANCELLATION REASON"}
+              <Text style={cardStyles.totalText}>
+                {formatPrice(order.total_amount)}
               </Text>
-              <View style={cardStyles.cancelBox}>
-                <Ionicons name="alert-circle" size={14} color={colors.destructive} />
-                <Text style={cardStyles.cancelText}>{order.cancellation_reason}</Text>
+            </View>
+
+            {requestInfo?.description ? (
+              <View style={cardStyles.requestBox}>
+                <Text style={cardStyles.requestText}>
+                  <Text style={cardStyles.bold}>Your request: </Text>
+                  {requestInfo.description}
+                </Text>
               </View>
-            </View>
-          ) : null}
-
-          {/* Progress Stepper */}
-          <View style={cardStyles.detailSection}>
-            <Text style={cardStyles.detailSectionTitle}>
-              {"  ORDER PROGRESS"}
-            </Text>
-            <View style={cardStyles.stepperContainer}>
-              {order.status === "CANCELLED" ? (
-                <>
-                  {STATUS_STEPS.map((step) => (
-                    <View key={step} style={cardStyles.stepRow}>
-                      <View style={cardStyles.stepDotInactive} />
-                      <Text style={cardStyles.stepLabelInactive}>{STEP_LABELS[step]}</Text>
-                    </View>
-                  ))}
-                  <View style={cardStyles.stepRow}>
-                    <View style={cardStyles.stepDotCancelled}>
-                      <Ionicons name="close" size={10} color={colors.destructive} />
-                    </View>
-                    <Text style={cardStyles.stepLabelCancelled}>Cancelled</Text>
-                  </View>
-                </>
-              ) : (
-                STATUS_STEPS.map((step, i) => {
-                  const isPast = i < currentIndex;
-                  const isCurrent = i === currentIndex;
-                  return (
-                    <View key={step} style={cardStyles.stepRow}>
-                      {isPast ? (
-                        <View style={cardStyles.stepDotDone}>
-                          <Ionicons name="checkmark" size={10} color={colors.white} />
-                        </View>
-                      ) : isCurrent ? (
-                        <View style={cardStyles.stepDotCurrent} />
-                      ) : (
-                        <View style={cardStyles.stepDotInactive} />
-                      )}
-                      <View style={{ flex: 1 }}>
-                        <Text
-                          style={
-                            isPast
-                              ? cardStyles.stepLabelDone
-                              : isCurrent
-                              ? cardStyles.stepLabelCurrent
-                              : cardStyles.stepLabelInactive
-                          }
-                        >
-                          {STEP_LABELS[step]}
-                        </Text>
-                        {isCurrent && STEP_DESCRIPTIONS[step] ? (
-                          <Text style={cardStyles.stepDescription}>
-                            {STEP_DESCRIPTIONS[step]}
-                          </Text>
-                        ) : null}
-                      </View>
-                    </View>
-                  );
-                })
-              )}
-            </View>
-          </View>
-
-          {/* Chat — opens the moment the chef confirms, readable once closed. */}
-          {order.chat_available && (
-            <View style={cardStyles.actionSection}>
-              <Button
-                variant="outline"
-                size="sm"
-                onPress={() => onOpenChat(order)}
+            ) : null}
+            {order.special_instructions ? (
+              <View
+                style={[
+                  cardStyles.noteBox,
+                  { backgroundColor: colors.status.pending.bg },
+                ]}
               >
-                {order.chat_can_send
-                  ? `Chat with ${toTitleCase(order.chef_name) || "the chef"}`
-                  : "View chat"}
-                {unreadMessages > 0 ? ` (${unreadMessages})` : ""}
-              </Button>
-            </View>
-          )}
+                <Ionicons
+                  name="document-text-outline"
+                  size={15}
+                  color={colors.status.pending.fg}
+                />
+                <Text style={[cardStyles.noteText, { color: colors.status.pending.fg }]}>
+                  <Text style={cardStyles.bold}>Your note: </Text>“
+                  {order.special_instructions}”
+                </Text>
+              </View>
+            ) : null}
+            {order.order_notes ? (
+              <View
+                style={[
+                  cardStyles.noteBox,
+                  { backgroundColor: colors.status.active.bg },
+                ]}
+              >
+                <Ionicons
+                  name="restaurant-outline"
+                  size={15}
+                  color={colors.status.active.fg}
+                />
+                <Text style={[cardStyles.noteText, { color: colors.status.active.fg }]}>
+                  <Text style={cardStyles.bold}>Note from {chefName}: </Text>“
+                  {order.order_notes}”
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      ) : null}
 
-          {/* Mark as Received */}
-          {order.status === "DELIVERED" && (
-            <View style={cardStyles.actionSection}>
-              <Text style={cardStyles.actionNote}>
-                Your order has been delivered. Please confirm once you've picked it up.
-              </Text>
+      {/* ── Footer: how it's handed over, and what to do now ── */}
+      {!isCancelled ? (
+        <View style={cardStyles.footer}>
+          <View style={cardStyles.tagsRow}>
+            <Tag
+              icon={isDelivery ? "bicycle-outline" : "storefront-outline"}
+              label={isDelivery ? "Delivery" : "Pickup"}
+            />
+            {order.payment_method ? (
+              <Tag
+                icon={order.payment_method === "CASH" ? "cash-outline" : "card-outline"}
+                label={order.payment_method === "CASH" ? "Cash" : "Card"}
+              />
+            ) : null}
+          </View>
+          {order.status === "PENDING" && !order.chat_available ? (
+            <Text style={cardStyles.chatHint}>
+              Chat opens once the chef confirms
+            </Text>
+          ) : null}
+          <View style={cardStyles.actionsRow}>
+            {/* Chat opens the moment the chef confirms, and stays readable
+                after it closes. */}
+            {order.chat_available ? (
+              <Pressable
+                style={cardStyles.chatBtn}
+                onPress={() => onOpenChat(order)}
+                accessibilityRole="button"
+              >
+                <Ionicons name="chatbubble-outline" size={15} color={colors.primary} />
+                <Text style={cardStyles.chatBtnText}>
+                  {order.chat_can_send ? "Chat" : "View chat"}
+                </Text>
+                {unreadMessages > 0 ? (
+                  <View style={cardStyles.unreadBadge}>
+                    <Text style={cardStyles.unreadText}>{unreadMessages}</Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            ) : null}
+            {order.status === "DELIVERED" ? (
               <Button
-                variant="primary"
                 size="sm"
                 onPress={() => onMarkReceived(order)}
                 loading={isReceiving}
                 disabled={isReceiving}
               >
-                Confirm I Received My Order
+                I received my order
               </Button>
-            </View>
-          )}
-
-          {/* Leave Review (on RECEIVED, matching web) */}
-          {order.status === "RECEIVED" && !hasReviewed && (
-            <View style={cardStyles.actionSection}>
-              <View style={cardStyles.reviewPromptRow}>
-                <Ionicons name="star" size={16} color={colors.accent} />
-                <Text style={cardStyles.reviewPromptText}>How was your order?</Text>
-              </View>
-              <Button
-                variant="secondary"
-                size="sm"
-                onPress={() => onLeaveReview(order)}
-              >
-                Leave Review
+            ) : null}
+            {COMPLETED_STATUSES.has(order.status) && primaryListingId != null ? (
+              <Button size="sm" onPress={() => onOrderAgain(primaryListingId)}>
+                Order again
               </Button>
-            </View>
-          )}
-
-          {order.status === "RECEIVED" && hasReviewed && (
-            <View style={cardStyles.reviewedBanner}>
-              <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
-              <Text style={cardStyles.reviewedText}>Thanks for your review!</Text>
-            </View>
-          )}
+            ) : null}
+            <Pressable
+              style={cardStyles.detailsBtn}
+              onPress={() => onToggle(order.id)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: isExpanded }}
+            >
+              <Text style={cardStyles.detailsBtnText}>
+                {isExpanded ? "Hide details" : "Details"}
+              </Text>
+              <Ionicons
+                name={isExpanded ? "chevron-up" : "chevron-down"}
+                size={15}
+                color={colors.primary}
+              />
+            </Pressable>
+          </View>
         </View>
+      ) : (
+        <View style={{ height: spacing.md }} />
       )}
     </View>
   );
 }
 
 const cardStyles = StyleSheet.create({
-  chatBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  chatBadgeText: {
-    ...typography.xs,
-    color: colors.primaryForeground,
-    fontWeight: "700",
-  },
   container: {
     backgroundColor: colors.card,
     borderRadius: radius.lg,
@@ -671,9 +740,10 @@ const cardStyles = StyleSheet.create({
     overflow: "hidden",
     ...shadow.sm,
   },
+  containerExpanded: { borderColor: `${colors.primary}4D`, ...shadow.md },
   header: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     padding: spacing.md,
     gap: spacing.sm,
   },
@@ -692,192 +762,195 @@ const cardStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  summary: { flex: 1 },
-  titleRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginBottom: 2 },
-  dishName: { ...typography.base, fontWeight: "600", color: colors.foreground, flex: 1 },
-  orderIdBadge: {
-    backgroundColor: colors.muted,
-    borderRadius: radius.sm,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  summary: { flex: 1, minWidth: 0 },
+  dishName: { ...typography.base, fontWeight: "600", color: colors.foreground },
+  mutedText: { color: colors.mutedForeground },
+  metaText: { ...typography.xs, color: colors.mutedForeground, marginTop: 2 },
+  orderId: { fontFamily: Platform.select({ ios: "Menlo", default: "monospace" }) },
+  priceCol: { alignItems: "flex-end", flexShrink: 0 },
+  amount: { ...typography.base, fontWeight: "700", color: colors.foreground },
+  amountStruck: {
+    color: colors.mutedForeground,
+    textDecorationLine: "line-through",
   },
-  orderIdText: { ...typography.xs, color: colors.mutedForeground, fontFamily: "monospace" },
-  metaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: spacing.xs },
-  metaText: { ...typography.xs, color: colors.mutedForeground },
-  statusRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  amount: { ...typography.sm, fontWeight: "700", color: colors.foreground },
-  etaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
-  etaConfirmed: { ...typography.xs, fontWeight: "600", color: colors.foreground },
-  etaTentative: { ...typography.xs, color: colors.mutedForeground },
-  expandedPanel: { paddingBottom: spacing.md },
-  separator: {
-    height: 1,
-    borderStyle: "dashed",
-    borderTopWidth: 1,
-    borderColor: colors.border,
+  itemCount: { ...typography.xs, color: colors.mutedForeground },
+
+  strip: {
     marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.sm + 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm + 4,
   },
-  detailSection: { paddingHorizontal: spacing.md, marginBottom: spacing.md },
-  detailSectionTitle: {
+  stripMascot: { marginVertical: -6 },
+  stripTitle: { ...typography.sm, fontWeight: "700" },
+  stripSub: { ...typography.xs, opacity: 0.9, marginTop: 2 },
+  etaPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 5,
+    backgroundColor: colors.card,
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginTop: spacing.xs + 2,
+  },
+  etaText: { ...typography.xs, fontWeight: "600", color: colors.foreground },
+  starsRow: { flexDirection: "row", marginTop: spacing.xs, marginLeft: -4 },
+  starBtn: { padding: 4 },
+  progressWrap: { marginTop: spacing.sm + 2, gap: 6 },
+  progressRow: { flexDirection: "row", gap: 6 },
+  progressTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: radius.full,
+    backgroundColor: `${colors.foreground}1A`,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+  },
+  progressLabel: { flex: 1, fontSize: 10, lineHeight: 14 },
+  progressLabelCurrent: { opacity: 1, fontWeight: "700" },
+
+  reviewBox: { marginHorizontal: spacing.md, marginTop: spacing.sm, gap: spacing.sm },
+  commentInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.sm,
+    ...typography.sm,
+    color: colors.foreground,
+    backgroundColor: colors.background,
+    minHeight: 64,
+  },
+  reviewError: { ...typography.xs, color: colors.destructive },
+
+  details: { paddingHorizontal: spacing.md, paddingTop: spacing.md, gap: spacing.sm + 4 },
+  panel: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  panelTitle: {
     ...typography.xs,
     fontWeight: "700",
     color: colors.mutedForeground,
     letterSpacing: 0.8,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
-  summaryBox: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    backgroundColor: colors.muted,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.sm,
-  },
-  summaryImageBox: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.md,
-    overflow: "hidden",
-    flexShrink: 0,
-  },
-  summaryImage: { width: "100%", height: "100%" },
-  totalRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 4 },
-  totalAmount: { ...typography.sm, fontWeight: "700", color: colors.foreground },
-  detailBox: {
-    backgroundColor: colors.muted,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.xs,
-  },
-  deliveryBox: {
-    backgroundColor: `${colors.primary}0F`,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: `${colors.primary}33`,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.xs,
-  },
-  deliveryNote: { ...typography.xs, fontWeight: "600", color: colors.primary, flex: 1 },
-  detailRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.xs },
+  detailRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
   detailText: { ...typography.sm, color: colors.foreground, flex: 1 },
-  detailSubText: { ...typography.xs, color: colors.mutedForeground, marginTop: 2 },
-  instructionsBox: {
-    backgroundColor: colors.accentSubtle,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: `${colors.accentSubtleForeground}33`,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  instructionsText: { ...typography.sm, color: colors.foreground, fontStyle: "italic" },
-  noteBox: {
+  panelActions: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.xs,
-    backgroundColor: colors.muted,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginTop: spacing.sm + 4,
   },
-  noteText: { ...typography.sm, color: colors.foreground, flex: 1, fontStyle: "italic" },
-  cancelBox: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.xs,
-    backgroundColor: `${colors.destructive}14`,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: `${colors.destructive}40`,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  cancelText: { ...typography.sm, color: colors.foreground, flex: 1 },
-  stepperContainer: {
-    paddingLeft: spacing.md,
-    borderLeftWidth: 2,
-    borderLeftColor: `${colors.secondaryStrong}33`,
-    gap: 2,
-  },
-  stepRow: {
+  pillBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm + 4,
     paddingVertical: 6,
-    marginLeft: -10,
   },
-  stepDotDone: {
-    width: 20,
-    height: 20,
-    borderRadius: radius.full,
-    backgroundColor: colors.secondaryStrong,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
+  pillBtnText: { ...typography.sm, fontWeight: "600", color: colors.primary },
+  lineRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+    paddingVertical: 4,
   },
-  stepDotCurrent: {
-    width: 20,
-    height: 20,
-    borderRadius: radius.full,
-    backgroundColor: colors.secondaryStrong,
-    flexShrink: 0,
-  },
-  stepDotInactive: {
-    width: 20,
-    height: 20,
-    borderRadius: radius.full,
-    backgroundColor: colors.surface,
-    borderWidth: 2,
-    borderColor: colors.border,
-    flexShrink: 0,
-  },
-  stepDotCancelled: {
-    width: 20,
-    height: 20,
-    borderRadius: radius.full,
-    backgroundColor: `${colors.destructive}1A`,
-    borderWidth: 2,
-    borderColor: colors.destructive,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  stepLabelDone: { ...typography.sm, color: colors.secondaryStrong, fontWeight: "600" },
-  stepLabelCurrent: { ...typography.sm, color: colors.secondaryStrong, fontWeight: "700" },
-  stepLabelInactive: { ...typography.sm, color: colors.mutedForeground },
-  stepDescription: { ...typography.xs, color: colors.mutedForeground, marginTop: 2 },
-  stepLabelCancelled: { ...typography.sm, color: colors.destructive, fontWeight: "600" },
-  actionSection: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
+  lineText: { ...typography.sm, color: colors.foreground, flex: 1 },
+  linePrice: { ...typography.sm, color: colors.foreground },
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     borderTopWidth: 1,
     borderStyle: "dashed",
     borderTopColor: colors.border,
-    marginTop: spacing.xs,
-    gap: spacing.sm,
+    marginTop: 6,
+    paddingTop: spacing.sm + 2,
   },
-  actionNote: { ...typography.sm, color: colors.mutedForeground },
-  reviewPromptRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  reviewPromptText: { ...typography.base, fontWeight: "600", color: colors.foreground },
-  reviewedBanner: {
+  totalText: { ...typography.sm, fontWeight: "700", color: colors.foreground },
+  requestBox: {
+    marginTop: spacing.sm + 2,
+    borderRadius: radius.sm,
+    backgroundColor: colors.muted,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.sm + 2,
+  },
+  requestText: { ...typography.sm, color: colors.mutedForeground },
+  bold: { fontWeight: "700" },
+  noteBox: {
+    marginTop: spacing.sm + 2,
+    flexDirection: "row",
+    gap: spacing.sm,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.sm + 2,
+  },
+  noteText: { ...typography.sm, flex: 1 },
+
+  footer: { padding: spacing.md, gap: spacing.sm },
+  tagsRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  tag: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderStyle: "dashed",
-    borderTopColor: colors.border,
-    marginTop: spacing.xs,
+    gap: 5,
+    backgroundColor: colors.muted,
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  reviewedText: { ...typography.sm, fontWeight: "600", color: colors.primary },
+  tagText: { ...typography.xs, fontWeight: "600", color: colors.foreground },
+  chatHint: { ...typography.xs, color: colors.mutedForeground },
+  actionsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: spacing.sm,
+  },
+  chatBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+  },
+  chatBtnText: { ...typography.sm, fontWeight: "600", color: colors.primary },
+  unreadBadge: {
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 6,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  unreadText: { ...typography.xs, fontWeight: "700", color: colors.primaryForeground },
+  detailsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: 7,
+  },
+  detailsBtnText: { ...typography.sm, fontWeight: "600", color: colors.primary },
 });
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
@@ -898,8 +971,8 @@ export default function OrdersScreen() {
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [reviewedOrderIds, setReviewedOrderIds] = useState<Set<number>>(new Set());
   const [receivingOrderId, setReceivingOrderId] = useState<number | null>(null);
-  const [reviewTarget, setReviewTarget] = useState<Order | null>(null);
-  const [activeTab, setActiveTab] = useState<"active" | "past">("active");
+  const [activeTab, setActiveTab] = useState<TabType>("upcoming");
+  const [orderSearch, setOrderSearch] = useState("");
 
   // Live unread counts behind the chat badges on each card.
   const { unread: chatUnread } = useChatUnread(Boolean(dbUser));
@@ -1141,8 +1214,10 @@ export default function OrdersScreen() {
     }
   }, [fetchOrders]);
 
-  const toggleExpand = (id: number) =>
-    setExpandedOrderId((prev) => (prev === id ? null : id));
+  const toggleExpand = useCallback(
+    (id: number) => setExpandedOrderId((prev) => (prev === id ? null : id)),
+    [],
+  );
 
   const markReceived = async (order: Order) => {
     setReceivingOrderId(order.id);
@@ -1156,20 +1231,55 @@ export default function OrdersScreen() {
     }
   };
 
-  const handleReviewSubmitted = (orderId: number) => {
+  const handleReviewSubmitted = useCallback((orderId: number) => {
     setReviewedOrderIds((prev) => new Set(prev).add(orderId));
-  };
+  }, []);
 
-  // Split into Active / Past for the tabbed view.
-  const activeOrders = useMemo(
-    () => orders.filter((o) => ACTIVE_STATUSES.has(o.status)),
-    [orders]
+  const dishFor = useCallback(
+    (order: Order): DishInfo | undefined => {
+      const primaryId = order.items?.[0]?.food_listing_id ?? order.food_listing_id;
+      return primaryId != null ? dishMap.get(primaryId) : undefined;
+    },
+    [dishMap],
   );
-  const pastOrders = useMemo(
-    () => orders.filter((o) => !ACTIVE_STATUSES.has(o.status)),
-    [orders]
+  const requestFor = useCallback(
+    (order: Order): RequestInfo | undefined =>
+      order.food_request_id != null ? requestMap.get(order.food_request_id) : undefined,
+    [requestMap],
   );
-  const displayedOrders = activeTab === "active" ? activeOrders : pastOrders;
+
+  // Search runs over every tab (of the orders loaded so far), so the pill
+  // counts show where the matches are.
+  const matchesSearch = useCallback(
+    (order: Order): boolean => {
+      const query = orderSearch.trim().toLowerCase().replace(/^#/, "");
+      if (!query) return true;
+      if (String(order.id).includes(query)) return true;
+      const names = orderItemNames(order, dishFor(order), requestFor(order));
+      return names.some((name) => name.toLowerCase().includes(query));
+    },
+    [orderSearch, dishFor, requestFor],
+  );
+
+  const tabOrders = useMemo(() => {
+    const byTab: Record<TabType, Order[]> = {
+      upcoming: [],
+      "in-transit": [],
+      completed: [],
+      cancelled: [],
+    };
+    orders.forEach((o) => {
+      if (matchesSearch(o)) byTab[getTabForStatus(o.status)].push(o);
+    });
+    return byTab;
+  }, [orders, matchesSearch]);
+
+  const displayedOrders = tabOrders[activeTab];
+  const totalMatches =
+    tabOrders.upcoming.length +
+    tabOrders["in-transit"].length +
+    tabOrders.completed.length +
+    tabOrders.cancelled.length;
 
   // Take the deep link to its order: switch to the tab holding it, expand it,
   // and scroll it into view.
@@ -1181,15 +1291,17 @@ export default function OrdersScreen() {
     if (!target) return;
 
     deepLinkApplied.current = true;
-    const targetTab = ACTIVE_STATUSES.has(target.status) ? "active" : "past";
+    const targetTab = getTabForStatus(target.status);
+    setOrderSearch("");
     setActiveTab(targetTab);
     setExpandedOrderId(target.id);
 
     // The tab switch has to render the new list before there is a row to
     // scroll to, so the index is resolved on the next frame.
     requestAnimationFrame(() => {
-      const list = targetTab === "active" ? activeOrders : pastOrders;
-      const index = list.findIndex((o) => o.id === target.id);
+      const index = orders
+        .filter((o) => getTabForStatus(o.status) === targetTab)
+        .findIndex((o) => o.id === target.id);
       if (index >= 0) {
         listRef.current?.scrollToIndex({
           index,
@@ -1198,7 +1310,7 @@ export default function OrdersScreen() {
         });
       }
     });
-  }, [deepLinkedOrderId, orders, activeOrders, pastOrders]);
+  }, [deepLinkedOrderId, orders]);
 
   // ── Not logged in ──
   if (!user) {
@@ -1247,6 +1359,29 @@ export default function OrdersScreen() {
     );
   }
 
+  const searchQuery = orderSearch.trim();
+  const EMPTY_TAB: Record<TabType, { icon: keyof typeof Ionicons.glyphMap; title: string; sub: string }> = {
+    upcoming: {
+      icon: "time-outline",
+      title: "No upcoming orders",
+      sub: "Orders being prepared will appear here",
+    },
+    "in-transit": {
+      icon: "bicycle-outline",
+      title: "No orders in transit",
+      sub: "Orders ready or on the way will appear here",
+    },
+    completed: {
+      icon: "checkmark-circle-outline",
+      title: "No completed orders",
+      sub: "Your order history will show here",
+    },
+    cancelled: {
+      icon: "close-outline",
+      title: "No cancelled orders",
+      sub: "Cancelled orders will appear here",
+    },
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -1254,90 +1389,122 @@ export default function OrdersScreen() {
         <Text style={styles.headerTitle}>My Orders</Text>
         {total > 0 && (
           <Text style={styles.headerSubtitle}>
-            Track and manage your food orders
+            Track your orders and review past experiences
           </Text>
         )}
       </View>
 
       {orders.length === 0 ? (
-        <EmptyState
-          icon="🛍️"
-          title="No orders yet"
-          description="Your order history will appear here once you place your first order."
-          actionLabel="Browse Chefs"
-          onAction={() => router.push("/(tabs)/chefs")}
-        />
+        <View style={styles.noOrders}>
+          <Mascot pose="idle" size="lg" />
+          <Text style={styles.errorTitle}>No orders yet</Text>
+          <Text style={styles.errorSubtitle}>
+            Start your culinary journey by ordering from talented home chefs in
+            your area
+          </Text>
+          <Button onPress={() => router.push("/(tabs)/home")}>
+            Explore dishes
+          </Button>
+        </View>
       ) : (
         <>
-          {/* Stats + Tabs */}
+          {/* Tabs + search */}
           <View style={styles.controls}>
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Ionicons name="flash" size={14} color={colors.primary} />
-                <Text style={styles.statText}>
-                  <Text style={styles.statNumber}>{activeOrders.length}</Text> active
-                </Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Ionicons name="time-outline" size={14} color={colors.mutedForeground} />
-                <Text style={styles.statText}>
-                  <Text style={styles.statNumber}>{pastOrders.length}</Text> completed
-                </Text>
-              </View>
-            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tabsRow}
+            >
+              {TABS.map((tab) => {
+                const isActiveTab = activeTab === tab.key;
+                const count = tabOrders[tab.key].length;
+                return (
+                  <Pressable
+                    key={tab.key}
+                    style={[styles.tab, isActiveTab && styles.tabActive]}
+                    onPress={() => setActiveTab(tab.key)}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: isActiveTab }}
+                  >
+                    <Text style={isActiveTab ? styles.tabTextActive : styles.tabText}>
+                      {tab.label}
+                    </Text>
+                    {count > 0 && (
+                      <View
+                        style={[
+                          styles.tabCountBadge,
+                          isActiveTab && styles.tabCountBadgeActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.tabCountText,
+                            isActiveTab && styles.tabCountTextActive,
+                          ]}
+                        >
+                          {count}
+                        </Text>
+                      </View>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
 
-            <View style={styles.tabsRow}>
-              <Pressable
-                style={[styles.tab, activeTab === "active" && styles.tabActive]}
-                onPress={() => setActiveTab("active")}
-              >
-                <Ionicons
-                  name="flash"
-                  size={15}
-                  color={activeTab === "active" ? colors.primary : colors.mutedForeground}
-                />
-                <Text style={activeTab === "active" ? styles.tabTextActive : styles.tabText}>
-                  Active
-                </Text>
-                {activeOrders.length > 0 && (
-                  <View style={styles.tabCountBadge}>
-                    <Text style={styles.tabCountText}>{activeOrders.length}</Text>
-                  </View>
-                )}
-              </Pressable>
-              <Pressable
-                style={[styles.tab, activeTab === "past" && styles.tabActive]}
-                onPress={() => setActiveTab("past")}
-              >
-                <Ionicons
-                  name="time-outline"
-                  size={15}
-                  color={activeTab === "past" ? colors.primary : colors.mutedForeground}
-                />
-                <Text style={activeTab === "past" ? styles.tabTextActive : styles.tabText}>
-                  Past
-                </Text>
-              </Pressable>
+            <View style={styles.searchBox}>
+              <Ionicons name="search" size={18} color={colors.mutedForeground} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search by order number or item"
+                placeholderTextColor={colors.mutedForeground}
+                value={orderSearch}
+                onChangeText={setOrderSearch}
+                autoCorrect={false}
+                autoCapitalize="none"
+                returnKeyType="search"
+              />
+              {orderSearch ? (
+                <Pressable
+                  onPress={() => setOrderSearch("")}
+                  hitSlop={8}
+                  accessibilityLabel="Clear search"
+                >
+                  <Ionicons name="close-circle" size={18} color={colors.mutedForeground} />
+                </Pressable>
+              ) : null}
             </View>
           </View>
 
-          {displayedOrders.length === 0 ? (
-            <EmptyState
-              icon={activeTab === "active" ? "⚡" : "🗂️"}
-              title={activeTab === "active" ? "No active orders" : "No past orders"}
-              description={
-                activeTab === "active"
-                  ? "You don't have any orders in progress right now."
-                  : "Your completed orders will appear here."
-              }
-            />
+          {displayedOrders.length === 0 && searchQuery ? (
+            <View style={styles.emptyTab}>
+              <Ionicons name="search" size={40} color={colors.mutedForeground} />
+              <Text style={styles.emptyTitle}>No orders match "{searchQuery}"</Text>
+              <Text style={styles.emptySub}>
+                {totalMatches > 0
+                  ? "Nothing in this tab matches — check the other tabs above."
+                  : "Try an order number, or part of the dish name."}
+              </Text>
+              <Button variant="outline" size="sm" onPress={() => setOrderSearch("")}>
+                Clear search
+              </Button>
+            </View>
+          ) : displayedOrders.length === 0 ? (
+            <View style={styles.emptyTab}>
+              <Ionicons
+                name={EMPTY_TAB[activeTab].icon}
+                size={40}
+                color={colors.mutedForeground}
+              />
+              <Text style={styles.emptyTitle}>{EMPTY_TAB[activeTab].title}</Text>
+              <Text style={styles.emptySub}>{EMPTY_TAB[activeTab].sub}</Text>
+            </View>
           ) : (
         <FlatList
           ref={listRef}
           data={displayedOrders}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled"
           // Order cards vary in height and there is no getItemLayout, so a
           // scroll to a row that hasn't been measured yet can fail. Nudge the
           // list to the offset it does know, then retry once it has rendered.
@@ -1354,27 +1521,20 @@ export default function OrdersScreen() {
               tintColor={colors.primary}
             />
           }
-          ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
           renderItem={({ item }) => (
             <OrderCard
               order={item}
-              dish={(() => {
-                const primaryId =
-                  item.items?.[0]?.food_listing_id ?? item.food_listing_id;
-                return primaryId != null ? dishMap.get(primaryId) : undefined;
-              })()}
-              requestInfo={
-                item.food_request_id != null
-                  ? requestMap.get(item.food_request_id)
-                  : undefined
-              }
+              dish={dishFor(item)}
+              requestInfo={requestFor(item)}
               chefInfo={chefMap.get(item.chef_id)}
               isExpanded={expandedOrderId === item.id}
               isReceiving={receivingOrderId === item.id}
               hasReviewed={reviewedOrderIds.has(item.id)}
+              customerId={(dbUser?.id as number | undefined) ?? null}
               onToggle={toggleExpand}
               onMarkReceived={markReceived}
-              onLeaveReview={setReviewTarget}
+              onReviewSubmitted={handleReviewSubmitted}
               unreadMessages={
                 chatUnread.by_order[String(item.id)] ??
                 item.unread_message_count ??
@@ -1389,6 +1549,7 @@ export default function OrdersScreen() {
                   },
                 })
               }
+              onOrderAgain={(listingId) => router.push(`/dish/${listingId}`)}
             />
           )}
           ListFooterComponent={
@@ -1411,15 +1572,6 @@ export default function OrdersScreen() {
         />
           )}
         </>
-      )}
-
-      {reviewTarget && dbUser && (
-        <ReviewModal
-          order={reviewTarget}
-          customerId={dbUser.id as number}
-          onClose={() => setReviewTarget(null)}
-          onSubmitted={handleReviewSubmitted}
-        />
       )}
     </SafeAreaView>
   );
@@ -1445,57 +1597,92 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   controls: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm + 4,
+    paddingBottom: spacing.sm + 4,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    gap: spacing.sm + 4,
   },
-  statsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    backgroundColor: colors.muted,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  statItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  statText: { ...typography.xs, color: colors.mutedForeground },
-  statNumber: { fontWeight: "700", color: colors.foreground },
-  statDivider: { width: 1, height: 14, backgroundColor: colors.border },
   tabsRow: {
     flexDirection: "row",
     gap: spacing.sm,
-    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   tab: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
-    borderBottomWidth: 2,
-    borderBottomColor: "transparent",
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.full,
+    backgroundColor: colors.muted,
   },
-  tabActive: { borderBottomColor: colors.primary },
+  tabActive: { backgroundColor: colors.foreground },
   tabText: { ...typography.sm, fontWeight: "600", color: colors.mutedForeground },
-  tabTextActive: { ...typography.sm, fontWeight: "700", color: colors.primary },
+  tabTextActive: { ...typography.sm, fontWeight: "700", color: colors.background },
   tabCountBadge: {
-    minWidth: 18,
-    paddingHorizontal: 5,
+    minWidth: 20,
+    paddingHorizontal: 6,
     height: 18,
     borderRadius: radius.full,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
-  tabCountText: { ...typography.xs, fontWeight: "700", color: colors.primaryForeground },
+  tabCountBadgeActive: { backgroundColor: colors.background },
+  tabCountText: { ...typography.xs, fontWeight: "700", color: colors.mutedForeground },
+  tabCountTextActive: { color: colors.foreground },
+  searchBox: {
+    marginHorizontal: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.sm + 4,
+  },
+  searchInput: {
+    flex: 1,
+    ...typography.base,
+    color: colors.foreground,
+    paddingVertical: Platform.OS === "ios" ? 10 : 6,
+  },
   listContent: {
     padding: spacing.md,
     paddingBottom: spacing.xl,
+  },
+  noOrders: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.xl,
+    gap: spacing.md,
+  },
+  emptyTab: {
+    margin: spacing.md,
+    paddingVertical: spacing["2xl"],
+    paddingHorizontal: spacing.lg,
+    alignItems: "center",
+    gap: spacing.sm,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: colors.border,
+  },
+  emptyTitle: {
+    ...typography.lg,
+    fontWeight: "700",
+    color: colors.foreground,
+    textAlign: "center",
+  },
+  emptySub: {
+    ...typography.sm,
+    color: colors.mutedForeground,
+    textAlign: "center",
+    marginBottom: spacing.xs,
   },
   errorContainer: {
     flex: 1,

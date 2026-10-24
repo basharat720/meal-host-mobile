@@ -39,3 +39,5 @@ between the two.
 | [Becoming FoodPal](09-becoming-foodpal.md) | The rename: new name, icon, splash and logo, why the app does not become a new download, and what keeps working |
 | [Deleting Your Account](10-deleting-your-account.md) | Where Delete Account lives, what it removes, what stays on past orders, and when an in-flight order blocks it |
 | [Chef Launch Details in the App](11-chef-launch-details.md) | CNIC first/last name, bank details and NTN status on the chef Profile tab, and what Save requires |
+| [Choosing Your Delivery Address in the App](12-delivery-address-in-the-app.md) | One delivery location for the whole app, saved addresses, the map pin and the details step |
+| [Order Cards in the App](13-order-cards-in-the-app.md) | The redesigned customer and chef order cards: status strip, Pal, progress bar, queues and search |

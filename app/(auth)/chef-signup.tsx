@@ -281,9 +281,11 @@ export default function ChefSignupScreen() {
                 label="Kitchen Address"
                 required
                 focusOnLahore
-                placeholder={"Tap \u201cLocate me\u201d to set your kitchen address"}
+                placeholder={"Search for your kitchen address or use \u201cLocate me\u201d"}
                 defaultValue={address}
                 error={errors.address}
+                defaultCoords={coords ? { lat: coords.latitude, lon: coords.longitude } : null}
+                pinLabel="Your kitchen is here"
                 onLocationSelect={(loc) => {
                   setAddress(loc.label);
                   setCoords({ latitude: loc.lat, longitude: loc.lon });

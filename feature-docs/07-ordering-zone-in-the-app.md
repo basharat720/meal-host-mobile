@@ -20,33 +20,35 @@ Browsing is not affected anywhere. Anyone, in any city, can open the app, search
 kitchens and dishes, read reviews, fill a cart, post a food request — and place
 a pickup order.
 
-## The app does not interrupt checkout with a permission prompt
+## Where the customer's position comes from
 
-This is the main difference from the website, and it is deliberate. The website
-asks the browser for a position the moment checkout opens. The app does not: a
-system permission dialog appearing in the middle of paying for food is the kind
-of interruption that loses an order, and this is the same rule the app already
-follows everywhere else
-(see [Location & Address Privacy](04-location-and-address-privacy.md)).
+Since October 2026 the position is the **one delivery location** chosen with
+the location pill at the top of Home and Find Chefs — a saved address, or a pin
+placed on the map — exactly as on the website. See
+[Choosing Your Delivery Address in the App](12-delivery-address-in-the-app.md).
+With nothing chosen, a signed-in customer's profile address is used.
 
-Instead, when checkout opens the app checks whether location permission has
-**already** been granted:
+Checkout never reads the phone's position and never raises a permission
+prompt: a system dialog appearing in the middle of paying for food is the kind
+of interruption that loses an order
+(see [Location & Address Privacy](04-location-and-address-privacy.md)). The
+prompt only ever follows a tap on **Locate me**.
 
-- **Already granted** — the app reads the position quietly and asks the server
-  whether delivery can be offered. A customer inside Askari X ordering from a
-  kitchen inside Askari X sees both options and carries on as before.
-- **Not granted** — no prompt appears. Checkout simply opens as a pickup order,
-  with the Delivery option dimmed and a **Share my location** button beside it.
-  The system prompt is raised only if the customer taps that button. Nothing is
-  asked that the customer did not ask for, and nothing is lost by ignoring it.
+- **A location is chosen** — the app asks the server whether delivery can be
+  offered for it. A customer inside Askari X ordering from a kitchen inside
+  Askari X sees both options and carries on as before.
+- **Nothing is chosen** — checkout simply opens as a pickup order, with the
+  Delivery option dimmed and a **Share my location** button that opens the
+  location sheet. Nothing is lost by ignoring it.
 
 ## What the customer sees at checkout
 
 The Pickup / Delivery pair is unchanged in layout. Pickup is selected by
 default and is always tappable.
 
-**Delivery available.** Both options are live, and choosing Delivery reveals the
-delivery address field as before.
+**Delivery available.** Both options are live, and choosing Delivery shows the
+delivery address: a card with the chosen location's name, its full address and
+its note to the rider, and **Change**, which opens the location sheet.
 
 **Delivery unavailable.** The Delivery option is dimmed and untappable, with a
 line underneath saying why in the customer's own terms:
@@ -58,8 +60,11 @@ line underneath saying why in the customer's own terms:
 | The kitchen has no pickup address set | "This kitchen hasn't set a pickup address, so we can't arrange delivery." |
 | The app doesn't know where the customer is | "We couldn't confirm your location, so we can't arrange delivery." — with a **Share my location** button |
 
-Only the last two rows about the *customer's* end come with a button, because
-only those can be fixed by the customer. Offering "share your location" when the
+When delivery is unavailable a card at the top of checkout also says **This
+order is for pickup**. If the reason is on the *customer's* end — outside the
+zone, or no location — it carries a button (**Change location** or **Share my
+location**) that opens the location sheet, because only those can be fixed by
+the customer. Offering "share your location" when the
 kitchen is the one out of range would send them down a dead end.
 
 **Place Order stays enabled throughout.** There is no state in which checkout
@@ -80,68 +85,40 @@ server would refuse the order anyway and a refusal after payment details are
 filled in is exactly what asking up front is meant to avoid. Pickup is
 unaffected, so nobody is stuck.
 
-## Confirming a location
+## Setting or changing the location
 
-The confirm-location card offers the same two routes the website's dialog does,
-and either is a complete answer:
+Every "Share my location", "Change location" and "Change" button at checkout
+opens the same location sheet the pill opens: search with suggestions, **Locate
+me**, the saved addresses, and **Add new address**. Whatever is chosen there
+becomes the location for the whole app, so the cart, checkout, Home and Find
+Chefs all agree. It is remembered on the phone until the customer picks another.
 
-- **Share my location** — raises the permission prompt, or reads the position
-  straight away if permission is already there.
-- **Enter your address** — the same address field with live suggestions used at
-  signup and in the profile. Picking a suggestion pins an exact spot, and that
-  spot is checked the same way a device position is.
-
-Only an address chosen from the suggestion list counts. Free-typed text that was
-never matched to a real place cannot be checked against anything, so it is not
-accepted.
-
-Once a location is set it is remembered, so moving between the cart, checkout
-and back does not ask again. It is kept until the app is reinstalled or the
-customer sets a different one.
-
-## When the phone will not say where it is
-
-Phones refuse in more than one way, and the card says which one happened rather
-than sending the customer to check a setting that was never the problem:
-
-| What happened | What the card says |
-| --- | --- |
-| The customer declined the prompt | Offers to try again |
-| Location was turned off for the app for good | Explains it, and offers a button that opens the phone's Settings directly |
-| The position came back too vague to trust | Says it could only find them approximately, and asks for an address instead |
-| Location services are off, or the fix timed out | Asks them to check their connection and try again |
-
-The **open Settings** button is an app-only affordance — the website can only
-describe where the browser's permission menu is and hope the customer finds it,
-whereas the app can put them on the right screen. It only appears when a setting
-is genuinely what is standing in the way.
-
-A position that comes back wildly imprecise is treated as no position at all. A
-fix good to within a kilometre or worse could place an Askari X resident in
-another part of the city, and being wrongly told "we can't deliver to you" is
-worse than being asked for an address.
+If location permission was refused for good, Locate me says so and offers
+**Open Settings**, which goes straight to FoodPal's page in the phone's
+Settings — the website can only describe where the browser's menu is. A fix too
+vague to trust (worse than a kilometre) still opens the map there, with a note
+asking the customer to move the pin onto their door.
 
 Declining all of this costs the delivery option and nothing else.
 
 ## Where the customer finds out
 
-- **In the cart** — if the app *already* knows the customer is outside the zone,
-  a short note says the order will be for pickup, so the news does not arrive at
+- **In the cart** — if the chosen delivery location is outside the zone, a
+  short note says the order will be for pickup, so the news does not arrive at
   the last step. It is a note, not a warning: nothing is blocked. The cart never
-  asks for a location itself and never raises a prompt; it only reports what is
-  already known.
+  asks for a location itself and never raises a prompt.
 - **At checkout** — where the Pickup/Delivery choice is made, and the only place
   the zone has any visible effect.
 
 Nothing is shown on the home feed, on Find Chefs, or on dish and chef screens.
 
-## The delivery address is checked too
+## The delivery address is the checked position
 
-For a delivery order there are two customer-side places involved: where the
-customer is standing, and where the food is going. Both have to be in the zone.
-The delivery address is pinned from the suggestion list, and if it falls outside
-the zone the field says so directly, even when the customer themselves is
-inside.
+The delivery address is no longer typed at checkout: it *is* the chosen
+delivery location, so where the food goes and the point the zone rule judges
+are always the same place. If it falls outside the zone the address card says
+so directly. The order carries it as text, with the rider note appended
+("… — Note: ring the bell twice").
 
 ## What is sent with the order
 

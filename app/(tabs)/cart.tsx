@@ -35,11 +35,11 @@ export default function CartScreen() {
   const { formatPrice } = useI18n();
   const router = useRouter();
 
-  // Report-only: the cart says so if we *already* know the customer is outside
-  // the zone, so the news doesn't arrive at the last step. It never reads the
-  // phone's position and never raises a permission prompt — that belongs to
-  // checkout. See feature-docs/07-ordering-zone-in-the-app.md.
-  const serviceArea = useServiceAreaGate({ autoLocate: false });
+  // Report-only: the cart says so if the delivery location chosen with the
+  // location pill is outside the zone, so the news doesn't arrive at the last
+  // step. It never reads the phone's position or raises a permission prompt.
+  // See feature-docs/07-ordering-zone-in-the-app.md.
+  const serviceArea = useServiceAreaGate();
   const isKnownOutside = serviceArea.status === "outside";
 
   // A cart only ever holds one chef's dishes, so a single status check covers it.

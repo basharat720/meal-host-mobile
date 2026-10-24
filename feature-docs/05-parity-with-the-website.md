@@ -17,7 +17,8 @@ no app equivalent and is not intended to get one.
 
 **Online card payment.** The website takes payment through PayFast: a payment
 method choice at checkout, a branded handover screen, and success and failure
-screens it returns to. The app offers cash only.
+screens it returns to. The app offers cash only. (An order paid by card on the
+website still shows a **Card** tag on its order card in the app.)
 
 This is not simply unported. The website calls payment endpoints
 (`payments/payfast/…`) that do not exist in the backend repository, so the
@@ -51,6 +52,14 @@ anywhere. Wiring it up without that copy would show Norwegian users English
 with no sign that it is untranslated, which for legal text is worse than
 nothing.
 
+## Kept website-only on purpose
+
+**The "ordering is paused" switch.** The website has a launch switch that
+turns ordering off and shows a "coming soon" banner in its place. The app has
+no equivalent and is not meant to get one — the app is only released once
+ordering is live, so it would only ever be a way to break checkout by
+accident.
+
 ## Smaller open items
 
 - **Adding a role to an existing account.** You can switch between roles your
@@ -64,6 +73,21 @@ nothing.
   Contact all exist in the app.
 - **A chef's full address on their profile screen** is not masked. The website
   has the same gap.
+
+## Recently brought level with the website
+
+- **Order cards** (October 2026) — My Orders and the chef's Orders screen now
+  use the website's card design: plain-language status strip with Pal,
+  progress bar, rating on the card, Upcoming / In transit / Completed /
+  Cancelled tabs and Needs action / Waiting / History queues with search. See
+  [Order Cards in the App](13-order-cards-in-the-app.md).
+- **Contact form** — the Contact screen now has the website's message form
+  (name, email, subject, message), which works signed out and pre-fills from
+  your account when signed in, alongside the phone, email, hours and office
+  address (with a Google Maps link).
+- **Privacy Policy text** — the app carries the website's paragraph on
+  delivery riders' location, and "Delete your account" links to the app's
+  Delete Account screen.
 
 ## Where the app is ahead
 

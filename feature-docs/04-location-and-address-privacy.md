@@ -2,29 +2,31 @@
 
 ## When the app asks for your location
 
-The app asks for your location **only when you have asked it to do something
-that needs it** — tapping **Locate me** on an address field is the one place a
-permission prompt appears.
+The app asks for your location **only when you tap Locate me** — in the
+location sheet, on the address map, or on an address field at signup and in
+Profile. Nothing else in the app reads the phone's position or raises the
+permission prompt.
 
-Everywhere else that benefits from knowing where you are, the app checks
-whether you have *already* granted permission and quietly does without if you
-have not:
+Everything that benefits from knowing where you are reads the **one delivery
+location** you chose with the location pill at the top of Home and Find Chefs
+— a saved address, or a pin you placed on the map. If you have not chosen one,
+the app uses the address on your profile; signed out with nothing chosen, it
+does without. See [Choosing Your Delivery Address in the App](12-delivery-address-in-the-app.md).
 
-| Where | What it uses your location for | If permission is not granted |
+| Where | What it uses the delivery location for | With no location chosen |
 | --- | --- | --- |
-| Find Chefs | Puts the nearest kitchens first and shows each one's distance | Kitchens are still listed, without distances |
-| The dish feed | Limits dishes to a chosen radius | Searches without a radius |
-| Checkout | Shows how far away the chef is, and checks you are inside the ordering zone | The area is still shown, without a distance; a card asks you to confirm where you are |
+| Find Chefs | Puts the nearest kitchens first, shows each one's distance, and limits the search to the distance slider | Kitchens everywhere are listed, without distances |
+| The dish feed | Limits dishes to the distance slider | Shows dishes from everywhere |
+| Cart | Says up front when the order will be pickup because the location is outside the ordering zone | Says nothing |
+| Checkout | Is the delivery address, shows how far away the chef is, and checks you are inside the ordering zone | Pickup works as normal; Delivery asks you to set an address |
 
 This matters most at checkout. A system permission dialog appearing in the
 middle of paying for food is the kind of interruption that loses an order, so
-the app never does it there.
-
-Checkout is also the one place where the app cannot simply do without a
-location, because ordering is restricted to one neighbourhood. It still does
-not prompt: it uses permission you have already granted, and otherwise asks
-with a card you can answer by tapping a button or by entering an address. See
+the app never does it there. See
 [The Ordering Zone in the App](07-ordering-zone-in-the-app.md).
+
+If you blocked location for FoodPal, Locate me says so and offers **Open
+Settings**, which goes straight to FoodPal's page in the phone's Settings.
 
 ## How a chef's address is protected
 

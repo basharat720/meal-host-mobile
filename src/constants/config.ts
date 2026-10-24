@@ -16,6 +16,13 @@ export const STRIPE_PUBLISHABLE_KEY =
   process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 
 /**
+ * Google Places (New) + Geocoding, for address search and "Locate me". Without
+ * it, search is off and "Locate me" falls back to OpenStreetMap for the label.
+ */
+export const GOOGLE_MAPS_API_KEY =
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
+
+/**
  * Whether to offer social sign-in on the auth screens.
  *
  * Off, because Google sign-in does not work in any build: the app imports

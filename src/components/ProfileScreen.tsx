@@ -599,11 +599,13 @@ export const ProfileScreen = () => {
               label={isChef ? "Kitchen Address" : "Address"}
               placeholder={
                 isChef
-                  ? "Tap \u201cLocate me\u201d to set your kitchen address"
-                  : "Tap \u201cLocate me\u201d to set your address"
+                  ? "Search for your kitchen address or use \u201cLocate me\u201d"
+                  : "Search for your address or use \u201cLocate me\u201d"
               }
               focusOnLahore
+              pinLabel={isChef ? "Your kitchen is here" : "Your location is here"}
               defaultValue={address}
+              defaultCoords={locationCoords}
               onLocationSelect={(loc) => {
                 setAddress(loc.label);
                 // Selecting a suggestion gives exact coordinates, so the save

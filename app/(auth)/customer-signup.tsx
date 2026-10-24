@@ -143,9 +143,10 @@ export default function CustomerSignupScreen() {
               label="Address"
               required
               focusOnLahore
-              placeholder={"Tap \u201cLocate me\u201d to set your address"}
+              placeholder={"Search for your address or use \u201cLocate me\u201d"}
               defaultValue={address}
               error={errors.address}
+              defaultCoords={coords ? { lat: coords.latitude, lon: coords.longitude } : null}
               onLocationSelect={(loc) => {
                 setAddress(loc.label);
                 setCoords({ latitude: loc.lat, longitude: loc.lon });

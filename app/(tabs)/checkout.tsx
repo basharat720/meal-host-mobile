@@ -18,11 +18,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PhoneInput } from "@/components/ui/PhoneInput";
-import { LocationAutocomplete } from "@/components/ui/LocationAutocomplete";
 import { isWithinServiceArea } from "@/services/serviceAreaService";
 import { useDeliveryAvailability } from "@/hooks/useDeliveryAvailability";
 import { useServiceAreaGate } from "@/hooks/useServiceAreaGate";
-import { LocationRequiredCard } from "@/components/location/LocationRequiredCard";
+import { useDeliveryLocation } from "@/contexts/DeliveryLocationContext";
 import { validatePhoneNumber } from "@/lib/phone";
 import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
 import { getCheckoutError } from "@/lib/errorMessages";
@@ -31,7 +30,6 @@ import { buildCartOrderPayload } from "@/lib/orderPayload";
 import { requestService } from "@/services/requestService";
 import { userService } from "@/services/userService";
 import { dishService } from "@/services/dishService";
-import * as Location from "expo-location";
 import { formatDuration, formatDurationRange } from "@/lib/duration";
 import { calculateDistance, maskAddressEnhanced } from "@/lib/addressPrivacy";
 
@@ -79,26 +77,52 @@ export default function CheckoutScreen() {
   const [instructions, setInstructions] = useState("");
   const [pickupAddress, setPickupAddress] = useState("");
   const [isPickupLoading, setIsPickupLoading] = useState(false);
-  const [distanceToChef, setDistanceToChef] = useState<number | undefined>(undefined);
+  // The kitchen's own point, for the distance shown beside the masked area.
+  const [chefCoords, setChefCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
-  // Coordinates behind the delivery address, so the zone rule can be checked
-  // against where the food is actually going.
-  const [deliveryCoords, setDeliveryCoords] = useState<{
-    lat: number;
-    lon: number;
-  } | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [etaText, setEtaText] = useState<string | null>(null);
   const orderPlacedRef = useRef(false);
 
-  // Where the customer is. Reads a position we already have permission for and
-  // otherwise waits to be asked — mounting never raises the system prompt.
-  // Nothing here blocks an order; it only feeds the delivery question below.
-  // See feature-docs/07-ordering-zone-in-the-app.md.
+  // Where the customer is: the delivery location chosen with the location pill
+  // (a saved address or a pin). Checkout never reads the phone's position or
+  // raises the permission prompt itself. Nothing here blocks an order; it only
+  // feeds the delivery question below. See
+  // feature-docs/07-ordering-zone-in-the-app.md and
+  // feature-docs/12-delivery-address-in-the-app.md.
   const gate = useServiceAreaGate();
   const areaName = gate.area?.name ?? "our launch area";
+
+  // The delivery address is that same chosen location, so where the food goes
+  // and the point the zone rule judges are the same. The rider note travels
+  // inside the address text — orders have no field of their own for it.
+  const { location: chosenLocation } = useDeliveryLocation();
+  const deliveryAddress = chosenLocation
+    ? [
+        chosenLocation.address || chosenLocation.title,
+        chosenLocation.deliveryInstructions
+          ? `Note: ${chosenLocation.deliveryInstructions}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" — ")
+    : "";
+
+  // Distance from the chosen location to the kitchen, shown beside the masked
+  // pickup area. Never read from the phone.
+  const distanceToChef = useMemo(
+    () =>
+      chosenLocation && chefCoords
+        ? calculateDistance(
+            chosenLocation.latitude,
+            chosenLocation.longitude,
+            chefCoords.lat,
+            chefCoords.lon
+          )
+        : undefined,
+    [chosenLocation, chefCoords]
+  );
 
   // The dishes being checked out. Offer orders have no listing, and the server
   // always makes those pickup.
@@ -122,12 +146,11 @@ export default function CheckoutScreen() {
   const isDeliveryAvailable = delivery.deliveryAvailable === true;
 
   // The delivery point has to sit inside the zone too. Checked on the device
-  // because the address the customer picks is not the position the gate holds
-  // until they pick it; the server re-checks regardless.
+  // so the card can say so; the server re-checks regardless.
   const isDeliveryOutsideArea =
     deliveryType === "delivery" &&
-    deliveryCoords !== null &&
-    !isWithinServiceArea(gate.area, deliveryCoords.lat, deliveryCoords.lon);
+    chosenLocation !== null &&
+    !isWithinServiceArea(gate.area, chosenLocation.latitude, chosenLocation.longitude);
 
   // Never leave Delivery selected once we learn it isn't on offer — the
   // customer would otherwise fill in an address the order would be refused for.
@@ -187,38 +210,19 @@ export default function CheckoutScreen() {
     let cancelled = false;
     setIsPickupLoading(true);
 
-    userService.getUserById(chefId).then(async (chef) => {
+    userService.getUserById(chefId).then((chef) => {
       if (cancelled) return;
       const primary = chef.locations?.find((l) => l.is_primary) ?? chef.locations?.[0];
       setPickupAddress(primary?.address ?? "");
-
-      // Distance is a nice-to-have beside the masked area, so this must never
-      // prompt: only read the position if the user has already granted access
-      // (for the dish feed's location filter). Unlike the web app, asking here
-      // would put a system permission dialog in the middle of checkout.
-      if (primary?.latitude == null || primary?.longitude == null) return;
-      try {
-        const { granted } = await Location.getForegroundPermissionsAsync();
-        if (!granted || cancelled) return;
-        const position = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        if (cancelled) return;
-        setDistanceToChef(
-          calculateDistance(
-            position.coords.latitude,
-            position.coords.longitude,
-            primary.latitude,
-            primary.longitude
-          )
-        );
-      } catch {
-        // Non-fatal: the area is still shown, just without a distance.
-      }
+      setChefCoords(
+        primary?.latitude != null && primary?.longitude != null
+          ? { lat: primary.latitude, lon: primary.longitude }
+          : null
+      );
     }).catch(() => {
       if (!cancelled) {
         setPickupAddress("");
-        setDistanceToChef(undefined);
+        setChefCoords(null);
       }
     }).finally(() => {
       if (!cancelled) setIsPickupLoading(false);
@@ -289,10 +293,8 @@ export default function CheckoutScreen() {
       return;
     }
     if (deliveryType === "delivery" && !deliveryAddress.trim()) {
-      Alert.alert(
-        "Missing Info",
-        "Please use “Locate me” to set your delivery address."
-      );
+      Alert.alert("Missing Info", "Please set your delivery address.");
+      gate.openLocationPicker();
       return;
     }
     // Location never blocks an order — it only decides whether delivery was an
@@ -468,19 +470,28 @@ export default function CheckoutScreen() {
           ) : null}
         </View>
 
-        {/* Where the customer is. Only offered when sharing it would actually
-            unlock delivery — never when the kitchen is the one out of range,
-            and never in the way of a pickup order. */}
-        {delivery.reason === "customer_location_unknown" && (
-          <LocationRequiredCard
-            status={gate.status}
-            failure={gate.failure}
-            isLocating={gate.isLocating}
-            areaName={gate.area?.name}
-            onRetryDeviceLocation={gate.requestDeviceLocation}
-            onManualLocation={gate.setManualLocation}
-            onOpenSettings={gate.openSettings}
-          />
+        {/* Why this order is pickup. The button is only offered when a
+            different location would actually change the answer — it can't if
+            the kitchen is the one out of range. */}
+        {delivery.deliveryAvailable === false && (
+          <View style={styles.pickupOnlyCard}>
+            <View style={styles.pickupOnlyRow}>
+              <Ionicons name="location-outline" size={20} color={colors.mutedForeground} />
+              <View style={styles.deliveryNoticeTextWrap}>
+                <Text style={styles.deliveryNoticeTitle}>This order is for pickup</Text>
+                <Text style={styles.deliveryNoticeBody}>
+                  {delivery.message ??
+                    `FoodPal only delivers within ${areaName}. You can still place this order for pickup.`}
+                </Text>
+              </View>
+            </View>
+            {(delivery.reason === "customer_location_unknown" ||
+              delivery.reason === "customer_outside") && (
+              <Button variant="accentOutline" size="sm" onPress={gate.openLocationPicker}>
+                {delivery.reason === "customer_outside" ? "Change location" : "Share my location"}
+              </Button>
+            )}
+          </View>
         )}
 
         {/* Contact Info */}
@@ -591,6 +602,14 @@ export default function CheckoutScreen() {
             <Text style={styles.deliveryUnavailableNote}>
               {delivery.message ??
                 `FoodPal only delivers within ${areaName}. You can still place this order for pickup.`}
+              {delivery.reason === "customer_location_unknown" && (
+                <>
+                  {" "}
+                  <Text style={styles.inlineLink} onPress={gate.openLocationPicker}>
+                    Share my location
+                  </Text>
+                </>
+              )}
             </Text>
           )}
 
@@ -634,29 +653,44 @@ export default function CheckoutScreen() {
                 </View>
               </View>
               <View style={styles.textAreaContainer}>
-                <LocationAutocomplete
-                  label="Delivery Address"
-                  required
-                  focusOnLahore
-                  placeholder={"Tap \u201cLocate me\u201d to set your delivery address"}
-                  defaultValue={deliveryAddress}
-                  error={
-                    isDeliveryOutsideArea
-                      ? `This address is outside our delivery zone. FoodPal currently delivers in ${areaName} only — locate yourself from an address inside the zone, or switch to pickup.`
-                      : undefined
-                  }
-                  onLocationSelect={(loc) => {
-                    setDeliveryAddress(loc.label);
-                    setDeliveryCoords({ lat: loc.lat, lon: loc.lon });
-                    // Where the food is going is the address this order should
-                    // be judged on, so the gate uses it too.
-                    gate.setManualLocation(loc.lat, loc.lon, loc.label);
-                  }}
-                />
-                {!isDeliveryOutsideArea && (
+                <Text style={styles.textAreaLabel}>Delivery Address *</Text>
+                {chosenLocation ? (
+                  <View
+                    style={[
+                      styles.deliveryCard,
+                      isDeliveryOutsideArea && styles.deliveryCardError,
+                    ]}
+                  >
+                    <Ionicons name="location" size={20} color={colors.primary} />
+                    <View style={styles.deliveryCardText}>
+                      <Text style={styles.deliveryCardTitle}>{chosenLocation.title}</Text>
+                      {!!chosenLocation.address &&
+                        chosenLocation.address !== chosenLocation.title && (
+                          <Text style={styles.deliveryCardAddress}>{chosenLocation.address}</Text>
+                        )}
+                      {!!chosenLocation.deliveryInstructions && (
+                        <Text style={styles.deliveryCardNote}>
+                          Note to rider: {chosenLocation.deliveryInstructions}
+                        </Text>
+                      )}
+                    </View>
+                    <Pressable onPress={gate.openLocationPicker} hitSlop={8} accessibilityRole="button">
+                      <Text style={styles.inlineLink}>Change</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Button variant="outline" onPress={gate.openLocationPicker}>
+                    Set your delivery address
+                  </Button>
+                )}
+                {isDeliveryOutsideArea ? (
+                  <Text style={styles.deliveryCardErrorText}>
+                    {`This address is outside our delivery zone. FoodPal currently delivers in ${areaName} only — choose an address inside the zone, or switch to pickup.`}
+                  </Text>
+                ) : (
                   <Text style={styles.pickupNote}>
-                    Tap “Locate me” so the chef gets your exact delivery point. Add
-                    landmarks or a floor in the notes below if it helps the rider.
+                    This is the address chosen with the location button on Home. Use Change to pick
+                    another saved address or drop a new pin.
                   </Text>
                 )}
               </View>
@@ -1002,6 +1036,33 @@ const styles = StyleSheet.create({
   methodOptionTextActive: {
     color: colors.primary,
   },
+  pickupOnlyCard: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.muted,
+  },
+  pickupOnlyRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+  inlineLink: { fontWeight: "600", color: colors.primary },
+  deliveryCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  deliveryCardError: { borderColor: colors.destructive },
+  deliveryCardText: { flex: 1, gap: 2 },
+  deliveryCardTitle: { ...typography.sm, fontWeight: "600", color: colors.foreground },
+  deliveryCardAddress: { ...typography.sm, color: colors.mutedForeground },
+  deliveryCardNote: { ...typography.xs, color: colors.mutedForeground, marginTop: 2 },
+  deliveryCardErrorText: { ...typography.sm, color: colors.destructive },
   deliveryNotice: {
     flexDirection: "row",
     gap: spacing.sm,

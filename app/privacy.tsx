@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack } from "expo-router";
 import { colors, fonts, radius, spacing, typography } from "@/constants/theme";
+import { useAuth } from "@/contexts/AuthContext";
 
 function Paragraph({ children }: { children: React.ReactNode }) {
   return <Text style={styles.paragraph}>{children}</Text>;
@@ -27,6 +28,17 @@ function Bullet({ children }: { children: React.ReactNode }) {
 }
 
 export default function PrivacyScreen() {
+  const { user } = useAuth();
+  // Deleting needs a session, so a signed-out reader signs in first and is
+  // brought straight back to the delete screen.
+  const openDeleteAccount = () =>
+    user
+      ? router.push("/delete-account")
+      : router.push({
+          pathname: "/(auth)/customer-login",
+          params: { redirect: "/delete-account" },
+        });
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -142,6 +154,13 @@ export default function PrivacyScreen() {
         <Bullet>Calculate delivery distance</Bullet>
         <Bullet>Improve delivery accuracy</Bullet>
         <Bullet>Provide location-based services</Bullet>
+        <Paragraph>
+          <Text style={styles.bold}>Delivery riders.</Text> If you use the FoodPal Rider app as a
+          delivery rider, your device shares its precise location with us only while you are signed
+          in and marked on duty. We use it to offer you nearby deliveries and to show customers the
+          progress of an order you are carrying. Location sharing stops when you go off duty or sign
+          out, and we do not collect your location in the background at any other time.
+        </Paragraph>
         <Paragraph>
           <Text style={styles.italic}>
             You may disable location access through your device settings at any time.
@@ -274,7 +293,13 @@ export default function PrivacyScreen() {
         <Bullet>Access your personal information</Bullet>
         <Bullet>Correct inaccurate information</Bullet>
         <Bullet>Update your profile</Bullet>
-        <Bullet>Delete your account</Bullet>
+        <Bullet>
+          Delete your account (see{" "}
+          <Text style={styles.link} onPress={openDeleteAccount} accessibilityRole="link">
+            how to delete your account
+          </Text>
+          )
+        </Bullet>
         <Bullet>Withdraw marketing consent</Bullet>
         <Bullet>Request information about how your data is processed</Bullet>
         <Paragraph>
@@ -392,6 +417,7 @@ const styles = StyleSheet.create({
   bulletText: { ...typography.base, color: colors.mutedForeground, flex: 1 },
   bold: { fontFamily: fonts.sansBold, fontWeight: "700", color: colors.foreground },
   italic: { fontStyle: "italic" },
+  link: { color: colors.secondaryStrong, fontFamily: fonts.sansSemiBold, fontWeight: "600" },
   infoBox: {
     backgroundColor: colors.warmCream,
     borderWidth: 1,
