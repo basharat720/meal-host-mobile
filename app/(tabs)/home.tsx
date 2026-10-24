@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TextInput, Pressable,
   ActivityIndicator, Modal, ScrollView, RefreshControl,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { DishCard } from "@/components/DishCard";
@@ -41,6 +41,7 @@ const PAGE_SIZE = 12;
 export default function HomeScreen() {
   const { formatPrice } = useI18n();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [allDishes, setAllDishes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -334,52 +335,52 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
-      {/* Top bar with logo */}
-      <View style={styles.topBar}>
-        <Logo size="md" showText={true} />
-        {user ? (
-          <NotificationBell />
-        ) : (
-          <Pressable
-            style={styles.signInButton}
-            onPress={() => router.push("/(auth)/customer-login")}
-            hitSlop={8}
-          >
-            <Ionicons name="person-outline" size={16} color={colors.primary} />
-            <Text style={styles.signInButtonText}>Sign In</Text>
-          </Pressable>
-        )}
-      </View>
-
-      {/* The delivery location the feed searches around. */}
-      <View style={styles.locationRow}>
-        <LocationPill />
-      </View>
-
-      {/* Search bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchRow}>
-          <View style={styles.searchInputWrap}>
-            <Ionicons name="search-outline" size={18} color={colors.mutedForeground} style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search dishes or chefs..."
-              placeholderTextColor={colors.mutedForeground}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              returnKeyType="search"
-            />
-            {searchQuery.length > 0 && (
-              <Pressable onPress={() => setSearchQuery("")} hitSlop={8}>
-                <Ionicons name="close-circle" size={18} color={colors.mutedForeground} />
+    <SafeAreaView style={styles.safe} edges={[]}>
+      {/* Tinted header, under the status bar: logo, the delivery location the
+          feed searches around, then search. */}
+      <View style={[styles.hero, { paddingTop: insets.top + spacing.sm }]}>
+        <View style={styles.topBar}>
+          <Logo size="lg" showText={false} />
+          <View style={styles.topBarRight}>
+            <LocationPill variant="header" style={styles.topBarLocation} />
+            {!user && (
+              <Pressable
+                style={styles.signInButton}
+                onPress={() => router.push("/(auth)/customer-login")}
+                hitSlop={8}
+              >
+                <Ionicons name="person-outline" size={16} color={colors.primary} />
+                <Text style={styles.signInButtonText}>Sign In</Text>
               </Pressable>
             )}
           </View>
-          <Pressable style={styles.filterButton} onPress={() => setFilterModalVisible(true)}>
-            <Ionicons name="options-outline" size={20} color={hasActiveFilters ? colors.secondaryStrong : colors.foreground} />
-            {hasActiveFilters && <View style={styles.filterDot} />}
-          </Pressable>
+        </View>
+
+        {/* Search bar */}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchRow}>
+            <View style={styles.searchInputWrap}>
+              <Ionicons name="search-outline" size={18} color={colors.mutedForeground} style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search dishes or chefs..."
+                placeholderTextColor={colors.mutedForeground}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                returnKeyType="search"
+              />
+              {searchQuery.length > 0 && (
+                <Pressable onPress={() => setSearchQuery("")} hitSlop={8}>
+                  <Ionicons name="close-circle" size={18} color={colors.mutedForeground} />
+                </Pressable>
+              )}
+            </View>
+            <Pressable style={styles.filterButton} onPress={() => setFilterModalVisible(true)}>
+              <Ionicons name="options-outline" size={20} color={hasActiveFilters ? colors.secondaryStrong : colors.foreground} />
+              {hasActiveFilters && <View style={styles.filterDot} />}
+            </Pressable>
+            <NotificationBell size={22} style={styles.filterButton} />
+          </View>
         </View>
       </View>
 
@@ -644,11 +645,18 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  topBar: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: spacing.md, paddingVertical: 12,
-    backgroundColor: colors.background, borderBottomWidth: 1, borderBottomColor: colors.border,
+  hero: {
+    backgroundColor: colors.primarySubtle, paddingBottom: spacing.md,
+    borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
   },
+  topBar: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    paddingHorizontal: spacing.md, paddingBottom: spacing.sm,
+  },
+  topBarRight: {
+    flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: spacing.sm,
+  },
+  topBarLocation: { flex: 1 },
   signInButton: {
     flexDirection: "row", alignItems: "center", gap: 5,
     paddingHorizontal: spacing.md, paddingVertical: 7,
@@ -656,19 +664,19 @@ const styles = StyleSheet.create({
     backgroundColor: `${colors.primary}12`,
   },
   signInButtonText: { ...typography.sm, fontFamily: fonts.sansSemiBold, fontWeight: "600", color: colors.primary },
-  searchContainer: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.background },
+  searchContainer: { paddingHorizontal: spacing.md, paddingTop: spacing.xs },
   searchRow: { flexDirection: "row", gap: spacing.sm, alignItems: "center" },
   searchInputWrap: {
     flex: 1, flexDirection: "row", alignItems: "center",
-    backgroundColor: colors.surface, borderRadius: radius.xl,
-    borderWidth: 1.5, borderColor: colors.border,
-    paddingHorizontal: spacing.md, height: 44,
+    backgroundColor: colors.surface, borderRadius: radius.full,
+    borderWidth: 1, borderColor: `${colors.primary}1F`,
+    paddingHorizontal: spacing.md, height: 46,
   },
   searchIcon: { marginRight: spacing.sm },
   searchInput: { flex: 1, ...typography.base, color: colors.foreground },
   filterButton: {
-    width: 44, height: 44, borderRadius: radius.xl,
-    backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.border,
+    width: 46, height: 46, borderRadius: radius.full,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.primary}1F`,
     alignItems: "center", justifyContent: "center",
   },
   filterDot: {
@@ -803,6 +811,4 @@ const styles = StyleSheet.create({
   },
   radiusBounds: { flexDirection: "row", justifyContent: "space-between" },
   radiusBoundText: { ...typography.xs, fontFamily: fonts.sans, color: colors.mutedForeground },
-
-  locationRow: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
 });

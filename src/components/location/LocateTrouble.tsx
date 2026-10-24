@@ -41,11 +41,33 @@ export function LocateMeButton({
   onPress,
   isLocating,
   disabled,
+  compact,
 }: {
   onPress: () => void;
   isLocating: boolean;
   disabled?: boolean;
+  /** Icon only, in a round tinted button — for fields with more than one action. */
+  compact?: boolean;
 }) {
+  if (compact) {
+    return (
+      <Pressable
+        style={({ pressed }) => [styles.locateCompact, pressed && styles.pressed]}
+        onPress={onPress}
+        disabled={isLocating || disabled}
+        hitSlop={4}
+        accessibilityRole="button"
+        accessibilityLabel="Use my current location"
+      >
+        {isLocating ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Ionicons name="locate" size={18} color={colors.primary} />
+        )}
+      </Pressable>
+    );
+  }
+
   return (
     <Pressable
       style={styles.locate}
@@ -67,6 +89,14 @@ export function LocateMeButton({
 
 const styles = StyleSheet.create({
   locate: { flexDirection: "row", alignItems: "center", gap: 4 },
+  locateCompact: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.full,
+    backgroundColor: `${colors.primary}14`,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   locateText: {
     ...typography.sm,
     fontFamily: fonts.sansSemiBold,

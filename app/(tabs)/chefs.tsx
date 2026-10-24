@@ -13,7 +13,7 @@ import {
   Switch,
   useWindowDimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -91,6 +91,7 @@ function mapChef(chef: ChefListItem): MappedChef {
 
 export default function ChefsScreen() {
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { dbUser } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -350,66 +351,58 @@ export default function ChefsScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
-      <View style={styles.header}>
-        <Logo size="md" showText={true} />
-        <NotificationBell />
-      </View>
-
-      {/* The delivery location the search runs from. */}
-      <View style={styles.locationRow}>
-        <LocationPill />
-      </View>
-
-      {/* Search + filters */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputWrap}>
-          <Ionicons
-            name="search-outline"
-            size={18}
-            color={colors.mutedForeground}
-            style={styles.searchIcon}
-          />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search kitchens or dishes..."
-            placeholderTextColor={colors.mutedForeground}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-          />
-          {searchQuery.length > 0 && (
-            <Pressable onPress={() => setSearchQuery("")} hitSlop={8}>
-              <Ionicons name="close-circle" size={18} color={colors.mutedForeground} />
-            </Pressable>
-          )}
+    <SafeAreaView style={styles.safe} edges={[]}>
+      {/* Tinted header, under the status bar: logo, the delivery location the
+          search runs from, then search + filters. */}
+      <View style={[styles.hero, { paddingTop: insets.top + spacing.sm }]}>
+        <View style={styles.header}>
+          <Logo size="lg" showText={false} />
+          <LocationPill variant="header" style={styles.headerLocation} />
         </View>
-        <Pressable
-          style={[styles.filterButton, activeFilterCount > 0 && styles.filterButtonActive]}
-          onPress={() => setFiltersOpen(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Filters"
-        >
-          <Ionicons
-            name="options-outline"
-            size={20}
-            color={activeFilterCount > 0 ? FILTER_ACCENT : colors.foreground}
-          />
-          {activeFilterCount > 0 && (
-            <View style={styles.filterCountDot}>
-              <Text style={styles.filterCountText}>{activeFilterCount}</Text>
-            </View>
-          )}
-        </Pressable>
-      </View>
 
-      {total > 0 && (
-        <View style={styles.countRow}>
-          <Text style={styles.countText}>
-            {total} chef{total !== 1 ? "s" : ""}
-          </Text>
+        {/* Search + filters */}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputWrap}>
+            <Ionicons
+              name="search-outline"
+              size={18}
+              color={colors.mutedForeground}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search kitchens or dishes..."
+              placeholderTextColor={colors.mutedForeground}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => setSearchQuery("")} hitSlop={8}>
+                <Ionicons name="close-circle" size={18} color={colors.mutedForeground} />
+              </Pressable>
+            )}
+          </View>
+          <Pressable
+            style={[styles.filterButton, activeFilterCount > 0 && styles.filterButtonActive]}
+            onPress={() => setFiltersOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Filters"
+          >
+            <Ionicons
+              name="options-outline"
+              size={20}
+              color={activeFilterCount > 0 ? FILTER_ACCENT : colors.foreground}
+            />
+            {activeFilterCount > 0 && (
+              <View style={styles.filterCountDot}>
+                <Text style={styles.filterCountText}>{activeFilterCount}</Text>
+              </View>
+            )}
+          </Pressable>
+          <NotificationBell size={22} style={styles.filterButton} />
         </View>
-      )}
+      </View>
 
       {isLoading ? (
         <FullScreenLoader message="Finding home chefs..." />
@@ -621,34 +614,36 @@ export default function ChefsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
 
+  hero: {
+    backgroundColor: colors.primarySubtle,
+    paddingBottom: spacing.md,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
   header: {
-    // Row, so the bell sits opposite the logo the way the home top bar does.
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 12,
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
     paddingBottom: spacing.sm,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    gap: spacing.xs,
   },
+  headerLocation: { flex: 1 },
 
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
+    paddingTop: spacing.xs,
   },
   searchInputWrap: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    height: 46,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
+    borderColor: `${colors.primary}1F`,
+    borderRadius: radius.full,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
   },
@@ -660,13 +655,13 @@ const styles = StyleSheet.create({
     color: colors.foreground,
   },
   filterButton: {
-    width: 44,
-    height: 42,
+    width: 46,
+    height: 46,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
+    borderColor: `${colors.primary}1F`,
+    borderRadius: radius.full,
     backgroundColor: colors.surface,
   },
   filterButtonActive: { backgroundColor: FILTER_ACCENT_SUBTLE, borderColor: FILTER_ACCENT },
@@ -684,8 +679,6 @@ const styles = StyleSheet.create({
   },
   filterCountText: { fontSize: 10, fontWeight: "700", color: colors.white },
 
-  countRow: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
-  countText: { ...typography.sm, color: colors.mutedForeground },
 
   requestBanner: {
     flexDirection: "row",
@@ -760,7 +753,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 
-  locationRow: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
+  // Part of the header: the border under it closes the top bar.
   locRow: {
     flexDirection: "row", alignItems: "center", gap: spacing.sm,
     paddingHorizontal: 12, paddingVertical: 10, borderRadius: radius.md,

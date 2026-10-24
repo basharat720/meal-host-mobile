@@ -599,8 +599,8 @@ export const ProfileScreen = () => {
               label={isChef ? "Kitchen Address" : "Address"}
               placeholder={
                 isChef
-                  ? "Search for your kitchen address or use \u201cLocate me\u201d"
-                  : "Search for your address or use \u201cLocate me\u201d"
+                  ? "Search your kitchen address"
+                  : "Search your address"
               }
               focusOnLahore
               pinLabel={isChef ? "Your kitchen is here" : "Your location is here"}

@@ -143,7 +143,7 @@ export default function CustomerSignupScreen() {
               label="Address"
               required
               focusOnLahore
-              placeholder={"Search for your address or use \u201cLocate me\u201d"}
+              placeholder={"Search your address"}
               defaultValue={address}
               error={errors.address}
               defaultCoords={coords ? { lat: coords.latitude, lon: coords.longitude } : null}

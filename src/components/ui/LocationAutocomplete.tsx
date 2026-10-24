@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { colors, fonts, radius, spacing, typography } from "@/constants/theme";
+import { colors, fonts, radius, typography } from "@/constants/theme";
 import { LocateFailure, useDeliveryLocation } from "@/contexts/DeliveryLocationContext";
 import { PlaceSearchInput } from "@/components/location/PlaceSearchInput";
 import { LocateMeButton, LocateTrouble } from "@/components/location/LocateTrouble";
@@ -100,54 +100,53 @@ export function LocationAutocomplete({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      <View style={styles.row}>
-        <PlaceSearchInput
-          key={resetKey}
-          label={label ? `${label}${required ? " *" : ""}` : undefined}
-          placeholder={placeholder}
-          initialQuery={confirmedLabel ?? defaultValue}
-          error={!!error}
-          containerStyle={styles.flex}
-          onPick={(place) => openMap({ latitude: place.lat, longitude: place.lon }, place.label)}
-          trailing={
-            showUseMyLocation ? (
-              <LocateMeButton onPress={() => void handleLocate()} isLocating={isLocating} />
-            ) : undefined
-          }
-        />
-        <Pressable
-          style={({ pressed }) => [styles.mapButton, !!label && styles.mapButtonLabelled, pressed && styles.pressed]}
-          onPress={() => openMap()}
-          accessibilityRole="button"
-          accessibilityLabel="Choose on the map"
-        >
-          <Ionicons name="map-outline" size={20} color={colors.primaryForeground} />
-        </Pressable>
-      </View>
+      <PlaceSearchInput
+        key={resetKey}
+        label={label ? `${label}${required ? " *" : ""}` : undefined}
+        placeholder={placeholder}
+        initialQuery={confirmedLabel ?? defaultValue}
+        error={!!error}
+        onPick={(place) => openMap({ latitude: place.lat, longitude: place.lon }, place.label)}
+        trailing={
+          <View style={styles.actions}>
+            {showUseMyLocation && (
+              <LocateMeButton compact onPress={() => void handleLocate()} isLocating={isLocating} />
+            )}
+            <Pressable
+              style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+              onPress={() => openMap()}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel="Choose on the map"
+            >
+              <Ionicons name="map-outline" size={18} color={colors.primary} />
+            </Pressable>
+          </View>
+        }
+      />
 
-      {!!error && <Text style={styles.error}>{error}</Text>}
+      {error ? (
+        <Text style={styles.error}>{error}</Text>
+      ) : (
+        <Text style={styles.helper}>Search, use your location, or pick it on the map</Text>
+      )}
       <LocateTrouble failure={trouble} />
     </View>
   );
 }
 
-// Height of the label line above the field, so the map button lines up with
-// the field rather than the label.
-const LABEL_OFFSET = (typography.sm.lineHeight ?? 18) + 6;
-
 const styles = StyleSheet.create({
   container: { gap: 6 },
-  row: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
-  flex: { flex: 1 },
-  mapButton: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
+  actions: { flexDirection: "row", alignItems: "center", gap: 6, marginRight: -4 },
+  iconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.full,
+    backgroundColor: `${colors.primary}14`,
     alignItems: "center",
     justifyContent: "center",
   },
-  mapButtonLabelled: { marginTop: LABEL_OFFSET },
-  pressed: { opacity: 0.8 },
+  pressed: { opacity: 0.7 },
   error: { ...typography.xs, fontFamily: fonts.sans, color: colors.destructive },
+  helper: { ...typography.xs, fontFamily: fonts.sans, color: colors.mutedForeground },
 });

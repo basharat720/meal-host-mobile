@@ -281,7 +281,7 @@ export default function ChefSignupScreen() {
                 label="Kitchen Address"
                 required
                 focusOnLahore
-                placeholder={"Search for your kitchen address or use \u201cLocate me\u201d"}
+                placeholder={"Search your kitchen address"}
                 defaultValue={address}
                 error={errors.address}
                 defaultCoords={coords ? { lat: coords.latitude, lon: coords.longitude } : null}

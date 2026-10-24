@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet, StyleProp, ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
@@ -12,13 +12,15 @@ import { colors } from "@/constants/theme";
 interface Props {
   color?: string;
   size?: number;
+  /** Extra container style, e.g. to box it like the filter button beside it. */
+  style?: StyleProp<ViewStyle>;
 }
 
 // Brand orange by default. `colors.accent` is the literal guideline hex
 // (#FF3903), not the darkened `secondaryStrong` — nothing sits on top of a
 // glyph, so it does not need the AA-safe shade, and the stroke clears the 3:1
 // non-text floor on both the cream and the pale-blue headers it appears on.
-export function NotificationBell({ color = colors.accent, size = 24 }: Props) {
+export function NotificationBell({ color = colors.accent, size = 24, style }: Props) {
   const { user } = useAuth();
 
   const { data } = useQuery({
@@ -42,7 +44,7 @@ export function NotificationBell({ color = colors.accent, size = 24 }: Props) {
     <Pressable
       onPress={() => router.push("/notifications" as never)}
       hitSlop={10}
-      style={styles.button}
+      style={[styles.button, style]}
       accessibilityRole="button"
       accessibilityLabel={
         count > 0 ? `Notifications, ${count} unread` : "Notifications"

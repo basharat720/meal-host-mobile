@@ -14,10 +14,10 @@ This page covers what is different about the app.
 
 ## Where you choose it
 
-At the top of the **Home** and **Find Chefs** tabs there is a location pill
-showing the address in use — its label ("Home") or the first part of the
-address — or **Set your location** if nothing is chosen yet. Tapping it opens a
-sheet with:
+In the header of the **Home** and **Find Chefs** tabs, under the logo, a
+**Deliver to** line shows the address in use — its label ("Home", with the
+address underneath) or the first part of the address — or **Set your
+location** if nothing is chosen yet. Tapping it opens a sheet with:
 
 - a **search box** with Google suggestions (Pakistan only, nearest to the
   ordering zone first),
@@ -67,7 +67,7 @@ not name at the time is named quietly the next time the app opens.
 
 | Screen | Before | Now |
 | --- | --- | --- |
-| Home and Find Chefs | A "search area" switch in the filter sheet (my location / profile address / custom), and Home asked for location permission on opening | The location pill; the filter sheet shows the location in use with **Change**, and keeps the distance slider. Neither screen asks for permission |
+| Home and Find Chefs | A "search area" switch in the filter sheet (my location / profile address / custom), and Home asked for location permission on opening | The **Deliver to** line in the header; the filter sheet shows the location in use with **Change**, and keeps the distance slider. Neither screen asks for permission |
 | Checkout | A free-text delivery address box | A card showing the address in use, its rider note, and **Change**; or **Set your delivery address** |
 | Cart | Read its own stored location for the ordering-zone note | Reads the shared location |
 | Signup and Profile | Picking a suggestion filled the address straight away | Picking a suggestion, Locate me or the map button opens the map; **Use this location** confirms it. This never changes your delivery location or saved addresses |
