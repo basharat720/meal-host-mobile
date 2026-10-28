@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
   TextInput,
   Switch,
@@ -12,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -271,7 +271,7 @@ export default function AvailabilityScreen() {
           <ActivityIndicator color={colors.primary} />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.content}>
+        <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={styles.content}>
           {/* Default prep time */}
           <Text style={styles.sectionTitle}>Default Preparation Time</Text>
           <Text style={styles.sectionHint}>
@@ -402,7 +402,7 @@ export default function AvailabilityScreen() {
           >
             Save Availability
           </Button>
-        </ScrollView>
+        </KeyboardAwareScrollView>
       )}
 
       {/* Android time picker (native, self-dismissing) */}

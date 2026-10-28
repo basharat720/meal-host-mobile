@@ -1,15 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { KeyboardAvoidingView, KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import MapView, { PROVIDER_GOOGLE, Region } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -272,7 +271,7 @@ export function AddressMapModal({ request, onClose }: AddressMapModalProps) {
     >
       <KeyboardAvoidingView
         style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior="padding"
       >
         {step === 1 ? (
           <>
@@ -394,7 +393,8 @@ export function AddressMapModal({ request, onClose }: AddressMapModalProps) {
               <Text style={styles.description}>Help your rider find the door.</Text>
             </View>
 
-            <ScrollView
+            <KeyboardAwareScrollView
+              bottomOffset={24}
               style={styles.flex}
               contentContainerStyle={styles.form}
               keyboardShouldPersistTaps="handled"
@@ -476,7 +476,7 @@ export function AddressMapModal({ request, onClose }: AddressMapModalProps) {
                   />
                 )}
               </View>
-            </ScrollView>
+            </KeyboardAwareScrollView>
 
             <View style={styles.footer}>
               <Button size="lg" onPress={() => void handleSave()} loading={isSaving}>

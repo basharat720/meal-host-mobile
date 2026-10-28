@@ -5,6 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { useFonts } from "expo-font";
 // Imported per weight rather than from the package root: the root re-exports
 // all 18 Poppins weights and Metro bundles every one of them (37 .ttf files)
@@ -71,6 +72,10 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
+       {/* Android is edge-to-edge (forced from RN 0.81), so adjustResize no
+           longer shrinks the window for the keyboard; every keyboard-aware
+           view comes from react-native-keyboard-controller instead. */}
+       <KeyboardProvider>
         <QueryClientProvider client={queryClient}>
           <I18nProvider>
             <AuthProvider>
@@ -115,6 +120,7 @@ export default function RootLayout() {
             </AuthProvider>
           </I18nProvider>
         </QueryClientProvider>
+       </KeyboardProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

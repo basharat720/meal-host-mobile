@@ -5,14 +5,12 @@ import {
   StyleSheet,
   FlatList,
   Modal,
-  ScrollView,
   Alert,
   Pressable,
   Switch,
-  KeyboardAvoidingView,
-  Platform,
   RefreshControl,
 } from "react-native";
+import { KeyboardAvoidingView, KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -278,7 +276,7 @@ function DishModal({
     >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior="padding"
       >
         <SafeAreaView style={styles.modalSafe} edges={["top", "bottom"]}>
           {/* Modal header */}
@@ -289,7 +287,8 @@ function DishModal({
             </Pressable>
           </View>
 
-          <ScrollView
+          <KeyboardAwareScrollView
+            bottomOffset={24}
             contentContainerStyle={styles.modalBody}
             keyboardShouldPersistTaps="handled"
           >
@@ -597,7 +596,7 @@ function DishModal({
                 </View>
               </View>
             )}
-          </ScrollView>
+          </KeyboardAwareScrollView>
 
           <View style={styles.modalFooter}>
             <Button
@@ -774,8 +773,7 @@ export default function MenuScreen() {
   // ------------------------------------------------------------------
   const resolveImageUrl = async (form: DishForm): Promise<string> => {
     if (form.imageUri) {
-      const chefUid = user?.id ?? "anon";
-      return uploadFoodImage(form.imageUri, chefUid);
+      return uploadFoodImage(form.imageUri);
     }
     return form.imageUrl.trim();
   };

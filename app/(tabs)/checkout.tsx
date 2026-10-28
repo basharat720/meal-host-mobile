@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
-  ScrollView,
   TextInput,
   StyleSheet,
   Alert,
   ActivityIndicator,
   Pressable,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams, type Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -404,7 +404,8 @@ export default function CheckoutScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView
+      <KeyboardAwareScrollView
+        bottomOffset={24}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -763,7 +764,7 @@ export default function CheckoutScreen() {
         >
           {isSubmitting ? "Placing Order…" : `Place Order — ${formatPrice(checkoutTotal)}`}
         </Button>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

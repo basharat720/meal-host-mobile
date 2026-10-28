@@ -6,10 +6,9 @@ import {
   ScrollView,
   Pressable,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, type Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -59,29 +58,13 @@ const isHttpUrl = (value: string): boolean => {
   }
 };
 
-const isCloudinaryImageDeliveryUrl = (value: string): boolean => {
-  try {
-    const parsed = new URL(value);
-    const isCloudinaryHost =
-      parsed.hostname === "res.cloudinary.com" ||
-      parsed.hostname.endsWith(".res.cloudinary.com");
-    const isImageDeliveryPath =
-      parsed.pathname.includes("/image/upload/") ||
-      parsed.pathname.includes("/image/private/") ||
-      parsed.pathname.includes("/image/authenticated/");
-    return isCloudinaryHost && isImageDeliveryPath;
-  } catch {
-    return false;
-  }
-};
-
 const validateProfilePictureUrl = (value?: string | null): string | null => {
   const trimmed = value?.trim();
   if (!trimmed) return null;
   if (!isHttpUrl(trimmed)) {
     return "Profile picture URL must start with http:// or https://";
   }
-  if (!IMAGE_URL_EXTENSION_REGEX.test(trimmed) && !isCloudinaryImageDeliveryUrl(trimmed)) {
+  if (!IMAGE_URL_EXTENSION_REGEX.test(trimmed)) {
     return "Profile picture URL must end with: jpg, jpeg, png, gif, webp, avif, or svg";
   }
   return null;
@@ -225,8 +208,7 @@ export const ProfileScreen = () => {
     // Try to upload immediately
     setUploadingImage(true);
     try {
-      const uid = user?.id ?? dbUser?.firebase_uid ?? "profile-user";
-      const uploadedUrl = await uploadProfilePicture(uri, uid);
+      const uploadedUrl = await uploadProfilePicture(uri);
       setProfilePictureUrl(uploadedUrl);
       setProfilePictureTouched(true);
       setProfilePictureError(null);
@@ -512,397 +494,392 @@ export const ProfileScreen = () => {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          {/* Header */}
-          <View style={styles.headerSection}>
-            <Text style={styles.screenTitle}>My Profile</Text>
-            <Text style={styles.screenSubtitle}>
-              {isChef ? "Manage your chef profile" : "Manage your account"}
-            </Text>
-          </View>
+      <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {/* Header */}
+        <View style={styles.headerSection}>
+          <Text style={styles.screenTitle}>My Profile</Text>
+          <Text style={styles.screenSubtitle}>
+            {isChef ? "Manage your chef profile" : "Manage your account"}
+          </Text>
+        </View>
 
-          {/* Avatar */}
-          <View style={styles.avatarSection}>
-            <Pressable onPress={isChef ? pickProfilePicture : undefined} style={styles.avatarWrap}>
-              {uploadingImage ? (
-                <View style={styles.avatarFallback}>
-                  <ActivityIndicator color={colors.primaryForeground} />
-                </View>
-              ) : avatarUri ? (
-                <Image source={{ uri: avatarUri }} style={styles.avatar} contentFit="cover" />
-              ) : (
-                <View style={styles.avatarFallback}>
-                  <Text style={styles.avatarInitial}>{initials}</Text>
-                </View>
-              )}
-              {isChef && (
-                <View style={styles.cameraOverlay}>
-                  <Ionicons name="camera" size={14} color={colors.white} />
-                </View>
-              )}
-            </Pressable>
-            <Text style={styles.avatarName}>{name || dbUser?.name}</Text>
-            <Text style={styles.avatarEmail}>{dbUser?.email ?? user?.email}</Text>
-          </View>
-
-          {/* Common fields */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Account Information</Text>
-
-            {isChef ? (
-              <>
-                <Input
-                  label="First Name (as per CNIC) *"
-                  placeholder="First name"
-                  value={firstName}
-                  onChangeText={setFirstName}
-                  autoCapitalize="words"
-                  error={launchErrors.firstName}
-                />
-                <Input
-                  label="Last Name (as per CNIC) *"
-                  placeholder="Last name"
-                  value={lastName}
-                  onChangeText={setLastName}
-                  autoCapitalize="words"
-                  error={launchErrors.lastName}
-                />
-              </>
+        {/* Avatar */}
+        <View style={styles.avatarSection}>
+          <Pressable onPress={isChef ? pickProfilePicture : undefined} style={styles.avatarWrap}>
+            {uploadingImage ? (
+              <View style={styles.avatarFallback}>
+                <ActivityIndicator color={colors.primaryForeground} />
+              </View>
+            ) : avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={styles.avatar} contentFit="cover" />
             ) : (
+              <View style={styles.avatarFallback}>
+                <Text style={styles.avatarInitial}>{initials}</Text>
+              </View>
+            )}
+            {isChef && (
+              <View style={styles.cameraOverlay}>
+                <Ionicons name="camera" size={14} color={colors.white} />
+              </View>
+            )}
+          </Pressable>
+          <Text style={styles.avatarName}>{name || dbUser?.name}</Text>
+          <Text style={styles.avatarEmail}>{dbUser?.email ?? user?.email}</Text>
+        </View>
+
+        {/* Common fields */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account Information</Text>
+
+          {isChef ? (
+            <>
               <Input
-                label="Full Name"
-                placeholder="Your name"
-                value={name}
-                onChangeText={setName}
+                label="First Name (as per CNIC) *"
+                placeholder="First name"
+                value={firstName}
+                onChangeText={setFirstName}
+                autoCapitalize="words"
+                error={launchErrors.firstName}
               />
+              <Input
+                label="Last Name (as per CNIC) *"
+                placeholder="Last name"
+                value={lastName}
+                onChangeText={setLastName}
+                autoCapitalize="words"
+                error={launchErrors.lastName}
+              />
+            </>
+          ) : (
+            <Input
+              label="Full Name"
+              placeholder="Your name"
+              value={name}
+              onChangeText={setName}
+            />
+          )}
+
+          <Input
+            label="Email"
+            placeholder="Email"
+            value={dbUser?.email ?? user?.email ?? ""}
+            editable={false}
+            style={styles.readOnly}
+          />
+
+          <PhoneInput
+            label={isChef ? "Phone *" : "Phone"}
+            value={phone}
+            onChangeText={setPhone}
+          />
+
+          <LocationAutocomplete
+            label={isChef ? "Kitchen Address" : "Address"}
+            placeholder={
+              isChef
+                ? "Search your kitchen address"
+                : "Search your address"
+            }
+            focusOnLahore
+            pinLabel={isChef ? "Your kitchen is here" : "Your location is here"}
+            defaultValue={address}
+            defaultCoords={locationCoords}
+            onLocationSelect={(loc) => {
+              setAddress(loc.label);
+              // Selecting a suggestion gives exact coordinates, so the save
+              // no longer has to geocode the typed string.
+              setLocationCoords({ lat: loc.lat, lon: loc.lon });
+            }}
+          />
+
+          <Input
+            label="City"
+            placeholder="Your city"
+            value={city}
+            onChangeText={setCity}
+          />
+
+          <Input
+            label="ZIP / Postal Code"
+            placeholder="ZIP code"
+            value={zip}
+            onChangeText={setZip}
+          />
+        </View>
+
+        {/* Customer quick links */}
+        {!isChef && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>My Activity</Text>
+
+            <Pressable
+              onPress={() => router.push("/(tabs)/my-requests")}
+              style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}
+            >
+              <View style={styles.linkLeft}>
+                <View style={styles.linkIcon}>
+                  <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+                </View>
+                <View>
+                  <Text style={styles.linkTitle}>My Requests</Text>
+                  <Text style={styles.linkSubtitle}>View your custom dish requests</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+            </Pressable>
+
+            <View style={styles.linkDivider} />
+
+            <Pressable
+              onPress={() => router.push("/(tabs)/post-request")}
+              style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}
+            >
+              <View style={styles.linkLeft}>
+                <View style={[styles.linkIcon, { backgroundColor: `${colors.accent}20` }]}>
+                  <Ionicons name="add-circle-outline" size={18} color={colors.accent} />
+                </View>
+                <View>
+                  <Text style={styles.linkTitle}>Post a Request</Text>
+                  <Text style={styles.linkSubtitle}>Ask chefs to make your favourite dish</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+        )}
+
+        {/* Favorites live in a customer tab, but the chef tab bar is full, so a
+            chef browsing other kitchens reaches the same screen from here. */}
+        {isChef && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>My Activity</Text>
+
+            <Pressable
+              onPress={() => router.push("/favorites")}
+              style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}
+            >
+              <View style={styles.linkLeft}>
+                <View style={styles.linkIcon}>
+                  <Ionicons name="heart-outline" size={18} color={colors.primary} />
+                </View>
+                <View>
+                  <Text style={styles.linkTitle}>Favorites</Text>
+                  <Text style={styles.linkSubtitle}>Kitchens and dishes you've saved</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+        )}
+
+        {/* Chef-specific fields */}
+        {isChef && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Chef Information</Text>
+
+            {/* Profile picture URL input (fallback if the upload fails) */}
+            <Input
+              label="Profile Picture URL"
+              placeholder="https://example.com/photo.jpg"
+              value={profilePictureUrl}
+              onChangeText={(v) => {
+                setProfilePictureUrl(v);
+                setLocalImageUri(null);
+                setProfilePictureTouched(true);
+                setProfilePictureError(validateProfilePictureUrl(v));
+              }}
+              autoCapitalize="none"
+              keyboardType="url"
+              error={profilePictureError ?? undefined}
+            />
+
+            {(profilePictureUrl.trim().length > 0 || localImageUri) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onPress={removeProfilePicture}
+                style={styles.removePictureBtn}
+              >
+                Remove Picture
+              </Button>
             )}
 
             <Input
-              label="Email"
-              placeholder="Email"
-              value={dbUser?.email ?? user?.email ?? ""}
-              editable={false}
-              style={styles.readOnly}
+              label="Kitchen Name *"
+              placeholder="e.g. Ammi's Kitchen"
+              value={kitchenName}
+              onChangeText={setKitchenName}
+              autoCapitalize="words"
+              error={launchErrors.kitchenName}
+            />
+            <Text style={styles.fieldHint}>
+              Shown to customers instead of your own name.
+            </Text>
+
+            <Input
+              label="Kitchen Description (Bio)"
+              placeholder="Tell customers about your cooking style…"
+              value={bio}
+              onChangeText={setBio}
+              multiline
+              numberOfLines={4}
+              style={{ textAlignVertical: "top", minHeight: 100 }}
             />
 
-            <PhoneInput
-              label={isChef ? "Phone *" : "Phone"}
-              value={phone}
-              onChangeText={setPhone}
+            <Input
+              label="Specialties (comma-separated)"
+              placeholder="Biryani, Karahi, Desserts"
+              value={specialties}
+              onChangeText={setSpecialties}
             />
 
-            <LocationAutocomplete
-              label={isChef ? "Kitchen Address" : "Address"}
-              placeholder={
-                isChef
-                  ? "Search your kitchen address"
-                  : "Search your address"
+            <Input
+              label="Cuisine / Dietary Tags (comma-separated)"
+              placeholder="Halal, Vegetarian, Gluten-Free"
+              value={cuisineTypes}
+              onChangeText={setCuisineTypes}
+            />
+
+            <Input
+              label="Years of Experience"
+              placeholder="e.g. 5"
+              keyboardType="number-pad"
+              value={experience}
+              onChangeText={(v) => setExperience(sanitizeNumericInput(v))}
+            />
+
+            <Input
+              label="Delivery Radius (km)"
+              placeholder="e.g. 10"
+              keyboardType="decimal-pad"
+              value={deliveryRadius}
+              onChangeText={(v) =>
+                setDeliveryRadius(sanitizeNumericInput(v, { allowDecimal: true }))
               }
-              focusOnLahore
-              pinLabel={isChef ? "Your kitchen is here" : "Your location is here"}
-              defaultValue={address}
-              defaultCoords={locationCoords}
-              onLocationSelect={(loc) => {
-                setAddress(loc.label);
-                // Selecting a suggestion gives exact coordinates, so the save
-                // no longer has to geocode the typed string.
-                setLocationCoords({ lat: loc.lat, lon: loc.lon });
-              }}
-            />
-
-            <Input
-              label="City"
-              placeholder="Your city"
-              value={city}
-              onChangeText={setCity}
-            />
-
-            <Input
-              label="ZIP / Postal Code"
-              placeholder="ZIP code"
-              value={zip}
-              onChangeText={setZip}
             />
           </View>
+        )}
 
-          {/* Customer quick links */}
-          {!isChef && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>My Activity</Text>
-
-              <Pressable
-                onPress={() => router.push("/(tabs)/my-requests")}
-                style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}
-              >
-                <View style={styles.linkLeft}>
-                  <View style={styles.linkIcon}>
-                    <Ionicons name="document-text-outline" size={18} color={colors.primary} />
-                  </View>
-                  <View>
-                    <Text style={styles.linkTitle}>My Requests</Text>
-                    <Text style={styles.linkSubtitle}>View your custom dish requests</Text>
-                  </View>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
-              </Pressable>
-
-              <View style={styles.linkDivider} />
-
-              <Pressable
-                onPress={() => router.push("/(tabs)/post-request")}
-                style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}
-              >
-                <View style={styles.linkLeft}>
-                  <View style={[styles.linkIcon, { backgroundColor: `${colors.accent}20` }]}>
-                    <Ionicons name="add-circle-outline" size={18} color={colors.accent} />
-                  </View>
-                  <View>
-                    <Text style={styles.linkTitle}>Post a Request</Text>
-                    <Text style={styles.linkSubtitle}>Ask chefs to make your favourite dish</Text>
-                  </View>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
-              </Pressable>
-            </View>
-          )}
-
-          {/* Favorites live in a customer tab, but the chef tab bar is full, so a
-              chef browsing other kitchens reaches the same screen from here. */}
-          {isChef && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>My Activity</Text>
-
-              <Pressable
-                onPress={() => router.push("/favorites")}
-                style={({ pressed }) => [styles.linkRow, pressed && styles.linkRowPressed]}
-              >
-                <View style={styles.linkLeft}>
-                  <View style={styles.linkIcon}>
-                    <Ionicons name="heart-outline" size={18} color={colors.primary} />
-                  </View>
-                  <View>
-                    <Text style={styles.linkTitle}>Favorites</Text>
-                    <Text style={styles.linkSubtitle}>Kitchens and dishes you've saved</Text>
-                  </View>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
-              </Pressable>
-            </View>
-          )}
-
-          {/* Chef-specific fields */}
-          {isChef && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Chef Information</Text>
-
-              {/* Profile picture URL input (fallback if Cloudinary not configured) */}
-              <Input
-                label="Profile Picture URL"
-                placeholder="https://example.com/photo.jpg"
-                value={profilePictureUrl}
-                onChangeText={(v) => {
-                  setProfilePictureUrl(v);
-                  setLocalImageUri(null);
-                  setProfilePictureTouched(true);
-                  setProfilePictureError(validateProfilePictureUrl(v));
-                }}
-                autoCapitalize="none"
-                keyboardType="url"
-                error={profilePictureError ?? undefined}
-              />
-
-              {(profilePictureUrl.trim().length > 0 || localImageUri) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onPress={removeProfilePicture}
-                  style={styles.removePictureBtn}
-                >
-                  Remove Picture
-                </Button>
-              )}
-
-              <Input
-                label="Kitchen Name *"
-                placeholder="e.g. Ammi's Kitchen"
-                value={kitchenName}
-                onChangeText={setKitchenName}
-                autoCapitalize="words"
-                error={launchErrors.kitchenName}
-              />
+        {/* Bank & tax details (chef launch checklist) */}
+        {isChef && (
+          <View style={styles.section}>
+            <View style={styles.headerSection}>
+              <Text style={styles.sectionTitle}>Bank & Tax Details</Text>
               <Text style={styles.fieldHint}>
-                Shown to customers instead of your own name.
+                Used to pay you. Only you and the FoodPal team can see these.
               </Text>
-
-              <Input
-                label="Kitchen Description (Bio)"
-                placeholder="Tell customers about your cooking style…"
-                value={bio}
-                onChangeText={setBio}
-                multiline
-                numberOfLines={4}
-                style={{ textAlignVertical: "top", minHeight: 100 }}
-              />
-
-              <Input
-                label="Specialties (comma-separated)"
-                placeholder="Biryani, Karahi, Desserts"
-                value={specialties}
-                onChangeText={setSpecialties}
-              />
-
-              <Input
-                label="Cuisine / Dietary Tags (comma-separated)"
-                placeholder="Halal, Vegetarian, Gluten-Free"
-                value={cuisineTypes}
-                onChangeText={setCuisineTypes}
-              />
-
-              <Input
-                label="Years of Experience"
-                placeholder="e.g. 5"
-                keyboardType="number-pad"
-                value={experience}
-                onChangeText={(v) => setExperience(sanitizeNumericInput(v))}
-              />
-
-              <Input
-                label="Delivery Radius (km)"
-                placeholder="e.g. 10"
-                keyboardType="decimal-pad"
-                value={deliveryRadius}
-                onChangeText={(v) =>
-                  setDeliveryRadius(sanitizeNumericInput(v, { allowDecimal: true }))
-                }
-              />
             </View>
-          )}
 
-          {/* Bank & tax details (chef launch checklist) */}
-          {isChef && (
-            <View style={styles.section}>
-              <View style={styles.headerSection}>
-                <Text style={styles.sectionTitle}>Bank & Tax Details</Text>
-                <Text style={styles.fieldHint}>
-                  Used to pay you. Only you and the FoodPal team can see these.
-                </Text>
+            <Input
+              label="Bank Name *"
+              placeholder="e.g. Meezan Bank"
+              value={bankName}
+              onChangeText={setBankName}
+              autoCapitalize="words"
+              error={launchErrors.bankName}
+            />
+            <Input
+              label="Account Title *"
+              placeholder="Name the account is held in"
+              value={bankAccountTitle}
+              onChangeText={setBankAccountTitle}
+              autoCapitalize="words"
+              error={launchErrors.bankAccountTitle}
+            />
+            <Input
+              label="Account Number *"
+              placeholder="Digits only"
+              keyboardType="number-pad"
+              value={bankAccountNumber}
+              onChangeText={setBankAccountNumber}
+              error={launchErrors.bankAccountNumber}
+            />
+            <Input
+              label="IBAN *"
+              placeholder="PK00 XXXX 0000 0000 0000 0000"
+              autoCapitalize="characters"
+              autoCorrect={false}
+              value={bankIban}
+              onChangeText={setBankIban}
+              error={launchErrors.bankIban}
+            />
+
+            <View style={styles.ntnGroup}>
+              <Text style={styles.ntnLabel}>NTN Status *</Text>
+              <View style={styles.ntnRow}>
+                {NTN_OPTIONS.map((opt) => {
+                  const selected = ntnStatus === opt.value;
+                  return (
+                    <Pressable
+                      key={opt.value}
+                      onPress={() => setNtnStatus(opt.value)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      style={[styles.ntnOption, selected && styles.ntnOptionSelected]}
+                    >
+                      <Ionicons
+                        name={selected ? "radio-button-on" : "radio-button-off"}
+                        size={18}
+                        color={selected ? colors.primary : colors.mutedForeground}
+                      />
+                      <Text style={styles.ntnOptionText}>{opt.label}</Text>
+                    </Pressable>
+                  );
+                })}
               </View>
-
-              <Input
-                label="Bank Name *"
-                placeholder="e.g. Meezan Bank"
-                value={bankName}
-                onChangeText={setBankName}
-                autoCapitalize="words"
-                error={launchErrors.bankName}
-              />
-              <Input
-                label="Account Title *"
-                placeholder="Name the account is held in"
-                value={bankAccountTitle}
-                onChangeText={setBankAccountTitle}
-                autoCapitalize="words"
-                error={launchErrors.bankAccountTitle}
-              />
-              <Input
-                label="Account Number *"
-                placeholder="Digits only"
-                keyboardType="number-pad"
-                value={bankAccountNumber}
-                onChangeText={setBankAccountNumber}
-                error={launchErrors.bankAccountNumber}
-              />
-              <Input
-                label="IBAN *"
-                placeholder="PK00 XXXX 0000 0000 0000 0000"
-                autoCapitalize="characters"
-                autoCorrect={false}
-                value={bankIban}
-                onChangeText={setBankIban}
-                error={launchErrors.bankIban}
-              />
-
-              <View style={styles.ntnGroup}>
-                <Text style={styles.ntnLabel}>NTN Status *</Text>
-                <View style={styles.ntnRow}>
-                  {NTN_OPTIONS.map((opt) => {
-                    const selected = ntnStatus === opt.value;
-                    return (
-                      <Pressable
-                        key={opt.value}
-                        onPress={() => setNtnStatus(opt.value)}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected }}
-                        style={[styles.ntnOption, selected && styles.ntnOptionSelected]}
-                      >
-                        <Ionicons
-                          name={selected ? "radio-button-on" : "radio-button-off"}
-                          size={18}
-                          color={selected ? colors.primary : colors.mutedForeground}
-                        />
-                        <Text style={styles.ntnOptionText}>{opt.label}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                {launchErrors.ntnStatus ? (
-                  <Text style={styles.ntnError}>{launchErrors.ntnStatus}</Text>
-                ) : null}
-              </View>
+              {launchErrors.ntnStatus ? (
+                <Text style={styles.ntnError}>{launchErrors.ntnStatus}</Text>
+              ) : null}
             </View>
-          )}
+          </View>
+        )}
 
-          {/* Customer delivery preferences */}
-          {!isChef && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Delivery Preferences</Text>
+        {/* Customer delivery preferences */}
+        {!isChef && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Delivery Preferences</Text>
 
-              <Input
-                label="Delivery Instructions"
-                placeholder="Gate code, landmarks, drop-off notes…"
-                value={deliveryInstructions}
-                onChangeText={setDeliveryInstructions}
-                multiline
-                numberOfLines={3}
-                style={{ textAlignVertical: "top", minHeight: 80 }}
-              />
-            </View>
-          )}
+            <Input
+              label="Delivery Instructions"
+              placeholder="Gate code, landmarks, drop-off notes…"
+              value={deliveryInstructions}
+              onChangeText={setDeliveryInstructions}
+              multiline
+              numberOfLines={3}
+              style={{ textAlignVertical: "top", minHeight: 80 }}
+            />
+          </View>
+        )}
 
-          {/* Chef/customer mode — only for accounts holding both roles */}
-          <RoleSwitcher />
+        {/* Chef/customer mode — only for accounts holding both roles */}
+        <RoleSwitcher />
 
-          {/* Legal & About */}
-          {legalSection}
+        {/* Legal & About */}
+        {legalSection}
 
-          {/* Save button */}
-          <Button onPress={handleSave} loading={saving} style={styles.saveBtn}>
-            Save Profile
-          </Button>
+        {/* Save button */}
+        <Button onPress={handleSave} loading={saving} style={styles.saveBtn}>
+          Save Profile
+        </Button>
 
-          {/* Sign out */}
-          <Button variant="outline" onPress={handleSignOut} style={styles.signOutBtn}>
-            Sign Out
-          </Button>
+        {/* Sign out */}
+        <Button variant="outline" onPress={handleSignOut} style={styles.signOutBtn}>
+          Sign Out
+        </Button>
 
-          {/* Delete account — last thing on the page, set apart from Sign Out
-              so nobody reaches it while looking for something else. Required
-              in-app by App Store Review Guideline 5.1.1(v); the confirmation
-              lives on its own screen. */}
-          <Pressable
-            onPress={() => router.push("/delete-account")}
-            style={({ pressed }) => [styles.deleteAccountRow, pressed && styles.linkRowPressed]}
-            accessibilityRole="button"
-            accessibilityLabel="Delete account"
-          >
-            <Text style={styles.deleteAccountText}>Delete Account</Text>
-          </Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        {/* Delete account — last thing on the page, set apart from Sign Out
+            so nobody reaches it while looking for something else. Required
+            in-app by App Store Review Guideline 5.1.1(v); the confirmation
+            lives on its own screen. */}
+        <Pressable
+          onPress={() => router.push("/delete-account")}
+          style={({ pressed }) => [styles.deleteAccountRow, pressed && styles.linkRowPressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Delete account"
+        >
+          <Text style={styles.deleteAccountText}>Delete Account</Text>
+        </Pressable>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 };

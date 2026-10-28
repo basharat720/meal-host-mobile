@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, KeyboardAvoidingView, Platform,
+  View, Text, StyleSheet, Alert, TouchableOpacity,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Link, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -120,88 +121,86 @@ export default function CustomerSignupScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.foreground} />
         </TouchableOpacity>
       </View>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
-            <Logo size="lg" showText={true} variant="customer" />
-            <Text style={styles.title}>Create account</Text>
-            <Text style={styles.subtitle}>Join FoodPal as a customer</Text>
-          </View>
+      <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <View style={styles.header}>
+          <Logo size="lg" showText={true} variant="customer" />
+          <Text style={styles.title}>Create account</Text>
+          <Text style={styles.subtitle}>Join FoodPal as a customer</Text>
+        </View>
 
-          <View style={styles.form}>
-            <Input label="Full Name" value={name} onChangeText={setName} placeholder="Your name" autoCapitalize="words" error={errors.name} />
-            <Input label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="you@example.com" error={errors.email} containerStyle={{ marginTop: spacing.md }} />
-            <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} placeholder="••••••••" error={errors.password} containerStyle={{ marginTop: spacing.md }} />
-            <Input label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!showPassword} placeholder="••••••••" error={errors.confirmPassword} containerStyle={{ marginTop: spacing.md }} />
-            <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.showPassword}>
-              <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.mutedForeground} />
-              <Text style={styles.showPasswordText}>{showPassword ? "Hide" : "Show"} password</Text>
-            </TouchableOpacity>
-            <PhoneInput label="Phone Number (optional)" value={phone} onChangeText={setPhone} error={errors.phone} containerStyle={{ marginTop: spacing.md }} />
+        <View style={styles.form}>
+          <Input label="Full Name" value={name} onChangeText={setName} placeholder="Your name" autoCapitalize="words" error={errors.name} />
+          <Input label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="you@example.com" error={errors.email} containerStyle={{ marginTop: spacing.md }} />
+          <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} placeholder="••••••••" error={errors.password} containerStyle={{ marginTop: spacing.md }} />
+          <Input label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!showPassword} placeholder="••••••••" error={errors.confirmPassword} containerStyle={{ marginTop: spacing.md }} />
+          <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.showPassword}>
+            <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.mutedForeground} />
+            <Text style={styles.showPasswordText}>{showPassword ? "Hide" : "Show"} password</Text>
+          </TouchableOpacity>
+          <PhoneInput label="Phone Number (optional)" value={phone} onChangeText={setPhone} error={errors.phone} containerStyle={{ marginTop: spacing.md }} />
 
-            <LocationAutocomplete
-              label="Address"
-              required
-              focusOnLahore
-              placeholder={"Search your address"}
-              defaultValue={address}
-              error={errors.address}
-              defaultCoords={coords ? { lat: coords.latitude, lon: coords.longitude } : null}
-              onLocationSelect={(loc) => {
-                setAddress(loc.label);
-                setCoords({ latitude: loc.lat, longitude: loc.lon });
-                setErrors((prev) => { const n = { ...prev }; delete n.address; return n; });
-              }}
-              containerStyle={{ marginTop: spacing.md }}
-            />
-            {coords && <Text style={styles.locationHint}>Location set ({coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)})</Text>}
+          <LocationAutocomplete
+            label="Address"
+            required
+            focusOnLahore
+            placeholder={"Search your address"}
+            defaultValue={address}
+            error={errors.address}
+            defaultCoords={coords ? { lat: coords.latitude, lon: coords.longitude } : null}
+            onLocationSelect={(loc) => {
+              setAddress(loc.label);
+              setCoords({ latitude: loc.lat, longitude: loc.lon });
+              setErrors((prev) => { const n = { ...prev }; delete n.address; return n; });
+            }}
+            containerStyle={{ marginTop: spacing.md }}
+          />
+          {coords && <Text style={styles.locationHint}>Location set ({coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)})</Text>}
 
-            <TouchableOpacity style={styles.checkboxRow} onPress={() => setAcceptedTerms((v) => !v)} activeOpacity={0.7}>
-              <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
-                {acceptedTerms && <Ionicons name="checkmark" size={14} color={colors.primaryForeground} />}
+          <TouchableOpacity style={styles.checkboxRow} onPress={() => setAcceptedTerms((v) => !v)} activeOpacity={0.7}>
+            <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+              {acceptedTerms && <Ionicons name="checkmark" size={14} color={colors.primaryForeground} />}
+            </View>
+            <Text style={styles.termsText}>
+              I agree to the{" "}
+              <Text style={styles.termsLink} onPress={() => router.push("/terms" as any)}>Terms & Conditions</Text>
+              {" "}and{" "}
+              <Text style={styles.termsLink} onPress={() => router.push("/privacy")}>Privacy Policy</Text>
+            </Text>
+          </TouchableOpacity>
+
+          <Button onPress={handleSignup} loading={isLoading} disabled={!acceptedTerms} style={styles.button}>Create Account</Button>
+
+          {SOCIAL_AUTH_ENABLED && (
+            <>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or</Text>
+                <View style={styles.dividerLine} />
               </View>
-              <Text style={styles.termsText}>
-                I agree to the{" "}
-                <Text style={styles.termsLink} onPress={() => router.push("/terms" as any)}>Terms & Conditions</Text>
-                {" "}and{" "}
-                <Text style={styles.termsLink} onPress={() => router.push("/privacy")}>Privacy Policy</Text>
-              </Text>
+
+              <Button variant="outline" onPress={handleGoogleSignup} loading={isGoogleLoading}>Continue with Google</Button>
+            </>
+          )}
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Already have an account? </Text>
+          <Link href="/(auth)/customer-login" asChild>
+            <TouchableOpacity>
+              <Text style={styles.footerLink}>Sign in</Text>
             </TouchableOpacity>
+          </Link>
+        </View>
 
-            <Button onPress={handleSignup} loading={isLoading} disabled={!acceptedTerms} style={styles.button}>Create Account</Button>
-
-            {SOCIAL_AUTH_ENABLED && (
-              <>
-                <View style={styles.divider}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>or</Text>
-                  <View style={styles.dividerLine} />
-                </View>
-
-                <Button variant="outline" onPress={handleGoogleSignup} loading={isGoogleLoading}>Continue with Google</Button>
-              </>
-            )}
-          </View>
-
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
-            <Link href="/(auth)/customer-login" asChild>
-              <TouchableOpacity>
-                <Text style={styles.footerLink}>Sign in</Text>
-              </TouchableOpacity>
-            </Link>
-          </View>
-
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Are you a chef? </Text>
-            <Link href="/(auth)/chef-signup" asChild>
-              <TouchableOpacity>
-                <Text style={styles.footerLink}>Chef sign up</Text>
-              </TouchableOpacity>
-            </Link>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Are you a chef? </Text>
+          <Link href="/(auth)/chef-signup" asChild>
+            <TouchableOpacity>
+              <Text style={styles.footerLink}>Chef sign up</Text>
+            </TouchableOpacity>
+          </Link>
+        </View>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

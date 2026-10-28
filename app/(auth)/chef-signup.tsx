@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Link, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -116,22 +117,27 @@ export default function ChefSignupScreen() {
       return;
     }
 
-    // The picked image reaches the bucket here and nowhere earlier.
-    let pictureUrl = profilePictureUrl;
-    if (localImageUri && !pictureUrl) {
+    // Uploads need a signed-in user, so signUp calls this once the Firebase
+    // account exists — the picked image reaches the bucket then and nowhere
+    // earlier. A failed upload doesn't stop the signup; the chef adds a photo
+    // from their profile later.
+    const uploadPicture = async (): Promise<string | undefined> => {
+      if (profilePictureUrl || !localImageUri) return profilePictureUrl || undefined;
       setUploadingImage(true);
       try {
-        pictureUrl = await uploadProfilePicture(localImageUri, email || name || "signup-user");
-        setProfilePictureUrl(pictureUrl);
+        const url = await uploadProfilePicture(localImageUri);
+        setProfilePictureUrl(url);
+        return url;
       } catch {
-        // Fall back to the local uri so the user can still finish signing up;
-        // this local uri is passed as profile_picture_url when a remote upload
-        // isn't available.
-        Alert.alert("Upload Failed", "Could not upload your photo to the cloud. The selected image will be used locally.");
+        Alert.alert(
+          "Photo Not Uploaded",
+          "Your account will be created without a profile picture. You can add one from your profile."
+        );
+        return undefined;
       } finally {
         setUploadingImage(false);
       }
-    }
+    };
     const { error } = await signUp(
       email.trim(),
       password,
@@ -157,7 +163,7 @@ export default function ChefSignupScreen() {
       },
       phone,
       { latitude: resolved.latitude, longitude: resolved.longitude, address: address.trim() },
-      pictureUrl || localImageUri || undefined,
+      uploadPicture,
     );
     setIsLoading(false);
     if (error) Alert.alert("Sign Up Failed", getUserFriendlyError(error));
@@ -189,141 +195,139 @@ export default function ChefSignupScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.foreground} />
         </TouchableOpacity>
       </View>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
-            <Logo size="lg" showText={true} variant="chef" />
-            <Text style={styles.title}>Become a Chef</Text>
-            <Text style={styles.subtitle}>Step {step} of 2</Text>
-          </View>
+      <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <View style={styles.header}>
+          <Logo size="lg" showText={true} variant="chef" />
+          <Text style={styles.title}>Become a Chef</Text>
+          <Text style={styles.subtitle}>Step {step} of 2</Text>
+        </View>
 
-          {step === 1 ? (
-            <View>
-              <Input label="First name as per CNIC" value={firstName} onChangeText={setFirstName} placeholder="First name" autoCapitalize="words" />
-              <Input label="Last name as per CNIC" value={lastName} onChangeText={setLastName} placeholder="Last name" autoCapitalize="words" containerStyle={{ marginTop: spacing.md }} />
-              <Input label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="chef@example.com" containerStyle={{ marginTop: spacing.md }} />
-              <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} placeholder="••••••••" containerStyle={{ marginTop: spacing.md }} />
-              <Input label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!showPassword} placeholder="••••••••" containerStyle={{ marginTop: spacing.md }} />
-              <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.showPassword}>
-                <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.mutedForeground} />
-                <Text style={styles.showPasswordText}>{showPassword ? "Hide" : "Show"} password</Text>
-              </TouchableOpacity>
-              <PhoneInput label="Phone Number" value={phone} onChangeText={setPhone} containerStyle={{ marginTop: spacing.md }} />
-              <Text style={styles.helpText}>Required for chefs. Include country code (e.g., +92 for Pakistan).</Text>
+        {step === 1 ? (
+          <View>
+            <Input label="First name as per CNIC" value={firstName} onChangeText={setFirstName} placeholder="First name" autoCapitalize="words" />
+            <Input label="Last name as per CNIC" value={lastName} onChangeText={setLastName} placeholder="Last name" autoCapitalize="words" containerStyle={{ marginTop: spacing.md }} />
+            <Input label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="chef@example.com" containerStyle={{ marginTop: spacing.md }} />
+            <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} placeholder="••••••••" containerStyle={{ marginTop: spacing.md }} />
+            <Input label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!showPassword} placeholder="••••••••" containerStyle={{ marginTop: spacing.md }} />
+            <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.showPassword}>
+              <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.mutedForeground} />
+              <Text style={styles.showPasswordText}>{showPassword ? "Hide" : "Show"} password</Text>
+            </TouchableOpacity>
+            <PhoneInput label="Phone Number" value={phone} onChangeText={setPhone} containerStyle={{ marginTop: spacing.md }} />
+            <Text style={styles.helpText}>Required for chefs. Include country code (e.g., +92 for Pakistan).</Text>
 
-              <Button onPress={() => { if (validateStep1()) setStep(2); }} style={styles.button}>Next</Button>
+            <Button onPress={() => { if (validateStep1()) setStep(2); }} style={styles.button}>Next</Button>
 
-              {SOCIAL_AUTH_ENABLED && (
-                <>
-                  <View style={styles.divider}>
-                    <View style={styles.dividerLine} />
-                    <Text style={styles.dividerText}>or</Text>
-                    <View style={styles.dividerLine} />
-                  </View>
-                  <Button variant="outline" onPress={handleGoogleSignup} loading={isGoogleLoading}>Continue with Google</Button>
-                </>
-              )}
-            </View>
-          ) : (
-            <View>
-              <Input
-                label="Kitchen Name"
-                value={kitchenName}
-                onChangeText={setKitchenName}
-                placeholder="e.g. Ammi's Kitchen"
-                autoCapitalize="words"
-                error={errors.kitchenName}
-              />
-              <Text style={styles.helpText}>
-                This is the name customers see instead of your own.
-              </Text>
-
-              <Input
-                label="Kitchen Description"
-                containerStyle={{ marginTop: spacing.md }}
-                value={kitchenDescription}
-                onChangeText={setKitchenDescription}
-                placeholder="Tell customers about your kitchen..."
-                multiline
-                numberOfLines={4}
-                style={{ height: 100, textAlignVertical: "top" }}
-                error={errors.kitchenDescription}
-              />
-              <Text style={styles.helpText}>Minimum 20 characters.</Text>
-
-              <Input
-                label="Specialties (comma separated)"
-                value={specialties}
-                onChangeText={setSpecialties}
-                placeholder="Biryani, Karahi, Desserts"
-                containerStyle={{ marginTop: spacing.md }}
-              />
-
-              <Text style={styles.fieldLabel}>Chef Profile Picture</Text>
-              <TouchableOpacity style={styles.imagePicker} onPress={pickProfilePicture} disabled={uploadingImage} activeOpacity={0.7}>
-                {previewUri ? (
-                  <Image source={{ uri: previewUri }} style={styles.imagePreview} contentFit="cover" />
-                ) : (
-                  <View style={styles.imagePlaceholder}>
-                    <Ionicons name="camera-outline" size={28} color={colors.mutedForeground} />
-                    <Text style={styles.imagePlaceholderText}>Tap to add photo</Text>
-                  </View>
-                )}
-                {uploadingImage && (
-                  <View style={styles.imageOverlay}>
-                    <ActivityIndicator color={colors.white} />
-                  </View>
-                )}
-              </TouchableOpacity>
-              {errors.profilePicture && <Text style={styles.errorText}>{errors.profilePicture}</Text>}
-
-              <LocationAutocomplete
-                label="Kitchen Address"
-                required
-                focusOnLahore
-                placeholder={"Search your kitchen address"}
-                defaultValue={address}
-                error={errors.address}
-                defaultCoords={coords ? { lat: coords.latitude, lon: coords.longitude } : null}
-                pinLabel="Your kitchen is here"
-                onLocationSelect={(loc) => {
-                  setAddress(loc.label);
-                  setCoords({ latitude: loc.lat, longitude: loc.lon });
-                  setErrors((prev) => { const n = { ...prev }; delete n.address; return n; });
-                }}
-                containerStyle={{ marginTop: spacing.md }}
-              />
-              {coords && <Text style={styles.locationHint}>Location set ({coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)})</Text>}
-
-              <TouchableOpacity style={styles.checkboxRow} onPress={() => setAcceptedTerms((v) => !v)} activeOpacity={0.7}>
-                <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
-                  {acceptedTerms && <Ionicons name="checkmark" size={14} color={colors.primaryForeground} />}
+            {SOCIAL_AUTH_ENABLED && (
+              <>
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>or</Text>
+                  <View style={styles.dividerLine} />
                 </View>
-                <Text style={styles.termsText}>
-                  By signing up as a Chef, I agree to the{" "}
-                  <Text style={styles.termsLink} onPress={() => router.push("/chef-agreement" as any)}>FoodPal Partner Terms and Conditions</Text>
-                  {", the "}
-                  <Text style={styles.termsLink} onPress={() => router.push("/terms" as any)}>Terms & Conditions</Text>
-                  {" and the "}
-                  <Text style={styles.termsLink} onPress={() => router.push("/privacy")}>Privacy Policy</Text>
-                </Text>
-              </TouchableOpacity>
-
-              <View style={styles.row}>
-                <Button variant="outline" onPress={() => setStep(1)} style={styles.backButton}>Back</Button>
-                <Button onPress={handleSubmit} loading={isLoading} disabled={!acceptedTerms} style={styles.submitButton}>Create Account</Button>
-              </View>
-            </View>
-          )}
-
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
-            <Link href="/(auth)/chef-login" asChild>
-              <TouchableOpacity><Text style={styles.footerLink}>Sign in</Text></TouchableOpacity>
-            </Link>
+                <Button variant="outline" onPress={handleGoogleSignup} loading={isGoogleLoading}>Continue with Google</Button>
+              </>
+            )}
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        ) : (
+          <View>
+            <Input
+              label="Kitchen Name"
+              value={kitchenName}
+              onChangeText={setKitchenName}
+              placeholder="e.g. Ammi's Kitchen"
+              autoCapitalize="words"
+              error={errors.kitchenName}
+            />
+            <Text style={styles.helpText}>
+              This is the name customers see instead of your own.
+            </Text>
+
+            <Input
+              label="Kitchen Description"
+              containerStyle={{ marginTop: spacing.md }}
+              value={kitchenDescription}
+              onChangeText={setKitchenDescription}
+              placeholder="Tell customers about your kitchen..."
+              multiline
+              numberOfLines={4}
+              style={{ height: 100, textAlignVertical: "top" }}
+              error={errors.kitchenDescription}
+            />
+            <Text style={styles.helpText}>Minimum 20 characters.</Text>
+
+            <Input
+              label="Specialties (comma separated)"
+              value={specialties}
+              onChangeText={setSpecialties}
+              placeholder="Biryani, Karahi, Desserts"
+              containerStyle={{ marginTop: spacing.md }}
+            />
+
+            <Text style={styles.fieldLabel}>Chef Profile Picture</Text>
+            <TouchableOpacity style={styles.imagePicker} onPress={pickProfilePicture} disabled={uploadingImage} activeOpacity={0.7}>
+              {previewUri ? (
+                <Image source={{ uri: previewUri }} style={styles.imagePreview} contentFit="cover" />
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <Ionicons name="camera-outline" size={28} color={colors.mutedForeground} />
+                  <Text style={styles.imagePlaceholderText}>Tap to add photo</Text>
+                </View>
+              )}
+              {uploadingImage && (
+                <View style={styles.imageOverlay}>
+                  <ActivityIndicator color={colors.white} />
+                </View>
+              )}
+            </TouchableOpacity>
+            {errors.profilePicture && <Text style={styles.errorText}>{errors.profilePicture}</Text>}
+
+            <LocationAutocomplete
+              label="Kitchen Address"
+              required
+              focusOnLahore
+              placeholder={"Search your kitchen address"}
+              defaultValue={address}
+              error={errors.address}
+              defaultCoords={coords ? { lat: coords.latitude, lon: coords.longitude } : null}
+              pinLabel="Your kitchen is here"
+              onLocationSelect={(loc) => {
+                setAddress(loc.label);
+                setCoords({ latitude: loc.lat, longitude: loc.lon });
+                setErrors((prev) => { const n = { ...prev }; delete n.address; return n; });
+              }}
+              containerStyle={{ marginTop: spacing.md }}
+            />
+            {coords && <Text style={styles.locationHint}>Location set ({coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)})</Text>}
+
+            <TouchableOpacity style={styles.checkboxRow} onPress={() => setAcceptedTerms((v) => !v)} activeOpacity={0.7}>
+              <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+                {acceptedTerms && <Ionicons name="checkmark" size={14} color={colors.primaryForeground} />}
+              </View>
+              <Text style={styles.termsText}>
+                By signing up as a Chef, I agree to the{" "}
+                <Text style={styles.termsLink} onPress={() => router.push("/chef-agreement" as any)}>FoodPal Partner Terms and Conditions</Text>
+                {", the "}
+                <Text style={styles.termsLink} onPress={() => router.push("/terms" as any)}>Terms & Conditions</Text>
+                {" and the "}
+                <Text style={styles.termsLink} onPress={() => router.push("/privacy")}>Privacy Policy</Text>
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.row}>
+              <Button variant="outline" onPress={() => setStep(1)} style={styles.backButton}>Back</Button>
+              <Button onPress={handleSubmit} loading={isLoading} disabled={!acceptedTerms} style={styles.submitButton}>Create Account</Button>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Already have an account? </Text>
+          <Link href="/(auth)/chef-login" asChild>
+            <TouchableOpacity><Text style={styles.footerLink}>Sign in</Text></TouchableOpacity>
+          </Link>
+        </View>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

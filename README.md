@@ -30,8 +30,6 @@ Scan the QR code with Expo Go.
 | `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID |
 | `EXPO_PUBLIC_FIREBASE_APP_ID` | Firebase app ID |
 | `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Google OAuth web client ID (optional — Google Sign-In requires a custom dev build, not Expo Go) |
-| `EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name (for image uploads) |
-| `EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET` | Cloudinary unsigned upload preset |
 
 > **Never commit `.env.local`** — it is gitignored.
 

@@ -6,7 +6,8 @@
  * feature-docs/10-deleting-your-account.md.
  */
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from "react-native";
+import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack } from "expo-router";
@@ -81,7 +82,7 @@ export default function DeleteAccountScreen() {
         <View style={styles.backBtn} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           <Ionicons name="warning-outline" size={48} color={colors.destructive} />
           <Text style={styles.pageTitle}>This cannot be undone</Text>
@@ -142,7 +143,7 @@ export default function DeleteAccountScreen() {
         >
           Keep My Account
         </Button>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

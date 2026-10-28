@@ -5,13 +5,11 @@ import {
   StyleSheet,
   FlatList,
   Modal,
-  ScrollView,
   Alert,
   Pressable,
-  KeyboardAvoidingView,
-  Platform,
   RefreshControl,
 } from "react-native";
+import { KeyboardAvoidingView, KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -88,7 +86,7 @@ function OfferModal({
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior="padding"
       >
         <SafeAreaView style={styles.modalSafe} edges={["top", "bottom"]}>
           <View style={styles.modalHeader}>
@@ -98,7 +96,7 @@ function OfferModal({
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled">
+          <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled">
             {request && (
               <View style={styles.requestSummary}>
                 <Text style={styles.summaryTitle}>{request.title}</Text>
@@ -161,7 +159,7 @@ function OfferModal({
                 style={{ minHeight: 100, textAlignVertical: "top" }}
               />
             </View>
-          </ScrollView>
+          </KeyboardAwareScrollView>
 
           <View style={styles.modalFooter}>
             <Button variant="outline" onPress={handleClose} style={{ flex: 1 }} disabled={submitting}>

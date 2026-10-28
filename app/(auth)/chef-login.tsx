@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity,
-  KeyboardAvoidingView, Platform,
+  View, Text, StyleSheet, Alert, TouchableOpacity,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -71,113 +71,111 @@ export default function ChefLoginScreen() {
       <TouchableOpacity onPress={goBackOrHome} hitSlop={8} style={styles.backButton}>
         <Ionicons name="arrow-back" size={24} color={colors.white} />
       </TouchableOpacity>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" bounces={false}>
+      <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" bounces={false}>
 
-          {/* Orange gradient hero header — mirrors web's gradient-secondary */}
-          <LinearGradient colors={CHEF_GRADIENT} style={styles.hero} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }}>
-            <View style={styles.heroInner}>
-              <View style={styles.chefBadge}>
-                <ChefHatIcon size={32} color={colors.white} />
-              </View>
-              <Text style={styles.heroTitle}>Chef Portal</Text>
-              <Text style={styles.heroSub}>Sign in to manage your kitchen</Text>
+        {/* Orange gradient hero header — mirrors web's gradient-secondary */}
+        <LinearGradient colors={CHEF_GRADIENT} style={styles.hero} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }}>
+          <View style={styles.heroInner}>
+            <View style={styles.chefBadge}>
+              <ChefHatIcon size={32} color={colors.white} />
             </View>
-            {/* Decorative circle */}
-            <View style={styles.heroCircle} />
-          </LinearGradient>
+            <Text style={styles.heroTitle}>Chef Portal</Text>
+            <Text style={styles.heroSub}>Sign in to manage your kitchen</Text>
+          </View>
+          {/* Decorative circle */}
+          <View style={styles.heroCircle} />
+        </LinearGradient>
 
-          {/* Form card */}
-          <View style={styles.card}>
-            <Text style={styles.formTitle}>Welcome back, chef!</Text>
+        {/* Form card */}
+        <View style={styles.card}>
+          <Text style={styles.formTitle}>Welcome back, chef!</Text>
 
+          <Input
+            label="Email"
+            value={email}
+            onChangeText={(v) => { setEmail(v); setErrors(p => ({ ...p, email: undefined })); }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            placeholder="chef@example.com"
+            error={errors.email}
+          />
+
+          <View style={styles.passwordWrap}>
             <Input
-              label="Email"
-              value={email}
-              onChangeText={(v) => { setEmail(v); setErrors(p => ({ ...p, email: undefined })); }}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              placeholder="chef@example.com"
-              error={errors.email}
+              label="Password"
+              value={password}
+              onChangeText={(v) => { setPassword(v); setErrors(p => ({ ...p, password: undefined })); }}
+              secureTextEntry={!showPassword}
+              autoComplete="password"
+              placeholder="••••••••"
+              error={errors.password}
             />
-
-            <View style={styles.passwordWrap}>
-              <Input
-                label="Password"
-                value={password}
-                onChangeText={(v) => { setPassword(v); setErrors(p => ({ ...p, password: undefined })); }}
-                secureTextEntry={!showPassword}
-                autoComplete="password"
-                placeholder="••••••••"
-                error={errors.password}
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword(v => !v)}
-                style={styles.showPasswordBtn}
-              >
-                <Ionicons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={18}
-                  color={colors.mutedForeground}
-                />
-                <Text style={styles.showPasswordText}>
-                  {showPassword ? "Hide" : "Show"} password
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <Link href="/(auth)/forgot-password" asChild>
-              <TouchableOpacity style={styles.forgot}>
-                <Text style={styles.forgotText}>Forgot password?</Text>
-              </TouchableOpacity>
-            </Link>
-
-            <Button
-              onPress={handleLogin}
-              loading={isLoading}
-              style={styles.signInBtn}
-              // Override button background to match chef orange
-              textStyle={{ color: colors.white }}
+            <TouchableOpacity
+              onPress={() => setShowPassword(v => !v)}
+              style={styles.showPasswordBtn}
             >
-              Sign In
-            </Button>
-
-            {SOCIAL_AUTH_ENABLED && (
-              <>
-                <View style={styles.divider}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>or</Text>
-                  <View style={styles.dividerLine} />
-                </View>
-
-                <Button variant="outline" onPress={handleGoogleLogin} loading={isGoogleLoading}>
-                  Continue with Google
-                </Button>
-              </>
-            )}
-
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>New chef? </Text>
-              <Link href="/(auth)/chef-signup" asChild>
-                <TouchableOpacity>
-                  <Text style={styles.footerLink}>Register here</Text>
-                </TouchableOpacity>
-              </Link>
-            </View>
-
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Are you a customer? </Text>
-              <Link href="/(auth)/customer-login" asChild>
-                <TouchableOpacity>
-                  <Text style={styles.footerLink}>Customer sign in</Text>
-                </TouchableOpacity>
-              </Link>
-            </View>
+              <Ionicons
+                name={showPassword ? "eye-off-outline" : "eye-outline"}
+                size={18}
+                color={colors.mutedForeground}
+              />
+              <Text style={styles.showPasswordText}>
+                {showPassword ? "Hide" : "Show"} password
+              </Text>
+            </TouchableOpacity>
           </View>
 
-        </ScrollView>
-      </KeyboardAvoidingView>
+          <Link href="/(auth)/forgot-password" asChild>
+            <TouchableOpacity style={styles.forgot}>
+              <Text style={styles.forgotText}>Forgot password?</Text>
+            </TouchableOpacity>
+          </Link>
+
+          <Button
+            onPress={handleLogin}
+            loading={isLoading}
+            style={styles.signInBtn}
+            // Override button background to match chef orange
+            textStyle={{ color: colors.white }}
+          >
+            Sign In
+          </Button>
+
+          {SOCIAL_AUTH_ENABLED && (
+            <>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <Button variant="outline" onPress={handleGoogleLogin} loading={isGoogleLoading}>
+                Continue with Google
+              </Button>
+            </>
+          )}
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>New chef? </Text>
+            <Link href="/(auth)/chef-signup" asChild>
+              <TouchableOpacity>
+                <Text style={styles.footerLink}>Register here</Text>
+              </TouchableOpacity>
+            </Link>
+          </View>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Are you a customer? </Text>
+            <Link href="/(auth)/customer-login" asChild>
+              <TouchableOpacity>
+                <Text style={styles.footerLink}>Customer sign in</Text>
+              </TouchableOpacity>
+            </Link>
+          </View>
+        </View>
+
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

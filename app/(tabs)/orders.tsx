@@ -11,6 +11,7 @@ import {
   FlatList,
   Pressable,
   ScrollView,
+  type ScrollViewProps,
   StyleSheet,
   TextInput,
   Alert,
@@ -18,6 +19,7 @@ import {
   RefreshControl,
   Platform,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -174,6 +176,10 @@ const getTabForStatus = (status: Order["status"]): TabType => {
 };
 
 // Newest first.
+const renderKeyboardAwareScroll = (props: ScrollViewProps) => (
+  <KeyboardAwareScrollView bottomOffset={24} {...props} />
+);
+
 const sortOrders = (orders: Order[]): Order[] =>
   [...orders].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
@@ -1505,6 +1511,9 @@ export default function OrdersScreen() {
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
+          // The review comment box lives inside a card; this scrolls the card
+          // clear of the keyboard when the box is focused.
+          renderScrollComponent={renderKeyboardAwareScroll}
           // Order cards vary in height and there is no getItemLayout, so a
           // scroll to a row that hasn't been measured yet can fail. Nudge the
           // list to the offset it does know, then retry once it has rendered.

@@ -9,10 +9,10 @@ import {
   Modal,
   RefreshControl,
   ActivityIndicator,
-  ScrollView,
   Switch,
   useWindowDimensions,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
@@ -480,7 +480,7 @@ export default function ChefsScreen() {
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={styles.sheetContent}>
+          <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={styles.sheetContent}>
             {/* Location: where to search from (the pill's location, changed
                 from there) and how far. Mirrors the web kitchens filter panel. */}
             <Text style={styles.sheetSectionTitle}>Location</Text>
@@ -591,7 +591,7 @@ export default function ChefsScreen() {
                 trackColor={{ true: FILTER_ACCENT, false: colors.border }}
               />
             </View>
-          </ScrollView>
+          </KeyboardAwareScrollView>
 
           <View style={styles.sheetFooter}>
             <Button variant="accentOutline" onPress={resetFilters} style={styles.sheetFooterButton}>

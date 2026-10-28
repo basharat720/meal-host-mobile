@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   View, Text, StyleSheet, FlatList, TextInput, Pressable,
-  ActivityIndicator, Modal, ScrollView, RefreshControl,
+  ActivityIndicator, Modal, RefreshControl,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -528,7 +529,7 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={styles.modalContent}>
+          <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={styles.modalContent}>
             {/* Location: where to search from (the pill's location, changed
                 from there) and how far. */}
             <Text style={styles.sectionTitle}>Location</Text>
@@ -631,7 +632,7 @@ export default function HomeScreen() {
                 </View>
               </>
             )}
-          </ScrollView>
+          </KeyboardAwareScrollView>
 
           <View style={styles.modalFooter}>
             <Button variant="accentOutline" onPress={() => { resetFilters(); setFilterModalVisible(false); }} style={styles.modalBtn}>Reset</Button>

@@ -116,7 +116,9 @@ interface AuthContextType {
     additionalData?: Partial<UserRegisterRequest>,
     phone?: string,
     location?: SignUpLocationInput,
-    profilePictureUrl?: string,
+    // A function is called once the Firebase account exists, since uploading
+    // a picked photo needs a signed-in user.
+    profilePictureUrl?: string | (() => Promise<string | undefined>),
   ) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: (role: UserRole) => Promise<{ error: Error | null }>;
@@ -416,11 +418,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     additionalData?: Partial<UserRegisterRequest>,
     phone?: string,
     location?: SignUpLocationInput,
-    profilePictureUrl?: string,
+    pictureUrlOrUpload?: string | (() => Promise<string | undefined>),
   ) => {
     const { user: firebaseUser, token: t, error } = await signUpWithEmail(email, password, userRole, fullName);
     if (error) return { error };
     if (t) await storeToken(t);
+    const profilePictureUrl =
+      typeof pictureUrlOrUpload === "function" ? await pictureUrlOrUpload() : pictureUrlOrUpload;
     await AsyncStorage.setItem(SESSION_FLAG_KEY, "1");
     setRoleState(userRole);
     await AsyncStorage.setItem(ROLE_KEY, userRole);

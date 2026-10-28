@@ -1,5 +1,5 @@
-const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? "";
-const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? "";
+import { authenticatedFetch, handleApiError } from "@/lib/api";
+import { buildUrl } from "./client";
 
 const MIME_BY_EXTENSION: Record<string, string> = {
   jpg: "image/jpeg",
@@ -7,26 +7,23 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   png: "image/png",
   webp: "image/webp",
   gif: "image/gif",
+  heic: "image/heic",
+  heif: "image/heif",
 };
 
-/**
- * Upload a local image to Cloudinary (unsigned) and return the CDN URL.
- *
- * Requires an unsigned upload preset:
- *   EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME=<your-cloud-name>
- *   EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET=<your-unsigned-preset>
- *
- * @param uri        Local file uri from the image picker.
- * @param folder     Cloudinary folder to file it under.
- * @param baseName   Filename stem sent with the upload.
- */
-const upload = async (uri: string, folder: string, baseName: string): Promise<string> => {
-  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-    throw new Error(
-      "Cloudinary not configured. Set EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME and EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET."
-    );
-  }
+type ImagePurpose = "profile_picture" | "dish";
 
+/**
+ * Upload a local image through the backend (POST /uploads/images), which
+ * stores it in Firebase Storage as WebP and returns its URL. Needs a
+ * signed-in Firebase user; the backend picks the folder from their uid.
+ *
+ * See meal-host feature-docs/22-image-uploads.md.
+ *
+ * @param uri      Local file uri from the image picker.
+ * @param purpose  Decides the folder and quality on the backend.
+ */
+const upload = async (uri: string, purpose: ImagePurpose): Promise<string> => {
   const extension = uri.split(".").pop()?.toLowerCase() ?? "jpg";
   const mimeType = MIME_BY_EXTENSION[extension] ?? "image/jpeg";
 
@@ -35,38 +32,27 @@ const upload = async (uri: string, folder: string, baseName: string): Promise<st
   // File/Blob, which its types don't describe — hence the cast.
   formData.append("file", {
     uri,
-    name: `${baseName}.${extension}`,
+    name: `${purpose}.${extension}`,
     type: mimeType,
   } as unknown as Blob);
-  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-  formData.append("folder", folder);
+  formData.append("purpose", purpose);
 
-  const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-    { method: "POST", body: formData }
-  );
+  // Not apiRequest: it would force a JSON Content-Type over the multipart one
+  // fetch sets for FormData.
+  const response = await authenticatedFetch(buildUrl("/uploads/images"), {
+    method: "POST",
+    body: formData,
+  });
+  if (!response.ok) await handleApiError(response);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(
-      `Cloudinary upload failed (${response.status}): ${error?.error?.message ?? ""}`
-    );
-  }
-
-  const data = await response.json();
-  const url = data.secure_url || data.url;
-  if (!url) throw new Error("Cloudinary response missing URL");
-  return url as string;
+  const { url } = (await response.json()) as { url?: string };
+  if (!url) throw new Error("Upload did not return an image URL");
+  return url;
 };
 
-/** Cloudinary folders are path segments, so anything unusual is stripped. */
-const safeSegment = (value: string, fallback: string): string =>
-  value.replace(/[^a-zA-Z0-9]/g, "_") || fallback;
-
 /** A chef's or customer's profile picture. */
-export const uploadProfilePicture = (uri: string, uploaderId: string): Promise<string> =>
-  upload(uri, `profile-pictures/${safeSegment(uploaderId, "signup-user")}`, "profile");
+export const uploadProfilePicture = (uri: string): Promise<string> =>
+  upload(uri, "profile_picture");
 
 /** A photo for one of a chef's dishes. */
-export const uploadFoodImage = (uri: string, chefUid: string): Promise<string> =>
-  upload(uri, `food-images/${safeSegment(chefUid, "chef")}`, "food");
+export const uploadFoodImage = (uri: string): Promise<string> => upload(uri, "dish");

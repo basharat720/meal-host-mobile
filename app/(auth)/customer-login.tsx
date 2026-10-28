@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import {
-  View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, KeyboardAvoidingView, Platform,
+  View, Text, StyleSheet, Alert, TouchableOpacity,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Link, router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -68,85 +69,83 @@ export default function CustomerLoginScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.foreground} />
         </TouchableOpacity>
       </View>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
-            <Logo size="lg" showText={true} variant="customer" />
-            <Text style={styles.title}>Welcome back</Text>
-            <Text style={styles.subtitle}>Sign in to your customer account</Text>
-          </View>
+      <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <View style={styles.header}>
+          <Logo size="lg" showText={true} variant="customer" />
+          <Text style={styles.title}>Welcome back</Text>
+          <Text style={styles.subtitle}>Sign in to your customer account</Text>
+        </View>
 
-          <View style={styles.form}>
-            <Input
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              placeholder="you@example.com"
-              error={errors.email}
-            />
+        <View style={styles.form}>
+          <Input
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            placeholder="you@example.com"
+            error={errors.email}
+          />
 
-            <Input
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoComplete="password"
-              placeholder="••••••••"
-              error={errors.password}
-              containerStyle={{ marginTop: spacing.md }}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.showPassword}>
-              <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.mutedForeground} />
-              <Text style={styles.showPasswordText}>{showPassword ? "Hide" : "Show"} password</Text>
+          <Input
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            autoComplete="password"
+            placeholder="••••••••"
+            error={errors.password}
+            containerStyle={{ marginTop: spacing.md }}
+          />
+          <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.showPassword}>
+            <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.mutedForeground} />
+            <Text style={styles.showPasswordText}>{showPassword ? "Hide" : "Show"} password</Text>
+          </TouchableOpacity>
+
+          <Link href="/(auth)/forgot-password" asChild>
+            <TouchableOpacity style={styles.forgotPassword}>
+              <Text style={styles.forgotPasswordText}>Forgot password?</Text>
             </TouchableOpacity>
+          </Link>
 
-            <Link href="/(auth)/forgot-password" asChild>
-              <TouchableOpacity style={styles.forgotPassword}>
-                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-              </TouchableOpacity>
-            </Link>
+          <Button onPress={handleLogin} loading={isLoading} style={styles.loginButton}>
+            Sign In
+          </Button>
 
-            <Button onPress={handleLogin} loading={isLoading} style={styles.loginButton}>
-              Sign In
-            </Button>
+          {SOCIAL_AUTH_ENABLED && (
+            <>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or</Text>
+                <View style={styles.dividerLine} />
+              </View>
 
-            {SOCIAL_AUTH_ENABLED && (
-              <>
-                <View style={styles.divider}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>or</Text>
-                  <View style={styles.dividerLine} />
-                </View>
+              <Button variant="outline" onPress={handleGoogleLogin} loading={isGoogleLoading} style={styles.googleButton}>
+                Continue with Google
+              </Button>
+            </>
+          )}
+        </View>
 
-                <Button variant="outline" onPress={handleGoogleLogin} loading={isGoogleLoading} style={styles.googleButton}>
-                  Continue with Google
-                </Button>
-              </>
-            )}
-          </View>
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Don't have an account? </Text>
+          <Link href="/(auth)/customer-signup" asChild>
+            <TouchableOpacity>
+              <Text style={styles.footerLink}>Sign up</Text>
+            </TouchableOpacity>
+          </Link>
+        </View>
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
-            <Link href="/(auth)/customer-signup" asChild>
-              <TouchableOpacity>
-                <Text style={styles.footerLink}>Sign up</Text>
-              </TouchableOpacity>
-            </Link>
-          </View>
-
-          <View style={styles.chefLink}>
-            <Text style={styles.footerText}>Are you a chef? </Text>
-            <Link href="/(auth)/chef-login" asChild>
-              <TouchableOpacity>
-                <Text style={styles.footerLink}>Chef sign in</Text>
-              </TouchableOpacity>
-            </Link>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        <View style={styles.chefLink}>
+          <Text style={styles.footerText}>Are you a chef? </Text>
+          <Link href="/(auth)/chef-login" asChild>
+            <TouchableOpacity>
+              <Text style={styles.footerLink}>Chef sign in</Text>
+            </TouchableOpacity>
+          </Link>
+        </View>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
