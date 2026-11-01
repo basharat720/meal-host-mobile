@@ -10,6 +10,7 @@
 
 import { ApiError } from "./api";
 import { DELIVERY_NOT_AVAILABLE } from "@/services/serviceAreaService";
+import { ORDERS_DISABLED, PAYFAST_DISABLED } from "@/services/featureFlagService";
 
 /** Firebase surfaces these as `Firebase: Error (auth/wrong-password).` */
 const FIREBASE_AUTH_MESSAGES: { codes: string[]; message: string }[] = [
@@ -177,6 +178,11 @@ export const getCheckoutError = (error: unknown): string => {
       (error as ApiError).message ||
       "We can't deliver this order. You can still place it for pickup."
     );
+  }
+  // A switched-off feature: the server's message says exactly what to do.
+  // See feature-docs/14-paying-with-payfast.md.
+  if ((code === ORDERS_DISABLED || code === PAYFAST_DISABLED) && error instanceof ApiError) {
+    return error.message;
   }
   return getUserFriendlyError(error, "Unable to place your order. Please try again.");
 };

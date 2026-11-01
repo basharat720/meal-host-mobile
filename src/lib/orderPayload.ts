@@ -6,6 +6,8 @@ export interface ListingOrderDetails {
   deliveryAddress?: string;
   deliveryPhone?: string;
   specialInstructions?: string;
+  /** Omitted for cash, which is the server's default. */
+  paymentMethod?: "CASH" | "PAYFAST";
   /** Live position, forwarded verbatim to the delivery-zone check. */
   locationPayload?: {
     customer_latitude?: number;
@@ -40,6 +42,7 @@ const orderDetails = (details: ListingOrderDetails) => ({
   ...(details.specialInstructions
     ? { special_instructions: details.specialInstructions }
     : {}),
+  ...(details.paymentMethod === "PAYFAST" ? { payment_method: "PAYFAST" as const } : {}),
   ...(details.locationPayload ?? {}),
 });
 

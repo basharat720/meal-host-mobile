@@ -136,7 +136,7 @@ export async function registerForPushNotificationsAsync(
 
 /**
  * Map a backend notification `url` (web-style path) to a mobile route.
- * The backend currently emits `/chef-dashboard`, `/my-orders`, `/my-requests`.
+ * The backend emits `/chef-dashboard?tab=…`, `/my-orders`, `/my-requests`.
  * Unknown/empty urls fall back to the in-app notification center.
  */
 export function mapNotificationUrlToRoute(url?: string | null): string {
@@ -145,7 +145,15 @@ export function mapNotificationUrlToRoute(url?: string | null): string {
   const path = rawPath.replace(/\/+$/, "");
 
   if (path === "" || path === "/") return "/notifications";
-  if (path.startsWith("/chef-dashboard")) return "/(chef)/dashboard";
+  // Chef pushes are /chef-dashboard?tab=requests (custom orders) or
+  // /chef-dashboard?tab=orders (new orders). Older payloads send a bare
+  // /chef-dashboard for both, which opens the orders screen, not the dashboard.
+  if (path.startsWith("/chef-dashboard")) {
+    const tab = new URLSearchParams(rawQuery ?? "").get("tab");
+    return tab === "requests" ? "/(chef)/requests" : "/(chef)/orders";
+  }
+  // /chef/orders/:id is sent once a PayFast payment confirms.
+  if (path.startsWith("/chef/orders")) return "/(chef)/orders";
 
   // /my-orders?order=<id> opens the list on that order. The backend's push
   // payloads send a bare /my-orders today, but its order emails already carry

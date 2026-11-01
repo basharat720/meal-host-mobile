@@ -41,3 +41,4 @@ between the two.
 | [Chef Launch Details in the App](11-chef-launch-details.md) | CNIC first/last name, bank details and NTN status on the chef Profile tab, and what Save requires |
 | [Choosing Your Delivery Address in the App](12-delivery-address-in-the-app.md) | One delivery location for the whole app, saved addresses, the map pin and the details step |
 | [Order Cards in the App](13-order-cards-in-the-app.md) | The redesigned customer and chef order cards: status strip, Pal, progress bar, queues and search |
+| [Paying with PayFast in the App](14-paying-with-payfast.md) | Paying online through PayFast at checkout, the two switches that control it (off in the app for now), and what happens when a payment fails |

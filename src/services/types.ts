@@ -252,7 +252,7 @@ export interface Order {
   chat_available?: boolean;
   /** False once the chat has been closed for more than 24 hours. */
   chat_can_send?: boolean;
-  /** How the order is paid. The app only places CASH orders; card orders come from the website. */
+  /** How the order is paid. PAYFAST orders show as paid by card. */
   payment_method?: "CASH" | "STRIPE" | "PAYFAST";
 }
 
@@ -287,6 +287,11 @@ export interface OrderCreate {
   delivery_address?: string;
   delivery_phone?: string;
   special_instructions?: string;
+  /**
+   * Defaults to CASH on the server. A PAYFAST order stays silent (no receipt,
+   * no chef notification) until PayFast confirms the payment.
+   */
+  payment_method?: "CASH" | "PAYFAST";
   /** Live position, used only for the delivery-zone check and then discarded. */
   customer_latitude?: number;
   customer_longitude?: number;

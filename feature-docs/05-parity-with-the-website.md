@@ -15,15 +15,10 @@ no app equivalent and is not intended to get one.
 
 ## Waiting on the backend
 
-**Online card payment.** The website takes payment through PayFast: a payment
-method choice at checkout, a branded handover screen, and success and failure
-screens it returns to. The app offers cash only. (An order paid by card on the
-website still shows a **Card** tag on its order card in the app.)
-
-This is not simply unported. The website calls payment endpoints
-(`payments/payfast/…`) that do not exist in the backend repository, so the
-website is ahead of the shared backend here, not just ahead of the app. The
-app should follow once the backend side is real.
+**Online card payment.** The app can now pay through PayFast like the website,
+but it is switched off in the app until an admin turns on **PayFast in the
+mobile app**. Until then the app offers cash only. See
+[Paying with PayFast in the App](14-paying-with-payfast.md).
 
 ## Waiting on credentials or configuration
 

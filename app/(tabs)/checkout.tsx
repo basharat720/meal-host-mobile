@@ -32,6 +32,10 @@ import { userService } from "@/services/userService";
 import { dishService } from "@/services/dishService";
 import { formatDuration, formatDurationRange } from "@/lib/duration";
 import { calculateDistance, maskAddressEnhanced } from "@/lib/addressPrivacy";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import { ORDERS_DISABLED, PAYFAST_DISABLED } from "@/services/featureFlagService";
+import { ApiError } from "@/lib/api";
+import { PayFastCheckoutModal } from "@/components/PayFastCheckoutModal";
 
 interface OfferCheckout {
   offerId: number;
@@ -84,6 +88,21 @@ export default function CheckoutScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [etaText, setEtaText] = useState<string | null>(null);
   const orderPlacedRef = useRef(false);
+
+  // PayFast is offered only while an admin has it on for the app as well as
+  // everywhere. See feature-docs/14-paying-with-payfast.md.
+  const flags = useFeatureFlags();
+  const payfastAvailable = flags.payfast_enabled && flags.mobile_payfast_enabled;
+  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "PAYFAST">("CASH");
+  // Set while the PayFast sheet is open for this order.
+  const [payfastOrderId, setPayfastOrderId] = useState<number | null>(null);
+  // Accepting an offer can only happen once, so a PayFast retry after backing
+  // out of the payment reuses the order that acceptance created.
+  const offerOrderIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!payfastAvailable && paymentMethod === "PAYFAST") setPaymentMethod("CASH");
+  }, [payfastAvailable, paymentMethod]);
 
   // Where the customer is: the delivery location chosen with the location pill
   // (a saved address or a pin). Checkout never reads the phone's position or
@@ -341,6 +360,37 @@ export default function CheckoutScreen() {
 
     setIsSubmitting(true);
     try {
+      if (paymentMethod === "PAYFAST") {
+        // The order is created first and stays silent until PayFast confirms
+        // the payment; the sheet then takes over.
+        let orderId: number;
+        if (isOfferMode) {
+          orderId =
+            offerOrderIdRef.current ??
+            (await requestService.acceptOffer(
+              offerCheckout!.offerId,
+              gate.orderLocationPayload
+            )).id;
+          offerOrderIdRef.current = orderId;
+        } else {
+          const finalAddress =
+            deliveryType === "delivery" ? deliveryAddress.trim() : pickupAddress;
+          const order = await orderService.createOrder(
+            buildCartOrderPayload(items, {
+              deliveryType,
+              deliveryAddress: finalAddress,
+              deliveryPhone: phone,
+              specialInstructions: instructions.trim() || undefined,
+              paymentMethod: "PAYFAST",
+              locationPayload: gate.orderLocationPayload,
+            })
+          );
+          orderId = order.id;
+        }
+        setPayfastOrderId(orderId);
+        return;
+      }
+
       const createdOrderIds: number[] = [];
 
       if (isOfferMode) {
@@ -388,10 +438,32 @@ export default function CheckoutScreen() {
         },
       });
     } catch (err: any) {
+      // A switch flipped since this screen last checked: catch up, so the
+      // PayFast choice disappears along with the refusal.
+      if (
+        err instanceof ApiError &&
+        (err.code === ORDERS_DISABLED || err.code === PAYFAST_DISABLED)
+      ) {
+        flags.refresh();
+      }
       Alert.alert("Order Failed", getCheckoutError(err));
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handlePayFastPaid = (orderId: number) => {
+    orderPlacedRef.current = true;
+    if (!isOfferMode) clearCart();
+    setPayfastOrderId(null);
+    router.replace({
+      pathname: "/(tabs)/order-success",
+      params: {
+        orderIds: String(orderId),
+        eta: etaText ?? "",
+        chefName: (isOfferMode ? offerCheckout!.chefName : items[0]?.chefName) ?? "",
+      },
+    });
   };
 
   return (
@@ -709,16 +781,49 @@ export default function CheckoutScreen() {
             <Text style={styles.sectionTitle}>Payment</Text>
           </View>
 
-          <View style={styles.paymentOption}>
+          {payfastAvailable ? (
+            <Text style={styles.paymentHint}>
+              Choose how to pay. PayFast supports cards, bank accounts and mobile wallets.
+            </Text>
+          ) : null}
+
+          <Pressable
+            style={[styles.paymentOption, paymentMethod !== "CASH" && styles.paymentOptionIdle]}
+            onPress={() => setPaymentMethod("CASH")}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: paymentMethod === "CASH" }}
+          >
             <Ionicons name="cash" size={22} color={colors.primary} />
             <View style={styles.paymentInfo}>
               <Text style={styles.paymentTitle}>Cash on Pickup</Text>
               <Text style={styles.paymentSubtitle}>Pay when you collect your order</Text>
             </View>
-            <View style={styles.paymentCheck}>
-              <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
-            </View>
-          </View>
+            {paymentMethod === "CASH" ? (
+              <View style={styles.paymentCheck}>
+                <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+              </View>
+            ) : null}
+          </Pressable>
+
+          {payfastAvailable ? (
+            <Pressable
+              style={[styles.paymentOption, paymentMethod !== "PAYFAST" && styles.paymentOptionIdle]}
+              onPress={() => setPaymentMethod("PAYFAST")}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: paymentMethod === "PAYFAST" }}
+            >
+              <Ionicons name="card" size={22} color={colors.primary} />
+              <View style={styles.paymentInfo}>
+                <Text style={styles.paymentTitle}>Pay Online</Text>
+                <Text style={styles.paymentSubtitle}>Card, bank account or wallet via PayFast</Text>
+              </View>
+              {paymentMethod === "PAYFAST" ? (
+                <View style={styles.paymentCheck}>
+                  <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+                </View>
+              ) : null}
+            </Pressable>
+          ) : null}
         </View>
 
         {/* Terms Acceptance */}
@@ -762,9 +867,27 @@ export default function CheckoutScreen() {
             isSubmitting || !acceptedTerms || isDeliveryOutsideArea
           }
         >
-          {isSubmitting ? "Placing Order…" : `Place Order — ${formatPrice(checkoutTotal)}`}
+          {isSubmitting
+            ? paymentMethod === "PAYFAST"
+              ? "Starting payment…"
+              : "Placing Order…"
+            : `${paymentMethod === "PAYFAST" ? "Pay" : "Place Order"} — ${formatPrice(checkoutTotal)}`}
         </Button>
       </KeyboardAwareScrollView>
+
+      <PayFastCheckoutModal
+        orderId={payfastOrderId}
+        customerMobile={phone}
+        onPaid={handlePayFastPaid}
+        onClose={() => setPayfastOrderId(null)}
+        onOpenOrders={() => {
+          // PayFast reported success; only FoodPal's confirmation is pending.
+          orderPlacedRef.current = true;
+          if (!isOfferMode) clearCart();
+          setPayfastOrderId(null);
+          router.replace("/(tabs)/orders");
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -980,6 +1103,14 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderRadius: radius.md,
     backgroundColor: `${colors.primary}0D`,
+  },
+  paymentOptionIdle: {
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  paymentHint: {
+    ...typography.xs,
+    color: colors.mutedForeground,
   },
   paymentInfo: {
     flex: 1,
