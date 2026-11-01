@@ -23,8 +23,17 @@ export interface ChefCardProps {
   matchedDishes?: MatchedDish[];
   /** Distance from the customer in km, when their location is known. */
   distanceKm?: number | null;
+  /** Keep room for the matching-dishes block even when this chef has none, so
+   *  every card in a search result is the same height. */
+  reserveMatchedSlot?: boolean;
   onPress: () => void;
 }
+
+// Every card in the grid is the same height: each optional section keeps a
+// fixed-height slot whether or not it has anything to show, and anything that
+// could wrap is held to one line.
+const MAX_TAGS = 2;
+const MAX_MATCHED = 2;
 
 export const ChefCard = ({
   id,
@@ -39,11 +48,15 @@ export const ChefCard = ({
   isOpenNow = true,
   matchedDishes = [],
   distanceKm,
+  reserveMatchedSlot = false,
   onPress,
 }: ChefCardProps) => {
   const { formatPrice } = useI18n();
   const isOffline = isOpenNow === false;
-  const displayedSpecialties = specialties.slice(0, 3);
+  // A chef with no specialties listed reads "Diverse", as on the website, so
+  // the tag row is never an empty gap.
+  const displayedSpecialties = specialties.length > 0 ? specialties.slice(0, MAX_TAGS) : ["Diverse"];
+  const shownMatches = matchedDishes.slice(0, MAX_MATCHED);
   const initials = name
     .split(" ")
     .map((w) => w[0])
@@ -112,39 +125,39 @@ export const ChefCard = ({
           )}
         </View>
 
-        {typeof distanceKm === "number" && (
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={11} color={colors.mutedForeground} />
-            <Text style={styles.locationText} numberOfLines={1}>
-              {distanceKm.toFixed(1)} km away
-            </Text>
-          </View>
-        )}
+        <View style={styles.locationRow}>
+          {typeof distanceKm === "number" && (
+            <>
+              <Ionicons name="location-outline" size={11} color={colors.mutedForeground} />
+              <Text style={styles.locationText} numberOfLines={1}>
+                {distanceKm.toFixed(1)} km away
+              </Text>
+            </>
+          )}
+        </View>
 
-        {/* Specialties tags */}
-        {displayedSpecialties.length > 0 && (
-          <View style={styles.tagsRow}>
-            {displayedSpecialties.map((s) => (
-              <View key={s} style={styles.tag}>
-                <Text style={styles.tagText}>{s}</Text>
-              </View>
-            ))}
-            {specialties.length > 3 && (
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>+{specialties.length - 3}</Text>
-              </View>
-            )}
-          </View>
-        )}
+        {/* Specialties tags — one row, never wrapping */}
+        <View style={styles.tagsRow}>
+          {displayedSpecialties.map((s) => (
+            <View key={s} style={[styles.tag, styles.tagShrink]}>
+              <Text style={styles.tagText} numberOfLines={1}>{s}</Text>
+            </View>
+          ))}
+          {specialties.length > MAX_TAGS && (
+            <View style={styles.tag}>
+              <Text style={styles.tagText}>+{specialties.length - MAX_TAGS}</Text>
+            </View>
+          )}
+        </View>
 
         {/* Why this chef matched: the dishes on their menu that hit the search term. */}
-        {matchedDishes.length > 0 && (
+        {shownMatches.length > 0 ? (
           <View style={styles.matchedBlock}>
             <View style={styles.matchedHeader}>
               <Ionicons name="restaurant-outline" size={10} color={colors.mutedForeground} />
               <Text style={styles.matchedLabel}>Matching dishes</Text>
             </View>
-            {matchedDishes.map((dish) => (
+            {shownMatches.map((dish) => (
               <View key={dish.id} style={styles.matchedRow}>
                 <Text style={styles.matchedTitle} numberOfLines={1}>
                   {toTitleCase(dish.title)}
@@ -153,12 +166,14 @@ export const ChefCard = ({
               </View>
             ))}
           </View>
-        )}
+        ) : reserveMatchedSlot ? (
+          <View style={styles.matchedSlot} />
+        ) : null}
 
         {/* Footer: price range + CTA */}
         <View style={styles.footer}>
           {(minPrice > 0 || maxPrice > 0) ? (
-            <Text style={styles.priceRange}>
+            <Text style={styles.priceRange} numberOfLines={1}>
               {minPrice === maxPrice
                 ? formatPrice(minPrice)
                 : `${formatPrice(minPrice)} – ${formatPrice(maxPrice)}`}
@@ -173,8 +188,14 @@ export const ChefCard = ({
   );
 };
 
+// Header line plus MAX_MATCHED dish rows.
+const MATCHED_SLOT_HEIGHT = 56;
+
 const styles = StyleSheet.create({
   card: {
+    // Grow (not flex: 1) so the card keeps its content height on its own and
+    // still stretches to the tallest card in its row.
+    flexGrow: 1,
     backgroundColor: colors.card,
     borderRadius: radius.lg,
     overflow: "hidden",
@@ -260,6 +281,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
+    height: 16,
     marginBottom: spacing.xs,
   },
   locationText: {
@@ -290,7 +312,7 @@ const styles = StyleSheet.create({
     color: colors.mutedForeground,
   },
 
-  content: { padding: spacing.sm },
+  content: { flexGrow: 1, padding: spacing.sm },
   name: {
     ...typography.base,
     fontWeight: "700",
@@ -300,10 +322,13 @@ const styles = StyleSheet.create({
 
   tagsRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
     gap: 4,
+    height: 20,
+    overflow: "hidden",
     marginBottom: spacing.xs,
   },
+  tagShrink: { flexShrink: 1 },
   tag: {
     backgroundColor: colors.accentSubtle,
     borderRadius: radius.full,
@@ -322,7 +347,10 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
     marginBottom: spacing.xs,
     gap: 2,
+    height: MATCHED_SLOT_HEIGHT,
+    overflow: "hidden",
   },
+  matchedSlot: { height: MATCHED_SLOT_HEIGHT, marginBottom: spacing.xs },
   matchedHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -346,13 +374,14 @@ const styles = StyleSheet.create({
   matchedPrice: { ...typography.xs, color: colors.mutedForeground },
 
   footer: {
+    // Pinned to the bottom so cards line up even if a slot renders short.
+    marginTop: "auto",
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: spacing.xs,
-    marginTop: spacing.xs,
   },
   priceRange: {
     ...typography.xs,

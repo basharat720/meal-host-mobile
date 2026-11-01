@@ -145,21 +145,34 @@ export function mapNotificationUrlToRoute(url?: string | null): string {
   const path = rawPath.replace(/\/+$/, "");
 
   if (path === "" || path === "/") return "/notifications";
-  // Chef pushes are /chef-dashboard?tab=requests (custom orders) or
-  // /chef-dashboard?tab=orders (new orders). Older payloads send a bare
-  // /chef-dashboard for both, which opens the orders screen, not the dashboard.
-  if (path.startsWith("/chef-dashboard")) {
-    const tab = new URLSearchParams(rawQuery ?? "").get("tab");
-    return tab === "requests" ? "/(chef)/requests" : "/(chef)/orders";
-  }
-  // /chef/orders/:id is sent once a PayFast payment confirms.
-  if (path.startsWith("/chef/orders")) return "/(chef)/orders";
+  const query = new URLSearchParams(rawQuery ?? "");
+  const idParam = (key: string) => {
+    const value = query.get(key);
+    return value && /^\d+$/.test(value) ? value : null;
+  };
+  const trailingId = (prefix: string) => {
+    const id = path.slice(prefix.length).split("/")[1];
+    return id && /^\d+$/.test(id) ? id : null;
+  };
+  const chefOrdersRoute = (id: string | null) =>
+    id ? `/(chef)/orders?order=${id}` : "/(chef)/orders";
 
-  // /my-orders?order=<id> opens the list on that order. The backend's push
-  // payloads send a bare /my-orders today, but its order emails already carry
-  // the id, so carry the parameter through rather than dropping the query.
+  // Chef pushes are /chef-dashboard?tab=requests&request=<id> (custom orders)
+  // or /chef-dashboard?tab=orders&order=<id> (orders). Older payloads drop the
+  // id, or send a bare /chef-dashboard, which opens the orders screen.
+  if (path.startsWith("/chef-dashboard")) {
+    if (query.get("tab") === "requests") {
+      const requestId = idParam("request");
+      return requestId ? `/(chef)/requests?request=${requestId}` : "/(chef)/requests";
+    }
+    return chefOrdersRoute(idParam("order"));
+  }
+  // Legacy: /chef/orders/:id was sent for payment and rider updates.
+  if (path.startsWith("/chef/orders")) return chefOrdersRoute(trailingId("/chef/orders"));
+
+  // /my-orders?order=<id> opens the list on that order. Legacy payloads sent
+  // /my-orders/<id> or a bare /my-orders.
   if (path.startsWith("/my-orders")) {
-    const query = new URLSearchParams(rawQuery ?? "");
 
     // A new-message push is /my-orders?chat=<id> on the web, which the app
     // opens as the chat screen itself rather than the orders list.
@@ -168,10 +181,8 @@ export function mapNotificationUrlToRoute(url?: string | null): string {
       return `/order-chat/${chatOrderId}`;
     }
 
-    const orderId = query.get("order");
-    return orderId && /^\d+$/.test(orderId)
-      ? `/(tabs)/orders?order=${orderId}`
-      : "/(tabs)/orders";
+    const orderId = idParam("order") ?? trailingId("/my-orders");
+    return orderId ? `/(tabs)/orders?order=${orderId}` : "/(tabs)/orders";
   }
 
   // /my-requests/:id -> request detail; /my-requests -> list

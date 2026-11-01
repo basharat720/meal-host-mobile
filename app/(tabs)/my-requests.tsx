@@ -319,6 +319,15 @@ export default function MyRequestsScreen() {
               />
             </View>
 
+            {item.chef_id ? (
+              <View style={[styles.metaRow, { marginBottom: 6 }]}>
+                <Ionicons name="restaurant-outline" size={12} color={colors.primary} />
+                <Text style={[styles.metaText, { color: colors.primary, fontWeight: "600" }]}>
+                  Sent to {item.chef_name ?? "one chef"}
+                </Text>
+              </View>
+            ) : null}
+
             <View style={styles.cardMeta}>
               {item.event_time && (
                 <View style={styles.metaRow}>

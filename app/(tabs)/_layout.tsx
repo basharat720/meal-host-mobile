@@ -43,7 +43,8 @@ export default function TabsLayout() {
     >
       {/* Find Chefs leads, and is the tab the app opens on — it's the landing
           page on web too, where its nav item is likewise labelled "Home".
-          The dish feed follows as "Dishes". Declaration order is tab order. */}
+          The dish feed stays routable but is off the tab bar. Declaration
+          order is tab order. */}
       <Tabs.Screen
         name="chefs"
         options={{
@@ -54,8 +55,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: "Dishes",
-          tabBarIcon: ({ color, size }) => <Ionicons name="restaurant-outline" size={size} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen

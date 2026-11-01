@@ -339,6 +339,11 @@ export interface FoodRequest {
   preferred_location_id?: number;
   created_at: string;
   dietary_tags: DietaryTag[];
+  /** Set when the request was sent to one chef — only they see it. */
+  chef_id?: number | null;
+  chef_name?: string | null;
+  /** Chef's kitchen to the delivery location; set only when a chef lists requests. */
+  distance_km?: number | null;
 }
 
 export interface FoodRequestCreate {

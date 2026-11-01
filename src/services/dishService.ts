@@ -71,7 +71,9 @@ export const dishService = {
    */
   getListingEta: async (
     dishId: number,
+    deliveryType: "pickup" | "delivery" = "pickup",
   ): Promise<{ tentative_eta_min_minutes: number; tentative_eta_max_minutes: number }> => {
-    return apiRequest(`food/listings/${dishId}/eta`);
+    // Pickup is prep time only; delivery adds the travel estimate.
+    return apiRequest(`food/listings/${dishId}/eta?delivery_type=${deliveryType}`);
   },
 };

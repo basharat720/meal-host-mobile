@@ -241,8 +241,8 @@ export default function FavoritesScreen() {
             icon="🤍"
             title="No favorite dishes yet"
             description="Tap the heart on any dish to save it here."
-            actionLabel={actingAsChef ? undefined : "Browse dishes"}
-            onAction={actingAsChef ? undefined : () => router.push("/(tabs)/home")}
+            actionLabel={actingAsChef ? undefined : "Browse chefs"}
+            onAction={actingAsChef ? undefined : () => router.push("/(tabs)/chefs")}
           />
         ) : (
           <View style={styles.dishGrid}>

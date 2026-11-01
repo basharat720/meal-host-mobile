@@ -189,11 +189,13 @@ export default function CheckoutScreen() {
   // Fetch ETA estimate for cart items (not offer mode)
   useEffect(() => {
     if (isOfferMode || items.length === 0) return;
+    let cancelled = false;
     const listingIds = [
       ...new Set(items.map((i) => Number(i.foodListingId)).filter((n) => !isNaN(n))),
     ];
-    Promise.allSettled(listingIds.map((id) => dishService.getListingEta(id))).then(
+    Promise.allSettled(listingIds.map((id) => dishService.getListingEta(id, deliveryType))).then(
       (results) => {
+        if (cancelled) return;
         let maxMinutes = 0;
         let minMinutes = 0;
         results.forEach((r) => {
@@ -204,16 +206,19 @@ export default function CheckoutScreen() {
               : Math.max(minMinutes, r.value.tentative_eta_min_minutes);
           }
         });
-        if (maxMinutes > 0) {
-          setEtaText(
-            minMinutes && minMinutes !== maxMinutes
+        setEtaText(
+          maxMinutes <= 0
+            ? null
+            : minMinutes && minMinutes !== maxMinutes
               ? formatDurationRange(minMinutes, maxMinutes)
               : `~${formatDuration(maxMinutes)}`
-          );
-        }
+        );
       }
     );
-  }, [isOfferMode, items]);
+    return () => {
+      cancelled = true;
+    };
+  }, [isOfferMode, items, deliveryType]);
 
   // Load chef pickup address
   useEffect(() => {
@@ -434,6 +439,7 @@ export default function CheckoutScreen() {
         params: {
           orderIds: createdOrderIds.join(","),
           eta: etaText ?? "",
+          deliveryType,
           chefName: successChefName ?? "",
         },
       });
@@ -461,6 +467,7 @@ export default function CheckoutScreen() {
       params: {
         orderIds: String(orderId),
         eta: etaText ?? "",
+        deliveryType,
         chefName: (isOfferMode ? offerCheckout!.chefName : items[0]?.chefName) ?? "",
       },
     });
@@ -536,7 +543,7 @@ export default function CheckoutScreen() {
             <View style={styles.etaBanner}>
               <Ionicons name="time-outline" size={14} color={colors.mutedForeground} />
               <Text style={styles.etaBannerText}>
-                Estimated ready in{" "}
+                {deliveryType === "delivery" ? "Estimated delivery in" : "Estimated ready for pickup in"}{" "}
                 <Text style={{ fontWeight: "600", color: colors.foreground }}>{etaText}</Text>
               </Text>
             </View>

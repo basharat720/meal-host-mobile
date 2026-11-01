@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { KeyboardAvoidingView, KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { requestService } from "@/services/requestService";
@@ -24,6 +24,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useI18n } from "@/i18n/context";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 import { getUserFriendlyError } from "@/lib/errorMessages";
+import { formatDistance } from "@/lib/addressPrivacy";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -182,11 +183,13 @@ function RequestCard({
   item,
   offers,
   loadingOffers,
+  highlighted,
   onMakeOffer,
 }: {
   item: FoodRequest;
   offers: Offer[] | undefined;
   loadingOffers: boolean;
+  highlighted: boolean;
   onMakeOffer: (req: FoodRequest, rejectedOffers: Offer[]) => void;
 }) {
   const { formatPrice } = useI18n();
@@ -196,7 +199,7 @@ function RequestCard({
   const rejectedOffers = myOffers.filter((o) => o.status === "REJECTED");
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, highlighted && styles.cardHighlighted]}>
       <View style={styles.cardTopRow}>
         <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
         {item.status === "OPEN" ? (
@@ -221,6 +224,20 @@ function RequestCard({
         <View style={styles.metaRow}>
           <Ionicons name="time-outline" size={13} color={colors.mutedForeground} />
           <Text style={styles.metaText}>Event: {formatDateTime(item.event_time)}</Text>
+        </View>
+      ) : null}
+
+      {item.chef_id ? (
+        <View style={styles.metaRow}>
+          <Ionicons name="restaurant-outline" size={13} color={colors.primary} />
+          <Text style={[styles.metaText, { color: colors.primary, fontWeight: "600" }]}>Sent to you</Text>
+        </View>
+      ) : null}
+
+      {item.distance_km != null ? (
+        <View style={styles.metaRow}>
+          <Ionicons name="navigate-outline" size={13} color={colors.mutedForeground} />
+          <Text style={styles.metaText}>{formatDistance(item.distance_km)}</Text>
         </View>
       ) : null}
 
@@ -306,6 +323,12 @@ export default function ChefRequestsScreen() {
   const [selectedRequest, setSelectedRequest] = useState<FoodRequest | null>(null);
   const [selectedRejected, setSelectedRejected] = useState<Offer[]>([]);
   const [showModal, setShowModal] = useState(false);
+  // Request notifications land here as ?request=<id>: scroll to that card and
+  // highlight it.
+  const { request: requestParam } = useLocalSearchParams<{ request?: string }>();
+  const deepLinkedRequestId = Number(requestParam) || null;
+  const appliedDeepLinkId = useRef<number | null>(null);
+  const listRef = useRef<FlatList<FoodRequest>>(null);
 
   // Load the chef's existing offers for each open request so UI state is
   // derived from the server rather than an in-session set that resets on reload.
@@ -416,6 +439,16 @@ export default function ChefRequestsScreen() {
     }
   };
 
+  useEffect(() => {
+    if (deepLinkedRequestId === null || appliedDeepLinkId.current === deepLinkedRequestId) return;
+    const index = requests.findIndex((r) => r.id === deepLinkedRequestId);
+    if (index < 0) return;
+    appliedDeepLinkId.current = deepLinkedRequestId;
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToIndex({ index, viewPosition: 0.3, animated: true });
+    });
+  }, [deepLinkedRequestId, requests]);
+
   if (loading) return <LoadingSpinner message="Loading requests…" />;
 
   return (
@@ -429,13 +462,18 @@ export default function ChefRequestsScreen() {
       </View>
 
       <FlatList
+        ref={listRef}
         data={requests}
         keyExtractor={(r) => r.id.toString()}
+        onScrollToIndexFailed={({ index, averageItemLength }) => {
+          listRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: true });
+        }}
         renderItem={({ item }) => (
           <RequestCard
             item={item}
             offers={offersMap.get(item.id)}
             loadingOffers={loadingOffers}
+            highlighted={item.id === deepLinkedRequestId}
             onMakeOffer={openOfferModal}
           />
         )}
@@ -491,6 +529,10 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorder,
     ...shadow.sm,
     gap: spacing.xs,
+  },
+  cardHighlighted: {
+    borderColor: colors.primary,
+    borderWidth: 2,
   },
   cardTopRow: {
     flexDirection: "row",

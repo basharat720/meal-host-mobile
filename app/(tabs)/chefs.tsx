@@ -322,13 +322,21 @@ export default function ChefsScreen() {
   const H_PADDING = spacing.md;
   const columnWidth = (width - H_PADDING * 2 - COLUMN_GAP) / 2;
 
+  // During a search some chefs match by dish and some by name; reserve the
+  // matching-dishes slot on all of them so the grid stays even.
+  const anyMatchedDishes = chefs.some((c) => c.matchedDishes.length > 0);
+
   const renderItem = useCallback(
     ({ item }: { item: MappedChef }) => (
       <View style={{ width: columnWidth }}>
-        <ChefCard {...item} onPress={() => router.push(`/chef/${item.id}/menu`)} />
+        <ChefCard
+          {...item}
+          reserveMatchedSlot={anyMatchedDishes}
+          onPress={() => router.push(`/chef/${item.id}/menu`)}
+        />
       </View>
     ),
-    [columnWidth]
+    [columnWidth, anyMatchedDishes]
   );
 
   const listHeader = (

@@ -1,10 +1,12 @@
 /**
  * Human-friendly duration formatting for preparation times and ETAs.
  *
- * Durations are stored in MINUTES throughout the app. Once a duration exceeds
- * 60 minutes it reads far better in hours (e.g. 1440 min → "24 hrs" rather than
- * "1440 min"), so anything over an hour is rendered using hours.
+ * Durations are stored in MINUTES throughout the app. Anything over an hour is
+ * rendered in hours, and a day or more in days + hours (1440 min → "1 day",
+ * not "24 hrs" or "1440 min").
  */
+
+const MINUTES_PER_DAY = 24 * 60;
 
 /** Format a single duration (in minutes) as a label. */
 export function formatDuration(
@@ -17,6 +19,16 @@ export function formatDuration(
 
   // Up to and including 60 minutes → keep minutes.
   if (m <= 60) return compact ? `${Math.round(m)}m` : `${Math.round(m)} min`;
+
+  // A day or more → days + hours; leftover minutes round into the hour.
+  if (m >= MINUTES_PER_DAY) {
+    const totalHours = Math.round(m / 60);
+    const days = Math.floor(totalHours / 24);
+    const hrs = totalHours % 24;
+    if (compact) return hrs === 0 ? `${days}d` : `${days}d ${hrs}h`;
+    const dayLabel = `${days} ${days === 1 ? "day" : "days"}`;
+    return hrs === 0 ? dayLabel : `${dayLabel} ${hrs} ${hrs === 1 ? "hr" : "hrs"}`;
+  }
 
   // Over 60 minutes → hours (with a minutes remainder when not a whole hour).
   const hrs = Math.floor(m / 60);

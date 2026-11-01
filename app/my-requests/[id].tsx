@@ -278,6 +278,14 @@ export default function RequestDetailScreen() {
             {request.description ? (
               <Text style={styles.requestDesc}>{request.description}</Text>
             ) : null}
+            {request.chef_id ? (
+              <View style={styles.eventTimeRow}>
+                <Ionicons name="restaurant-outline" size={14} color={colors.primary} />
+                <Text style={[styles.eventTimeText, { color: colors.primary, fontWeight: "600" }]}>
+                  Sent to {request.chef_name ?? "one chef"} only
+                </Text>
+              </View>
+            ) : null}
             {request.event_time ? (
               <View style={styles.eventTimeRow}>
                 <Ionicons

@@ -988,7 +988,9 @@ export default function OrdersScreen() {
   // shows up in the loaded page.
   const { order: orderParam } = useLocalSearchParams<{ order?: string }>();
   const deepLinkedOrderId = Number(orderParam) || null;
-  const deepLinkApplied = useRef(false);
+  // The id last applied, so a later notification for another order still
+  // takes effect while this screen stays mounted.
+  const appliedDeepLinkId = useRef<number | null>(null);
   const listRef = useRef<FlatList<Order>>(null);
 
   const hasMore = orders.length < total;
@@ -1290,13 +1292,12 @@ export default function OrdersScreen() {
   // Take the deep link to its order: switch to the tab holding it, expand it,
   // and scroll it into view.
   useEffect(() => {
-    if (deepLinkedOrderId === null || deepLinkApplied.current) return;
+    if (deepLinkedOrderId === null || appliedDeepLinkId.current === deepLinkedOrderId) return;
     const target = orders.find((o) => o.id === deepLinkedOrderId);
-    // Not in the loaded page yet — leave the flag unset so a later page can
-    // still satisfy the link.
+    // Not in the loaded page yet — a later page can still satisfy the link.
     if (!target) return;
 
-    deepLinkApplied.current = true;
+    appliedDeepLinkId.current = deepLinkedOrderId;
     const targetTab = getTabForStatus(target.status);
     setOrderSearch("");
     setActiveTab(targetTab);
@@ -1408,8 +1409,8 @@ export default function OrdersScreen() {
             Start your culinary journey by ordering from talented home chefs in
             your area
           </Text>
-          <Button onPress={() => router.push("/(tabs)/home")}>
-            Explore dishes
+          <Button onPress={() => router.push("/(tabs)/chefs")}>
+            Explore chefs
           </Button>
         </View>
       ) : (

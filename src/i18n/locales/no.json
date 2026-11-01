@@ -337,6 +337,15 @@
     "prepTime": "Tilberedningstid (minutter)",
     "prepTimePlaceholder": "f.eks. 20",
     "depositTags": "Velg kostholdstagger"
+  },
+  "landing": {
+    "customRequest": {
+      "examples": [
+        "bursdagskake til 20 personer",
+        "hjemmelaget nihari, ikke for sterk",
+        "en uke med keto-matbokser",
+        "mutton biryani som bestemor lagde"
+      ]
+    }
   }
 }
-

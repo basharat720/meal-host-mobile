@@ -6,6 +6,7 @@ import {
   Alert,
   Pressable,
   Platform,
+  Keyboard,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,9 +21,48 @@ import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useAuth } from "@/contexts/AuthContext";
-import { menuService, requestService } from "@/services/api";
+import { menuService, requestService, userService } from "@/services/api";
+import { chefDisplayName } from "@/lib/chefName";
+import { getUserFriendlyError } from "@/lib/errorMessages";
+import { useI18n } from "@/i18n/context";
+import { useTypewriter } from "@/hooks/useTypewriter";
 import { DietaryTag } from "@/services/types";
 import { colors, spacing, typography, radius } from "@/constants/theme";
+
+/**
+ * The only dietary requirements offered on a custom request — as on the
+ * website. Codes are compared with punctuation and case stripped because the
+ * backend seeds disagree (GLUTEN_FREE vs GF), and the label is set here since
+ * the API returns the raw code, which is not a thing to show a customer.
+ */
+const OFFERED_DIETARY_TAGS = [
+  { codes: ["VEGETARIAN", "VEG"], label: "Vegetarian" },
+  { codes: ["GLUTENFREE", "GF"], label: "Gluten free" },
+];
+
+const normaliseTagCode = (code: string) => code.toUpperCase().replace(/[^A-Z]/g, "");
+
+/** The placeholder cycles the same examples as the website's request form. */
+const EXAMPLE_COUNT = 4;
+
+/**
+ * How far ahead a request may be placed — the same window as the website.
+ * Chefs need a day's notice to shop and cook, and an open-ended date lets
+ * someone post for months out and leave the request sitting in the queue.
+ */
+const MIN_LEAD_MS = 24 * 60 * 60 * 1000;
+const MAX_LEAD_MS = 14 * 24 * 60 * 60 * 1000;
+/** The picker has minute resolution, so the earliest value it offers sits a few
+ *  seconds inside the limit; without this grace it would be rejected. */
+const LEAD_GRACE_MS = 60 * 1000;
+
+/** The earliest allowed time, rounded up to the next 15 minutes. */
+const defaultEventDate = () => {
+  const d = new Date(Date.now() + MIN_LEAD_MS);
+  d.setSeconds(0, 0);
+  d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15);
+  return d;
+};
 
 export default function PostRequestScreen() {
   const { dbUser, loading } = useAuth();
@@ -40,8 +80,34 @@ export default function PostRequestScreen() {
   const [availableTags, setAvailableTags] = useState<DietaryTag[]>([]);
   const [locationId, setLocationId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // The kitchen a targeted request goes to, shown so the customer knows it is
+  // private to that chef.
+  const [targetChefName, setTargetChefName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!chefId) return;
+    userService
+      .getUserById(chefId)
+      .then((u) => setTargetChefName(chefDisplayName(u, "this chef")))
+      .catch(() => setTargetChefName("this chef"));
+  }, [chefId]);
 
   const savedLocations = dbUser?.locations ?? [];
+
+  // Paused once there is something in the field: the placeholder is hidden
+  // then, so animating it is work nobody sees.
+  const { t } = useI18n();
+  const titleExamples = Array.from({ length: EXAMPLE_COUNT }, (_, i) =>
+    t(`landing.customRequest.examples.${i}`)
+  );
+  const { text: titlePlaceholder } = useTypewriter(titleExamples, {
+    enabled: title === "",
+  });
+
+  const offeredTags = OFFERED_DIETARY_TAGS.flatMap(({ codes, label }) => {
+    const tag = availableTags.find((tg) => codes.includes(normaliseTagCode(tg.code)));
+    return tag ? [{ ...tag, label }] : [];
+  });
 
   useEffect(() => {
     menuService.getDietaryTags().then(setAvailableTags).catch(() => {});
@@ -87,7 +153,7 @@ export default function PostRequestScreen() {
     }
     if (selected) {
       setEventDate((prev) => {
-        const base = prev ?? new Date();
+        const base = prev ?? defaultEventDate();
         const merged = new Date(base);
         merged.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
         return merged;
@@ -109,6 +175,25 @@ export default function PostRequestScreen() {
       Alert.alert("Missing title", "Please enter a title for your request.");
       return;
     }
+    if (!eventDate) {
+      Alert.alert("Missing date", "Please choose when you need it.");
+      return;
+    }
+    // The pickers' bounds are a guardrail, not a guarantee (Android picks the
+    // date and time separately), so the window is enforced against the clock.
+    const eventAt = eventDate.getTime();
+    const submittedAt = Date.now();
+    if (eventAt < submittedAt + MIN_LEAD_MS - LEAD_GRACE_MS) {
+      Alert.alert(
+        "Too soon",
+        "Chefs need at least a day's notice — please pick a time at least 24 hours from now."
+      );
+      return;
+    }
+    if (eventAt > submittedAt + MAX_LEAD_MS) {
+      Alert.alert("Too far ahead", "Please pick a time within the next 2 weeks.");
+      return;
+    }
     if (!dbUser) {
       Alert.alert("Not signed in", "Please sign in to post a request.");
       return;
@@ -120,7 +205,7 @@ export default function PostRequestScreen() {
         customer_id: dbUser.id as number,
         title: title.trim(),
         description: description.trim() || undefined,
-        event_time: eventDate ? eventDate.toISOString() : undefined,
+        event_time: eventDate.toISOString(),
         preferred_location_id: locationId ?? undefined,
         dietary_tag_ids: selectedTagIds,
         chef_id: chefId ? Number(chefId) : undefined,
@@ -134,7 +219,7 @@ export default function PostRequestScreen() {
     } catch (err: any) {
       Alert.alert(
         "Error",
-        err?.message ?? "Failed to post request. Please try again."
+        getUserFriendlyError(err, "Failed to post request. Please try again.")
       );
     } finally {
       setIsSubmitting(false);
@@ -202,11 +287,20 @@ export default function PostRequestScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {chefId ? (
+          <View style={styles.targetBanner}>
+            <Ionicons name="restaurant-outline" size={18} color={colors.primary} />
+            <Text style={styles.targetBannerText}>
+              Sending to <Text style={styles.targetBannerName}>{targetChefName ?? "this chef"}</Text>{" "}
+              only. Other chefs won't see this request.
+            </Text>
+          </View>
+        ) : null}
         <Card style={styles.card}>
           {/* Title */}
           <Input
-            label="What are you looking for? *"
-            placeholder="e.g. Birthday party catering for 20 people"
+            label="List your menu *"
+            placeholder={titlePlaceholder}
             value={title}
             onChangeText={setTitle}
             containerStyle={styles.field}
@@ -215,7 +309,7 @@ export default function PostRequestScreen() {
           {/* Description */}
           <Input
             label="Additional details (optional)"
-            placeholder="Describe what you'd like — cuisine, portions, budget, any preferences..."
+            placeholder="List your dishes"
             value={description}
             onChangeText={setDescription}
             multiline
@@ -228,12 +322,19 @@ export default function PostRequestScreen() {
           {/* Event date/time */}
           <View style={styles.field}>
             <Text style={styles.fieldLabel}>
-              When do you need it?{" "}
-              <Text style={styles.fieldOptional}>(optional)</Text>
+              When do you need it? <Text style={styles.fieldRequired}>*</Text>
             </Text>
             <Pressable
               style={styles.datePickerButton}
-              onPress={() => setShowDatePicker(true)}
+              onPress={() => {
+                // The scroll view keeps the keyboard up for taps, and the iOS
+                // picker is pinned to the bottom — it would open behind it.
+                Keyboard.dismiss();
+                // Seed a valid value: the iOS spinner only reports changes, so
+                // "Done" without spinning would otherwise leave it empty.
+                if (!eventDate) setEventDate(defaultEventDate());
+                setShowDatePicker(true);
+              }}
             >
               <Ionicons
                 name="calendar-outline"
@@ -249,19 +350,8 @@ export default function PostRequestScreen() {
               >
                 {eventDate ? formatDisplayDate(eventDate) : "Select date & time"}
               </Text>
-              {eventDate && (
-                <Pressable
-                  hitSlop={8}
-                  onPress={() => setEventDate(null)}
-                >
-                  <Ionicons
-                    name="close-circle"
-                    size={18}
-                    color={colors.mutedForeground}
-                  />
-                </Pressable>
-              )}
             </Pressable>
+            <Text style={styles.fieldHint}>Anywhere from 24 hours to 2 weeks from now.</Text>
           </View>
 
           {/* Preferred location */}
@@ -331,14 +421,14 @@ export default function PostRequestScreen() {
           </View>
 
           {/* Dietary tags */}
-          {availableTags.length > 0 && (
+          {offeredTags.length > 0 && (
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>
                 Dietary requirements{" "}
                 <Text style={styles.fieldOptional}>(optional)</Text>
               </Text>
               <View style={styles.tagsRow}>
-                {availableTags.map((tag) => {
+                {offeredTags.map((tag) => {
                   const selected = selectedTagIds.includes(tag.id);
                   return (
                     <Pressable
@@ -352,7 +442,7 @@ export default function PostRequestScreen() {
                           selected && styles.tagTextSelected,
                         ]}
                       >
-                        {tag.code}
+                        {tag.label}
                       </Text>
                     </Pressable>
                   );
@@ -383,7 +473,7 @@ export default function PostRequestScreen() {
             </Pressable>
           </View>
           <DateTimePicker
-            value={eventDate ?? new Date()}
+            value={eventDate ?? defaultEventDate()}
             mode="datetime"
             display="spinner"
             themeVariant="light"
@@ -391,7 +481,8 @@ export default function PostRequestScreen() {
             onChange={(e, d) => {
               if (d) setEventDate(d);
             }}
-            minimumDate={new Date()}
+            minimumDate={new Date(Date.now() + MIN_LEAD_MS)}
+            maximumDate={new Date(Date.now() + MAX_LEAD_MS)}
           />
         </View>
       )}
@@ -399,16 +490,17 @@ export default function PostRequestScreen() {
       {/* Android date picker */}
       {showDatePicker && Platform.OS === "android" && (
         <DateTimePicker
-          value={eventDate ?? new Date()}
+          value={eventDate ?? defaultEventDate()}
           mode="date"
           display="default"
           onChange={onDateChange}
-          minimumDate={new Date()}
+          minimumDate={new Date(Date.now() + MIN_LEAD_MS)}
+          maximumDate={new Date(Date.now() + MAX_LEAD_MS)}
         />
       )}
       {showTimePicker && Platform.OS === "android" && (
         <DateTimePicker
-          value={eventDate ?? new Date()}
+          value={eventDate ?? defaultEventDate()}
           mode="time"
           display="default"
           onChange={onTimeChange}
@@ -463,6 +555,19 @@ const styles = StyleSheet.create({
     paddingBottom: spacing["2xl"],
   },
   card: { marginBottom: spacing.md },
+  targetBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySubtle,
+  },
+  targetBannerText: { ...typography.sm, color: colors.foreground, flex: 1 },
+  targetBannerName: { fontWeight: "700" },
   field: { marginBottom: spacing.md },
 
   fieldLabel: {
@@ -474,6 +579,14 @@ const styles = StyleSheet.create({
   fieldOptional: {
     fontWeight: "400",
     color: colors.mutedForeground,
+  },
+  fieldRequired: {
+    color: colors.destructive,
+  },
+  fieldHint: {
+    ...typography.xs,
+    color: colors.mutedForeground,
+    marginTop: 4,
   },
 
   textarea: {

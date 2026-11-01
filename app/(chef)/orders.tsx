@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { useFocusEffect, router } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n/context";
@@ -580,6 +580,13 @@ export default function ChefOrdersScreen() {
   const [dishMap, setDishMap] = useState<Map<number, DishInfo>>(new Map());
   const [requestMap, setRequestMap] = useState<Map<number, RequestInfo>>(new Map());
   const isMounted = useRef(true);
+  // Order notifications land here as ?order=<id>. The id last applied is kept
+  // so a second notification for a different order is still honoured.
+  const { order: orderParam } = useLocalSearchParams<{ order?: string }>();
+  const deepLinkedOrderId = Number(orderParam) || null;
+  const appliedDeepLinkId = useRef<number | null>(null);
+  const [scrollTargetId, setScrollTargetId] = useState<number | null>(null);
+  const listRef = useRef<FlatList<Order>>(null);
   // Ids already looked up (or in flight), so the poll never refetches them.
   const requestedDishIds = useRef(new Set<number>());
   const requestedRequestIds = useRef(new Set<number>());
@@ -860,6 +867,30 @@ export default function ChefOrdersScreen() {
     return inQueue.sort((a, b) => time(b.created_at) - time(a.created_at));
   }, [searchedOrders, queue]);
 
+  // Take the deep link to its order: open the queue holding it and expand it.
+  useEffect(() => {
+    if (deepLinkedOrderId === null || appliedDeepLinkId.current === deepLinkedOrderId) return;
+    const target = orders.find((o) => o.id === deepLinkedOrderId);
+    // Not loaded yet — a later fetch can still satisfy the link.
+    if (!target) return;
+    appliedDeepLinkId.current = deepLinkedOrderId;
+    setOrderSearch("");
+    setQueue(queueFor(target.status));
+    setExpandedId(target.id);
+    setScrollTargetId(target.id);
+  }, [deepLinkedOrderId, orders]);
+
+  // Scroll once the queue switch has rendered the row.
+  useEffect(() => {
+    if (scrollTargetId === null) return;
+    const index = filtered.findIndex((o) => o.id === scrollTargetId);
+    if (index < 0) return;
+    setScrollTargetId(null);
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToIndex({ index, viewPosition: 0.3, animated: true });
+    });
+  }, [scrollTargetId, filtered]);
+
   if (loading) return <LoadingSpinner message="Loading orders…" />;
 
   const searchQuery = orderSearch.trim();
@@ -924,8 +955,12 @@ export default function ChefOrdersScreen() {
       )}
 
       <FlatList
+        ref={listRef}
         data={filtered}
         keyExtractor={(o) => o.id.toString()}
+        onScrollToIndexFailed={({ index, averageItemLength }) => {
+          listRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: true });
+        }}
         keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => (
           <OrderCard

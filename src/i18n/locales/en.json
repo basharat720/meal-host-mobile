@@ -338,5 +338,15 @@
     "prepTime": "Preparation Time (minutes)",
     "prepTimePlaceholder": "e.g. 20",
     "depositTags": "Select dietary tags"
+  },
+  "landing": {
+    "customRequest": {
+      "examples": [
+        "a birthday cake for 20 people",
+        "home-style nihari, not too spicy",
+        "a week of keto tiffins",
+        "mutton biryani like my nani made"
+      ]
+    }
   }
 }

@@ -12,6 +12,7 @@ export default function OrderSuccessScreen() {
   const params = useLocalSearchParams<{
     orderIds?: string;
     eta?: string;
+    deliveryType?: string;
     chefName?: string;
   }>();
 
@@ -20,6 +21,7 @@ export default function OrderSuccessScreen() {
     .map((id) => id.trim())
     .filter((id) => id.length > 0);
   const etaLabel = params.eta?.trim() || null;
+  const isDelivery = params.deliveryType === "delivery";
   const chefName = toTitleCase(params.chefName?.trim()) || null;
 
   return (
@@ -56,7 +58,9 @@ export default function OrderSuccessScreen() {
 
           {etaLabel ? (
             <View style={styles.etaBlock}>
-              <Text style={styles.infoLabel}>Estimated ready</Text>
+              <Text style={styles.infoLabel}>
+                {isDelivery ? "Estimated delivery" : "Estimated ready for pickup"}
+              </Text>
               <Text style={styles.etaValue}>{etaLabel}</Text>
             </View>
           ) : null}
@@ -70,7 +74,7 @@ export default function OrderSuccessScreen() {
             {chefName
               ? `${chefName} will confirm your order shortly`
               : "Waiting for the chef to confirm your order"}
-            {etaLabel ? ` · ready in about ${etaLabel}` : ""}
+            {etaLabel ? ` · ${isDelivery ? "arrives" : "ready"} in about ${etaLabel}` : ""}
           </Text>
         </View>
 
