@@ -286,6 +286,15 @@ export default function RequestDetailScreen() {
                 </Text>
               </View>
             ) : null}
+            {request.number_of_people != null ? (
+              <View style={styles.eventTimeRow}>
+                <Ionicons name="people-outline" size={14} color={colors.mutedForeground} />
+                <Text style={styles.eventTimeText}>
+                  For {request.number_of_people}{" "}
+                  {request.number_of_people === 1 ? "person" : "people"}
+                </Text>
+              </View>
+            ) : null}
             {request.event_time ? (
               <View style={styles.eventTimeRow}>
                 <Ionicons

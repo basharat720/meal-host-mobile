@@ -31,12 +31,28 @@ export type DeliveryUnavailableReason =
   | "customer_location_unknown"
   | "chef_location_unknown";
 
+/**
+ * The rider delivery fee for a basket. `charged` is false while delivery is
+ * free: checkout shows the fee struck through and the customer doesn't pay it.
+ * See feature-docs/15-delivery-fee-in-the-app.md.
+ */
+export interface DeliveryFeeQuote {
+  amount: number;
+  /** Straight-line km, to 0.1; null when the fee is the base fee alone. */
+  distance_km: number | null;
+  base_fee: number;
+  per_km_fee: number;
+  charged: boolean;
+}
+
 export interface DeliveryAvailability {
   delivery_available: boolean;
   reason: DeliveryUnavailableReason | null;
   message: string | null;
   area_name: string;
   enforced: boolean;
+  /** Null when delivery isn't available. */
+  delivery_fee?: DeliveryFeeQuote | null;
 }
 
 export interface DeliveryAvailabilityQuery {

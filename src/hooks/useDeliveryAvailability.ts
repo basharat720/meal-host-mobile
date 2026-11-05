@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   DeliveryAvailability,
+  DeliveryFeeQuote,
   DeliveryUnavailableReason,
   serviceAreaService,
 } from "@/services/serviceAreaService";
@@ -27,6 +28,8 @@ export interface DeliveryAvailabilityState {
   reason: DeliveryUnavailableReason | null;
   /** The server's customer-facing explanation, when delivery isn't available. */
   message: string | null;
+  /** What delivery costs for this basket; null unless delivery is available. */
+  deliveryFee: DeliveryFeeQuote | null;
   isChecking: boolean;
 }
 
@@ -47,6 +50,7 @@ export const useDeliveryAvailability = (options: {
     deliveryAvailable: null,
     reason: null,
     message: null,
+    deliveryFee: null,
     isChecking: enabled,
   });
 
@@ -66,6 +70,7 @@ export const useDeliveryAvailability = (options: {
         deliveryAvailable: null,
         reason: null,
         message: null,
+        deliveryFee: null,
         isChecking: false,
       });
       return;
@@ -86,6 +91,7 @@ export const useDeliveryAvailability = (options: {
           deliveryAvailable: result.delivery_available,
           reason: result.reason,
           message: result.message,
+          deliveryFee: result.delivery_fee ?? null,
           isChecking: false,
         });
       })
@@ -99,6 +105,7 @@ export const useDeliveryAvailability = (options: {
           deliveryAvailable: false,
           reason: null,
           message: null,
+          deliveryFee: null,
           isChecking: false,
         });
       });

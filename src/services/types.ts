@@ -335,6 +335,8 @@ export interface FoodRequest {
   title: string;
   description?: string;
   event_time?: string;
+  /** How many people the food is for (1-100); null on older requests. */
+  number_of_people?: number | null;
   status: RequestStatus;
   preferred_location_id?: number;
   created_at: string;
@@ -351,6 +353,7 @@ export interface FoodRequestCreate {
   title: string;
   description?: string;
   event_time?: string;
+  number_of_people?: number;
   preferred_location_id?: number;
   dietary_tag_ids: number[];
   chef_id?: number;

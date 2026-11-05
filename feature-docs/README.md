@@ -42,3 +42,4 @@ between the two.
 | [Choosing Your Delivery Address in the App](12-delivery-address-in-the-app.md) | One delivery location for the whole app, saved addresses, the map pin and the details step |
 | [Order Cards in the App](13-order-cards-in-the-app.md) | The redesigned customer and chef order cards: status strip, Pal, progress bar, queues and search |
 | [Paying with PayFast in the App](14-paying-with-payfast.md) | Paying online through PayFast at checkout, the two switches that control it (off in the app for now), and what happens when a payment fails |
+| [Delivery Fee in the App](15-delivery-fee-in-the-app.md) | The delivery fee line at checkout, crossed out with "Delivery is free for now" until admins switch charging on |

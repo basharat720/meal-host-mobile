@@ -56,6 +56,11 @@ const MAX_LEAD_MS = 14 * 24 * 60 * 60 * 1000;
  *  seconds inside the limit; without this grace it would be rejected. */
 const LEAD_GRACE_MS = 60 * 1000;
 
+/** Bounds on how many people a request may be for — the same as the website
+ *  and the API. */
+const MIN_PEOPLE = 1;
+const MAX_PEOPLE = 100;
+
 /** The earliest allowed time, rounded up to the next 15 minutes. */
 const defaultEventDate = () => {
   const d = new Date(Date.now() + MIN_LEAD_MS);
@@ -73,6 +78,7 @@ export default function PostRequestScreen() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [numberOfPeople, setNumberOfPeople] = useState("");
   const [eventDate, setEventDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -175,6 +181,19 @@ export default function PostRequestScreen() {
       Alert.alert("Missing title", "Please enter a title for your request.");
       return;
     }
+    const people = Number(numberOfPeople);
+    if (
+      !numberOfPeople ||
+      !Number.isInteger(people) ||
+      people < MIN_PEOPLE ||
+      people > MAX_PEOPLE
+    ) {
+      Alert.alert(
+        "Number of people",
+        `Please enter the number of people, from ${MIN_PEOPLE} to ${MAX_PEOPLE}.`
+      );
+      return;
+    }
     if (!eventDate) {
       Alert.alert("Missing date", "Please choose when you need it.");
       return;
@@ -206,6 +225,7 @@ export default function PostRequestScreen() {
         title: title.trim(),
         description: description.trim() || undefined,
         event_time: eventDate.toISOString(),
+        number_of_people: people,
         preferred_location_id: locationId ?? undefined,
         dietary_tag_ids: selectedTagIds,
         chef_id: chefId ? Number(chefId) : undefined,
@@ -318,6 +338,26 @@ export default function PostRequestScreen() {
             style={styles.textarea}
             containerStyle={styles.field}
           />
+
+          {/* Number of people — digits only, capped at MAX_PEOPLE as typed */}
+          <View style={styles.field}>
+            <Input
+              label="Number of people *"
+              placeholder="e.g. 10"
+              value={numberOfPeople}
+              onChangeText={(text) => {
+                const digits = text.replace(/[^0-9]/g, "").slice(0, 3);
+                setNumberOfPeople(
+                  digits && Number(digits) > MAX_PEOPLE ? String(MAX_PEOPLE) : digits
+                );
+              }}
+              keyboardType="number-pad"
+              maxLength={3}
+            />
+            <Text style={styles.fieldHint}>
+              From {MIN_PEOPLE} to {MAX_PEOPLE}.
+            </Text>
+          </View>
 
           {/* Event date/time */}
           <View style={styles.field}>

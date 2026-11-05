@@ -164,6 +164,16 @@ export default function CheckoutScreen() {
   });
   const isDeliveryAvailable = delivery.deliveryAvailable === true;
 
+  // The rider fee only exists for a delivery. While it isn't charged it is
+  // shown struck through and left out of what the customer pays; the server
+  // decides the real fee when the order is placed. See
+  // feature-docs/15-delivery-fee-in-the-app.md.
+  const deliveryFee =
+    deliveryType === "delivery" && !isOfferMode ? delivery.deliveryFee : null;
+  const isDeliveryFeeCharged = !!deliveryFee?.charged;
+  const payableTotal =
+    checkoutTotal + (deliveryFee && isDeliveryFeeCharged ? deliveryFee.amount : 0);
+
   // The delivery point has to sit inside the zone too. Checked on the device
   // so the card can say so; the server re-checks regardless.
   const isDeliveryOutsideArea =
@@ -535,10 +545,45 @@ export default function CheckoutScreen() {
           )}
 
           <View style={styles.divider} />
+          {deliveryFee ? (
+            <>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryItemName}>Subtotal</Text>
+                <Text style={styles.summaryItemPrice}>{formatPrice(checkoutTotal)}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryItemName}>
+                  Delivery fee
+                  {deliveryFee.distance_km != null ? ` (${deliveryFee.distance_km} km)` : ""}
+                </Text>
+                {isDeliveryFeeCharged ? (
+                  <Text style={styles.summaryItemPrice}>{formatPrice(deliveryFee.amount)}</Text>
+                ) : (
+                  <View style={styles.feeWaived}>
+                    <Text style={styles.struckPrice}>{formatPrice(deliveryFee.amount)}</Text>
+                    <Text style={styles.freeLabel}>Free</Text>
+                  </View>
+                )}
+              </View>
+            </>
+          ) : null}
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>{formatPrice(checkoutTotal)}</Text>
+            <View style={styles.feeWaived}>
+              {deliveryFee && !isDeliveryFeeCharged ? (
+                <Text style={styles.struckPrice}>
+                  {formatPrice(checkoutTotal + deliveryFee.amount)}
+                </Text>
+              ) : null}
+              <Text style={styles.totalValue}>{formatPrice(payableTotal)}</Text>
+            </View>
           </View>
+          {deliveryFee && !isDeliveryFeeCharged ? (
+            <View style={styles.freeDeliveryBanner}>
+              <Ionicons name="bicycle-outline" size={14} color={colors.successSubtleForeground} />
+              <Text style={styles.freeDeliveryText}>Delivery is free for now.</Text>
+            </View>
+          ) : null}
           {etaText ? (
             <View style={styles.etaBanner}>
               <Ionicons name="time-outline" size={14} color={colors.mutedForeground} />
@@ -722,13 +767,27 @@ export default function CheckoutScreen() {
             </>
           ) : (
             <>
+              {/* Follows the admin's charge switch: free for now, or the fee
+                  added to the total. See feature-docs/15-delivery-fee-in-the-app.md. */}
               <View style={styles.deliveryNotice}>
-                <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
+                <Ionicons
+                  name="bicycle-outline"
+                  size={18}
+                  color={isDeliveryFeeCharged ? colors.primary : colors.success}
+                />
                 <View style={styles.deliveryNoticeTextWrap}>
-                  <Text style={styles.deliveryNoticeTitle}>Transportation cost on customer</Text>
+                  <Text style={styles.deliveryNoticeTitle}>
+                    {isDeliveryFeeCharged ? "Delivery fee" : "Free delivery for now"}
+                  </Text>
                   <Text style={styles.deliveryNoticeBody}>
-                    Delivery transportation costs are borne by the customer. The chef or delivery
-                    person will coordinate delivery charges separately.
+                    A FoodPal rider brings your order to your door.
+                    {deliveryFee
+                      ? ` Delivery costs ${formatPrice(deliveryFee.base_fee)} plus ${formatPrice(deliveryFee.per_km_fee)} per km from the kitchen${
+                          isDeliveryFeeCharged
+                            ? ", added to your total in the order summary."
+                            : ", but for now it's on us. You won't be charged for delivery."
+                        }`
+                      : " The delivery fee is shown in your order summary."}
                   </Text>
                 </View>
               </View>
@@ -878,7 +937,7 @@ export default function CheckoutScreen() {
             ? paymentMethod === "PAYFAST"
               ? "Starting payment…"
               : "Placing Order…"
-            : `${paymentMethod === "PAYFAST" ? "Pay" : "Place Order"} — ${formatPrice(checkoutTotal)}`}
+            : `${paymentMethod === "PAYFAST" ? "Pay" : "Place Order"} — ${formatPrice(payableTotal)}`}
         </Button>
       </KeyboardAwareScrollView>
 
@@ -1025,6 +1084,35 @@ const styles = StyleSheet.create({
     ...typography.lg,
     fontWeight: "700",
     color: colors.primary,
+  },
+  feeWaived: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: spacing.xs,
+  },
+  struckPrice: {
+    ...typography.sm,
+    color: colors.mutedForeground,
+    textDecorationLine: "line-through",
+  },
+  freeLabel: {
+    ...typography.sm,
+    fontWeight: "600",
+    color: colors.success,
+  },
+  freeDeliveryBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    backgroundColor: colors.successSubtle,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  freeDeliveryText: {
+    ...typography.xs,
+    fontWeight: "600",
+    color: colors.successSubtleForeground,
   },
   etaBanner: {
     flexDirection: "row",

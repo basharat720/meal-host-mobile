@@ -104,6 +104,12 @@ function OfferModal({
                 {request.description ? (
                   <Text style={styles.summaryDesc}>{request.description}</Text>
                 ) : null}
+                {request.number_of_people != null ? (
+                  <Text style={styles.summaryMeta}>
+                    For {request.number_of_people}{" "}
+                    {request.number_of_people === 1 ? "person" : "people"}
+                  </Text>
+                ) : null}
                 {request.event_time ? (
                   <Text style={styles.summaryMeta}>
                     Event: {formatDateTime(request.event_time)}
@@ -219,6 +225,16 @@ function RequestCard({
           Requested: {formatDateTime(item.created_at)}
         </Text>
       </View>
+
+      {item.number_of_people != null ? (
+        <View style={styles.metaRow}>
+          <Ionicons name="people-outline" size={13} color={colors.mutedForeground} />
+          <Text style={styles.metaText}>
+            For {item.number_of_people}{" "}
+            {item.number_of_people === 1 ? "person" : "people"}
+          </Text>
+        </View>
+      ) : null}
 
       {item.event_time ? (
         <View style={styles.metaRow}>

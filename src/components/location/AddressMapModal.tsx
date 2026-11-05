@@ -27,6 +27,11 @@ import {
 import { DEFAULT_MAP_CENTER, nameForPoint, shortTitle } from "@/lib/googlePlaces";
 import { ApiError } from "@/lib/api";
 import { getUserFriendlyError } from "@/lib/errorMessages";
+import {
+  isWithinServiceArea,
+  serviceAreaService,
+  type ServiceArea,
+} from "@/services/serviceAreaService";
 import { GOOGLE_MAPS_API_KEY } from "@/constants/config";
 import { PlaceSearchInput } from "./PlaceSearchInput";
 import { LocateMeButton, LocateTrouble } from "./LocateTrouble";
@@ -129,6 +134,35 @@ export function AddressMapModal({ request, onClose }: AddressMapModalProps) {
   const [hasPosition, setHasPosition] = useState(false);
   // Remounts the search box on every open, so it starts from request.query.
   const [openCount, setOpenCount] = useState(0);
+  const [serviceArea, setServiceArea] = useState<ServiceArea | null>(null);
+
+  // The delivery zone, so the pin can say whether riders reach it. Loaded on
+  // first open; a failed fetch leaves it null, which reads as "inside" (the
+  // server still decides at checkout). See feature-docs/12-delivery-address-in-the-app.md.
+  useEffect(() => {
+    if (!open || serviceArea) return;
+    let cancelled = false;
+    serviceAreaService
+      .getServiceArea()
+      .then((area) => {
+        if (!cancelled) setServiceArea(area);
+      })
+      .catch((error) => console.warn("Could not load the service area", error));
+    return () => {
+      cancelled = true;
+    };
+  }, [open, serviceArea]);
+
+  // Callers with their own label (sign-up, profile) keep it; only the default
+  // delivery label reacts to the zone.
+  const pinOutsideArea =
+    !request?.pinLabel &&
+    !isWithinServiceArea(serviceArea, center.latitude, center.longitude);
+  const pinLabel =
+    request?.pinLabel ??
+    (pinOutsideArea
+      ? `Pickup only here — we deliver in ${serviceArea?.name}`
+      : "We'll deliver here");
 
   // Fresh state every time the screen opens.
   useEffect(() => {
@@ -336,9 +370,12 @@ export function AddressMapModal({ request, onClose }: AddressMapModalProps) {
                   <View pointerEvents="none" style={styles.pinLayer}>
                     <View style={styles.pinAnchor}>
                       <View style={styles.pinStack}>
-                        <View style={styles.pinLabel}>
-                          <Text style={styles.pinLabelText} numberOfLines={1}>
-                            {request?.pinLabel ?? "We'll deliver here"}
+                        <View style={[styles.pinLabel, pinOutsideArea && styles.pinLabelOutside]}>
+                          <Text
+                            style={[styles.pinLabelText, pinOutsideArea && styles.pinLabelTextOutside]}
+                            numberOfLines={2}
+                          >
+                            {pinLabel}
                           </Text>
                         </View>
                         <Ionicons name="location-sharp" size={40} color={colors.primary} />
@@ -548,7 +585,10 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     fontWeight: "500",
     color: colors.white,
+    textAlign: "center",
   },
+  pinLabelOutside: { backgroundColor: colors.warning },
+  pinLabelTextOutside: { color: colors.warningForeground },
   noMap: {
     flex: 1,
     alignItems: "center",
