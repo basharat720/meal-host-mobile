@@ -160,9 +160,7 @@ export function AddressMapModal({ request, onClose }: AddressMapModalProps) {
     !isWithinServiceArea(serviceArea, center.latitude, center.longitude);
   const pinLabel =
     request?.pinLabel ??
-    (pinOutsideArea
-      ? `Pickup only here — we deliver in ${serviceArea?.name}`
-      : "We'll deliver here");
+    (pinOutsideArea ? "Only pickup available here" : "We'll deliver here");
 
   // Fresh state every time the screen opens.
   useEffect(() => {

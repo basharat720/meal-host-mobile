@@ -36,8 +36,8 @@ map underneath it. The address is looked up only when you tap the button, so
 dragging around costs nothing.
 
 The label follows the delivery area. When the map stops moving with the pin
-outside the zone (Askari X today), it turns amber and reads **Pickup only here —
-we deliver in Askari X**, with the area name taken from the live zone. Back
+outside the zone (Askari X today), it turns amber and reads **Only pickup
+available here**, using the live zone's boundary. Back
 inside, it says **We'll deliver here** again. It's only a heads-up: the button
 still works, and an address outside the area can be used for pickup. If the
 zone isn't enforced or can't be loaded, the label stays "We'll deliver here".
