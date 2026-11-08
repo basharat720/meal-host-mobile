@@ -277,8 +277,6 @@
     "experiencePlaceholder": "f.eks. 5 år",
     "kitchenAddress": "Kjøkkenadresse",
     "kitchenAddressPlaceholder": "Hvor du forbereder maten",
-    "deliveryRadius": "Leveringsradius",
-    "deliveryRadiusPlaceholder": "f.eks. 5 km",
     "cuisineTypes": "Kjøkkentyper",
     "cuisineTypesPlaceholder": "f.eks. Indisk, Italiensk, Kinesisk",
     "deliveryPreferences": "Leveringspreferanser",

@@ -108,7 +108,13 @@ const statusStripCopy = (
             sub: `How was it? Your rating helps ${chefName}.`,
           };
     case "COMPLETED":
-      return { title: "Hope you enjoyed it!", sub: "This order is complete." };
+      // Orders a chef closed out under the old flow can still be rated.
+      return reviewed
+        ? { title: "Hope you enjoyed it!", sub: "Thanks for your review!" }
+        : {
+            title: "Hope you enjoyed it!",
+            sub: `How was it? Your rating helps ${chefName}.`,
+          };
     case "CANCELLED":
       return {
         title: "Order cancelled",
@@ -354,7 +360,7 @@ function OrderCard({
   const pose = STATUS_POSE[order.status];
   const tone = STRIP_TONE[order.status];
   const toneColors = colors.status[tone];
-  const canReview = order.status === "RECEIVED" && !hasReviewed;
+  const canReview = COMPLETED_STATUSES.has(order.status) && !hasReviewed;
   const isActive =
     UPCOMING_STATUSES.has(order.status) || IN_TRANSIT_STATUSES.has(order.status);
   const confirmedEta = formatConfirmedEta(order);
@@ -602,7 +608,7 @@ function OrderCard({
               <Text style={cardStyles.totalText}>
                 Total
                 {order.payment_method
-                  ? ` · ${order.payment_method === "CASH" ? "cash" : "paid by card"}`
+                  ? ` · ${order.payment_method === "cash" ? "cash" : "paid by card"}`
                   : ""}
               </Text>
               <Text style={cardStyles.totalText}>
@@ -668,8 +674,8 @@ function OrderCard({
             />
             {order.payment_method ? (
               <Tag
-                icon={order.payment_method === "CASH" ? "cash-outline" : "card-outline"}
-                label={order.payment_method === "CASH" ? "Cash" : "Card"}
+                icon={order.payment_method === "cash" ? "cash-outline" : "card-outline"}
+                label={order.payment_method === "cash" ? "Cash" : "Card"}
               />
             ) : null}
           </View>
@@ -978,6 +984,9 @@ export default function OrdersScreen() {
   const [reviewedOrderIds, setReviewedOrderIds] = useState<Set<number>>(new Set());
   const [receivingOrderId, setReceivingOrderId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>("upcoming");
+  // The order just marked received; the list scrolls to it so its stars are
+  // in view (feature-docs/13-order-cards-in-the-app.md).
+  const [rateNowOrderId, setRateNowOrderId] = useState<number | null>(null);
   const [orderSearch, setOrderSearch] = useState("");
 
   // Live unread counts behind the chat badges on each card.
@@ -1139,7 +1148,7 @@ export default function OrdersScreen() {
         // Pre-fetch reviews once per session: seed reviewedOrderIds with every
         // order already reviewed so prior/past-session reviews don't re-prompt.
         if (!reviewsFetched.current) {
-          const receivedOrders = sorted.filter((o) => o.status === "RECEIVED");
+          const receivedOrders = sorted.filter((o) => COMPLETED_STATUSES.has(o.status));
           const uniqueChefIds = [
             ...new Set(receivedOrders.map((o) => o.chef_id)),
           ];
@@ -1232,6 +1241,10 @@ export default function OrdersScreen() {
     try {
       const updated = await orderService.updateOrderStatus(order.id, "RECEIVED");
       setOrders((prev) => prev.map((o) => (o.id === order.id ? updated : o)));
+      // Receiving finishes the order — go straight to rating it. The card has
+      // moved to the Completed tab, so follow it there.
+      setActiveTab("completed");
+      setRateNowOrderId(updated.id);
     } catch (err: any) {
       Alert.alert("Error", getUserFriendlyError(err, "Failed to update order status."));
     } finally {
@@ -1318,6 +1331,18 @@ export default function OrdersScreen() {
       }
     });
   }, [deepLinkedOrderId, orders]);
+
+  // After "Received", bring the order's card (and its stars) into view once
+  // the Completed tab has rendered.
+  useEffect(() => {
+    if (rateNowOrderId === null || activeTab !== "completed") return;
+    const index = tabOrders.completed.findIndex((o) => o.id === rateNowOrderId);
+    setRateNowOrderId(null);
+    if (index < 0) return;
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToIndex({ index, viewPosition: 0.3, animated: true });
+    });
+  }, [rateNowOrderId, activeTab, tabOrders]);
 
   // ── Not logged in ──
   if (!user) {

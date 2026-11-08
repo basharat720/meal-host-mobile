@@ -12,7 +12,6 @@ import {
   Platform,
   TextInput,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useFocusEffect, useLocalSearchParams, router } from "expo-router";
@@ -26,7 +25,6 @@ import { Order } from "@/services/types";
 import { isChefActive } from "@/lib/chefStatus";
 import { formatDuration, formatDurationRange } from "@/lib/duration";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Mascot, type MascotPose } from "@/components/Mascot";
@@ -46,11 +44,12 @@ import {
 // Orders are grouped by what the chef has to do about them, not by raw status.
 type OrderQueue = "action" | "waiting" | "history";
 
+// Handing over (DELIVERED) is the chef's last step; the customer's "Received"
+// finishes the order, so a received order is history, not an action.
 const ACTION_STATUSES = new Set<Order["status"]>([
   "PENDING",
   "CONFIRMED",
   "READY_FOR_PICKUP",
-  "RECEIVED",
 ]);
 const WAITING_STATUSES = new Set<Order["status"]>(["DELIVERED"]);
 
@@ -68,7 +67,6 @@ const ACTION_STAGE_RANK: Partial<Record<Order["status"], number>> = {
   PENDING: 0,
   CONFIRMED: 1,
   READY_FOR_PICKUP: 2,
-  RECEIVED: 3,
 };
 
 const time = (iso: string) => new Date(iso).getTime();
@@ -79,7 +77,6 @@ const STATUS_STEPS: Order["status"][] = [
   "READY_FOR_PICKUP",
   "DELIVERED",
   "RECEIVED",
-  "COMPLETED",
 ];
 
 // Short labels for the progress bar inside an opened card.
@@ -93,13 +90,16 @@ const CHEF_STEP_SHORT: Record<Order["status"], string> = {
   CANCELLED: "Cancelled",
 };
 
-// A pickup order never goes "Delivered" the way a delivery order does, and a
-// delivery order is never "Ready for Pickup". The order's own status stays.
-const stepsForOrder = (order: Order): Order["status"][] => {
-  const skipped: Order["status"] =
-    order.delivery_type === "delivery" ? "READY_FOR_PICKUP" : "DELIVERED";
-  return STATUS_STEPS.filter((step) => step !== skipped || step === order.status);
-};
+// Every order runs Placed → Confirmed → Ready → Handed over/Delivered →
+// Received. Orders closed out under the old flow keep a final "Completed".
+const stepsForOrder = (order: Order): Order["status"][] =>
+  order.status === "COMPLETED" ? [...STATUS_STEPS, "COMPLETED"] : STATUS_STEPS;
+
+// On a pickup order the handover step reads "Handed over".
+const chefStepLabel = (order: Order, step: Order["status"]): string =>
+  step === "DELIVERED" && order.delivery_type !== "delivery"
+    ? "Handed over"
+    : CHEF_STEP_SHORT[step];
 
 // Pal follows the order on the chef's cards too. Cancelled gets no mascot.
 const CHEF_POSE: Partial<Record<Order["status"], MascotPose>> = {
@@ -184,12 +184,13 @@ const chefStripCopy = (order: Order): { title: string; sub?: string } => {
         ? { title: "Packed and ready to hand over", sub: "Mark it delivered once it leaves." }
         : {
             title: "Ready — waiting for the customer to collect",
-            sub: "Mark it delivered once handed over.",
+            sub: "Mark it handed over once they have it.",
           };
     case "DELIVERED":
       return { title: "Waiting for the customer to confirm receipt" };
     case "RECEIVED":
-      return { title: "Customer confirmed receipt", sub: "Complete the order to close it out." };
+      // The customer's confirmation finishes the order — nothing left to do.
+      return { title: "Customer received it — all done" };
     case "COMPLETED":
       return { title: "Order completed" };
     case "CANCELLED":
@@ -200,11 +201,21 @@ const chefStripCopy = (order: Order): { title: string; sub?: string } => {
   }
 };
 
-const NEXT_ACTION: Partial<Record<Order["status"], { label: string; status: Order["status"] }>> = {
-  PENDING: { label: "Confirm order", status: "CONFIRMED" },
-  CONFIRMED: { label: "Mark ready", status: "READY_FOR_PICKUP" },
-  READY_FOR_PICKUP: { label: "Mark delivered", status: "DELIVERED" },
-  RECEIVED: { label: "Complete order", status: "COMPLETED" },
+// Handing over is the chef's last action; there is no "Complete order" step.
+const nextActionFor = (order: Order): { label: string; status: Order["status"] } | undefined => {
+  switch (order.status) {
+    case "PENDING":
+      return { label: "Confirm order", status: "CONFIRMED" };
+    case "CONFIRMED":
+      return { label: "Mark ready", status: "READY_FOR_PICKUP" };
+    case "READY_FOR_PICKUP":
+      return {
+        label: order.delivery_type === "delivery" ? "Mark delivered" : "Mark handed over",
+        status: "DELIVERED",
+      };
+    default:
+      return undefined;
+  }
 };
 
 type DishInfo = { title: string; image_url: string | null };
@@ -281,7 +292,7 @@ function OrderCard({
   const visibleSteps = stepsForOrder(order);
   const currentIndex = isCancelled ? -1 : visibleSteps.indexOf(order.status);
 
-  const nextAction = NEXT_ACTION[order.status];
+  const nextAction = nextActionFor(order);
   const canCancel = order.status === "CONFIRMED" || order.status === "READY_FOR_PICKUP";
 
   const handleActionPress = () => {
@@ -349,7 +360,7 @@ function OrderCard({
           </Text>
           {order.payment_method ? (
             <Text style={styles.payText}>
-              {order.payment_method === "CASH" ? "Cash" : "Card"}
+              {order.payment_method === "cash" ? "Cash" : "Card"}
             </Text>
           ) : null}
         </View>
@@ -531,7 +542,7 @@ function OrderCard({
                         i === currentIndex && { color: colors.primary, fontWeight: "700" },
                       ]}
                     >
-                      {CHEF_STEP_SHORT[step]}
+                      {chefStepLabel(order, step)}
                     </Text>
                   ))}
                 </View>
@@ -723,53 +734,24 @@ export default function ChefOrdersScreen() {
     return true;
   };
 
-  // The order awaiting a confirmation ETA, and the minutes typed into the prompt.
+  // The order awaiting confirmation. The chef only accepts it; the customer
+  // keeps the checkout estimate and any delay is communicated in chat.
   const [confirmOrderId, setConfirmOrderId] = useState<number | null>(null);
-  const [confirmEta, setConfirmEta] = useState("");
   const [isConfirming, setIsConfirming] = useState(false);
 
-  const closeConfirmDialog = () => {
-    setConfirmOrderId(null);
-    setConfirmEta("");
-  };
+  const closeConfirmDialog = () => setConfirmOrderId(null);
 
   const openConfirmDialog = (order: Order) => {
     if (!requireActive()) return;
     setConfirmOrderId(order.id);
-    // Pre-filled with the chef's usual prep time, as on the website.
-    const defaultPrep = dbUser?.chef_profile?.default_prep_time_minutes;
-    setConfirmEta(
-      defaultPrep != null && Number.isFinite(defaultPrep) && defaultPrep > 0
-        ? String(Math.round(defaultPrep))
-        : ""
-    );
   };
 
-  /**
-   * Confirm the order, optionally replacing the tentative estimate shown at
-   * checkout. A blank field keeps whatever estimate the dish already implied.
-   */
   const submitConfirmOrder = async () => {
     if (confirmOrderId === null) return;
-    const trimmed = confirmEta.trim();
-    let etaMinutes: number | undefined;
-    if (trimmed) {
-      const parsed = Number(trimmed);
-      if (!Number.isFinite(parsed) || parsed < 0) {
-        Alert.alert("Invalid time", "Enter the number of minutes, or leave it blank.");
-        return;
-      }
-      etaMinutes = Math.round(parsed);
-    }
-
     setIsConfirming(true);
     setUpdatingId(confirmOrderId);
     try {
-      const updated = await orderService.updateOrderStatus(
-        confirmOrderId,
-        "CONFIRMED",
-        etaMinutes
-      );
+      const updated = await orderService.updateOrderStatus(confirmOrderId, "CONFIRMED");
       setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
       closeConfirmDialog();
     } catch (err: any) {
@@ -1035,26 +1017,13 @@ export default function ChefOrdersScreen() {
           if (!isConfirming) closeConfirmDialog();
         }}
       >
-        <KeyboardAvoidingView
-          behavior="padding"
-          style={styles.modalBackdrop}
-        >
+        <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Confirm order #{confirmOrderId}</Text>
             <Text style={styles.modalDescription}>
-              Tell the customer how long this order will take. This replaces the
-              tentative estimate shown at checkout.
+              The customer will keep the ready time shown at checkout. If
+              anything delays the order, let them know in chat.
             </Text>
-
-            <Input
-              label="Ready in (minutes)"
-              placeholder="e.g. 45"
-              helperText="Leave blank to keep the existing estimate."
-              keyboardType="number-pad"
-              value={confirmEta}
-              onChangeText={setConfirmEta}
-              editable={!isConfirming}
-            />
 
             <View style={styles.modalActions}>
               <Button
@@ -1074,7 +1043,7 @@ export default function ChefOrdersScreen() {
               </Button>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </SafeAreaView>
   );

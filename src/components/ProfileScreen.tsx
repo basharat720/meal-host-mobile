@@ -136,9 +136,6 @@ export const ProfileScreen = () => {
   const [experience, setExperience] = useState(
     numberToField(dbUser?.chef_profile?.years_of_experience)
   );
-  const [deliveryRadius, setDeliveryRadius] = useState(
-    numberToField(dbUser?.chef_profile?.delivery_radius_km)
-  );
   const [cuisineTypes, setCuisineTypes] = useState(
     dbUser?.chef_profile?.dietary_tags?.join(", ") ?? ""
   );
@@ -182,7 +179,6 @@ export const ProfileScreen = () => {
       setSpecialties(dbUser.chef_profile.specialties?.join(", ") ?? "");
       setCuisineTypes(dbUser.chef_profile.dietary_tags?.join(", ") ?? "");
       setExperience(numberToField(dbUser.chef_profile.years_of_experience));
-      setDeliveryRadius(numberToField(dbUser.chef_profile.delivery_radius_km));
       setProfilePictureUrl(dbUser.chef_profile.profile_picture_url ?? "");
       setBankName(dbUser.chef_profile.bank_name ?? "");
       setBankAccountTitle(dbUser.chef_profile.bank_account_title ?? "");
@@ -252,18 +248,12 @@ export const ProfileScreen = () => {
 
       // Bounds mirror the backend schema, so a bad value is caught here
       // instead of coming back as a 422.
-      const numericError =
-        validateNumericField(experience, {
-          label: "Years of experience",
-          min: 0,
-          max: 100,
-          integer: true,
-        }) ??
-        validateNumericField(deliveryRadius, {
-          label: "Delivery radius",
-          min: 0,
-          max: 500,
-        });
+      const numericError = validateNumericField(experience, {
+        label: "Years of experience",
+        min: 0,
+        max: 100,
+        integer: true,
+      });
       if (numericError) {
         Alert.alert("Invalid Value", numericError);
         return;
@@ -357,7 +347,6 @@ export const ProfileScreen = () => {
         // Blank text fields are sent as null (an explicit clear); a value the
         // parser can make no number of is omitted so the stored one survives.
         const yearsOfExperience = fieldToNumber(experience);
-        const deliveryRadiusKm = fieldToNumber(deliveryRadius);
 
         updateData.chef_profile = {
           kitchen_name: kitchenName.trim(),
@@ -369,9 +358,6 @@ export const ProfileScreen = () => {
           kitchen_description: bio.trim(),
           ...(yearsOfExperience !== undefined
             ? { years_of_experience: yearsOfExperience }
-            : {}),
-          ...(deliveryRadiusKm !== undefined
-            ? { delivery_radius_km: deliveryRadiusKm }
             : {}),
           specialties: specialties
             .split(",")
@@ -746,16 +732,6 @@ export const ProfileScreen = () => {
               keyboardType="number-pad"
               value={experience}
               onChangeText={(v) => setExperience(sanitizeNumericInput(v))}
-            />
-
-            <Input
-              label="Delivery Radius (km)"
-              placeholder="e.g. 10"
-              keyboardType="decimal-pad"
-              value={deliveryRadius}
-              onChangeText={(v) =>
-                setDeliveryRadius(sanitizeNumericInput(v, { allowDecimal: true }))
-              }
             />
           </View>
         )}

@@ -19,6 +19,9 @@ described in `meal-host-frontend/feature-docs/04-customer-orders.md` and
   bar (Placed → Preparing → Ready / Out for delivery → Received).
 - **Rating on the card:** once you have received an order, five stars sit on
   the strip. Tapping one opens a comment box and Submit.
+- **Received goes straight to rating:** tapping **I received my order**
+  finishes the order (there is no later "completed" step), switches to the
+  Completed tab, opens that card and scrolls to it with the stars ready.
 - **Bottom row:** Pickup / Delivery and Cash / Card tags, then Chat (with an
   unread count), **I received my order**, **Order again** (opens the dish), and
   Details.
@@ -42,7 +45,11 @@ described in `meal-host-frontend/feature-docs/04-customer-orders.md` and
 - **Action row** on the closed card: the next step, Reject or Cancel, Chat, and
   Details.
 - **Details:** special instructions highlighted first, then where the order is
-  handed over and a slim progress bar.
+  handed over and a slim progress bar (Placed → Confirmed → Ready → Handed over
+  / Delivered → Received).
+- **The chef's last tap is Mark handed over / Mark delivered.** There is no
+  Complete order button: once the customer confirms receipt the order moves to
+  History by itself and the chef gets a notification.
 - The **customer's phone number is no longer shown** on the card, matching the
   website — chat is the way to reach a customer.
 - **Confirm order** now pre-fills "Ready in" with the chef's usual prep time.
@@ -62,7 +69,7 @@ These are on purpose, or follow from how the app loads orders:
 - **"Chat opens once the chef confirms"** shows on every phone. The website
   hides that line on narrow screens.
 - **Needs action order.** The chef's queue leads with new orders, then
-  cooking, ready, and received ones, and within each the order that has waited
+  cooking and ready ones, and within each the order that has waited
   longest comes first — as the website's chef dashboard document describes.
   (The website's code currently lists that queue newest first.)
 - **"Ready in"** is pre-filled from the chef's usual prep time as saved on

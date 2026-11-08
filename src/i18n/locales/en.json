@@ -278,8 +278,6 @@
     "experiencePlaceholder": "e.g., 5 years",
     "kitchenAddress": "Kitchen Address",
     "kitchenAddressPlaceholder": "Where you prepare the food",
-    "deliveryRadius": "Delivery Radius",
-    "deliveryRadiusPlaceholder": "e.g., 5 km",
     "cuisineTypes": "Cuisine Types",
     "cuisineTypesPlaceholder": "e.g., Indian, Italian, Chinese",
     "deliveryPreferences": "Delivery Preferences",

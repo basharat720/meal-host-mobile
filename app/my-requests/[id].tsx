@@ -24,6 +24,7 @@ import { useI18n } from "@/i18n/context";
 import { requestService, userService } from "@/services/api";
 import { FoodRequest, Offer } from "@/services/types";
 import { chefDisplayName } from "@/lib/chefName";
+import { OfferChefInfo } from "@/components/OfferChefInfo";
 import { colors, spacing, typography, radius, shadow } from "@/constants/theme";
 import { getUserFriendlyError } from "@/lib/errorMessages";
 
@@ -103,12 +104,18 @@ export default function RequestDetailScreen() {
         const offersData = await requestService.getRequestOffers(requestId);
         setOffers(offersData);
 
-        // Fetch chef names
-        const uniqueChefIds = [...new Set(offersData.map((o) => o.chef_id))];
+        // The server names each chef in `offer.chef`; look names up only for
+        // offers from an older server that sent no summary.
+        const uniqueChefIds = [
+          ...new Set(offersData.filter((o) => !o.chef).map((o) => o.chef_id)),
+        ];
         const results = await Promise.allSettled(
           uniqueChefIds.map((cid) => userService.getUserById(cid.toString()))
         );
         const map = new Map<number, string>();
+        offersData.forEach((o) => {
+          if (o.chef) map.set(o.chef_id, o.chef.name);
+        });
         results.forEach((result, i) => {
           if (result.status === "fulfilled") {
             map.set(
@@ -384,24 +391,13 @@ export default function RequestDetailScreen() {
                 >
                   {/* Offer header */}
                   <View style={styles.offerHeader}>
-                    <View style={styles.offerChefInfo}>
-                      <Text
-                        style={[
-                          styles.chefName,
-                          isRejected && styles.textMuted,
-                        ]}
-                      >
-                        {chefName}
-                      </Text>
-                      <Text style={styles.offerDate}>
-                        {new Date(offer.created_at).toLocaleString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </Text>
-                    </View>
+                    <OfferChefInfo
+                      chefId={offer.chef_id}
+                      chef={offer.chef}
+                      fallbackName={chefName}
+                      offeredAt={offer.created_at}
+                      muted={isRejected}
+                    />
                     <View style={styles.offerPriceArea}>
                       <Text
                         style={[
@@ -674,18 +670,6 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: spacing.sm,
     marginBottom: spacing.xs,
-  },
-  offerChefInfo: { flex: 1 },
-  chefName: {
-    ...typography.base,
-    fontWeight: "600",
-    color: colors.foreground,
-  },
-  textMuted: { color: colors.mutedForeground },
-  offerDate: {
-    ...typography.xs,
-    color: colors.mutedForeground,
-    marginTop: 2,
   },
 
   offerPriceArea: {

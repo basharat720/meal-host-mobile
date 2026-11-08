@@ -253,7 +253,7 @@ export interface Order {
   /** False once the chat has been closed for more than 24 hours. */
   chat_can_send?: boolean;
   /** How the order is paid. PAYFAST orders show as paid by card. */
-  payment_method?: "CASH" | "STRIPE" | "PAYFAST";
+  payment_method?: "cash" | "card" | null;
 }
 
 /** A requested dish line. The server resolves its price and title. */
@@ -359,6 +359,20 @@ export interface FoodRequestCreate {
   chef_id?: number;
 }
 
+/** Public facts about the chef behind an offer, for comparing offers. */
+export interface OfferChefSummary {
+  id: number;
+  name: string;
+  profile_picture_url?: string | null;
+  rating_avg: number;
+  review_count: number;
+  completed_orders: number;
+  years_of_experience?: number | null;
+  specialties: string[];
+  /** Kitchen to the request's delivery address; null when unknown. */
+  distance_km?: number | null;
+}
+
 export interface Offer {
   id: number;
   food_request_id: number;
@@ -368,6 +382,8 @@ export interface Offer {
   status: OfferStatus;
   rejection_reason?: string;
   created_at: string;
+  /** Missing only from servers older than the chef summary. */
+  chef?: OfferChefSummary | null;
 }
 
 export interface OfferCreate {
