@@ -162,9 +162,16 @@ export function AddressMapModal({ request, onClose }: AddressMapModalProps) {
     request?.pinLabel ??
     (pinOutsideArea ? "Only pickup available here" : "We'll deliver here");
 
-  // Fresh state every time the screen opens.
-  useEffect(() => {
-    if (!request) return;
+  // Fresh state every time the screen opens. Done during render, not in an
+  // effect, so the map mounts on the new start point instead of drawing the
+  // previous open's position first.
+  const [lastRequest, setLastRequest] = useState<AddressMapRequest | null>(null);
+  if (request !== lastRequest) {
+    setLastRequest(request);
+    if (request) resetFor(request);
+  }
+
+  function resetFor(request: AddressMapRequest) {
     const start: Point =
       request.center ??
       (request.editing
@@ -191,9 +198,7 @@ export function AddressMapModal({ request, onClose }: AddressMapModalProps) {
           }
         : emptyDetails
     );
-    // Only on open — not when the selection changes underneath.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [request]);
+  }
 
   const moveTo = (pos: Point) => {
     setCenter(pos);
