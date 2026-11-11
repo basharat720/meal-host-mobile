@@ -7,6 +7,7 @@ import {
   signUpWithEmail,
   signInWithEmail,
   signInWithGoogle,
+  signInWithFacebook,
   signOut as firebaseSignOut,
   sendPasswordReset,
   resendEmailVerification,
@@ -122,6 +123,7 @@ interface AuthContextType {
   ) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: (role: UserRole) => Promise<{ error: Error | null }>;
+  signInWithFacebook: (role: UserRole) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   setRole: (role: UserRole | null) => void;
   /** Act as one of `availableRoles`. A role the account lacks is ignored. */
@@ -157,6 +159,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [authError, setAuthError] = useState<AuthError | null>(null);
   const tokenRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // True while completeSocialSignIn resolves the backend account itself, so the
+  // auth listener doesn't race it into its own 404 → createUser branch (which
+  // can't build a chef profile and would create the wrong role).
+  const socialSignInRef = useRef(false);
 
   const storeToken = async (t: string) => {
     try {
@@ -272,6 +278,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           await AsyncStorage.setItem(SESSION_FLAG_KEY, "1");
 
           setUser(convertFirebaseUser(firebaseUser));
+          // completeSocialSignIn owns this sign-in and clears loading itself.
+          if (socialSignInRef.current) return;
           try {
             // Pull latest profile from Firebase so email_verified is current,
             // then force a fresh token if email is verified (old cached tokens
@@ -473,12 +481,117 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error: null };
   };
 
-  const handleGoogleSignIn = async (userRole: UserRole) => {
-    const { token: t, error } = await signInWithGoogle(userRole);
-    if (error) return { error };
-    if (t) await storeToken(t);
-    return { error: null };
+  // Shared tail of "Continue with Google / Facebook". Either button doubles as
+  // signup, exactly like the website
+  // (meal-host-frontend AuthContext completeSocialSignIn):
+  //   - existing account (matched by uid, or by email server-side) -> sign in
+  //   - no account yet (404) -> create one for the role of the screen the
+  //     button was on; a chef gets a minimal chef_profile and stays pending
+  //   - anything else -> sign back out so there's never a Firebase session
+  //     without a backend account
+  const completeSocialSignIn = async (
+    providerSignIn: typeof signInWithGoogle,
+    providerLabel: string,
+    userRole: UserRole
+  ): Promise<{ error: Error | null }> => {
+    socialSignInRef.current = true;
+    setAuthError(null);
+    try {
+      const { user: firebaseUser, token: t, error } = await providerSignIn();
+      if (error || !firebaseUser) {
+        return { error: error ?? new Error("Sign-in failed. Please try again.") };
+      }
+      if (t) await storeToken(t);
+      setEmailVerified(firebaseUser.emailVerified);
+
+      let backendUser: DbUser;
+      let isNewAccount = false;
+      try {
+        try {
+          backendUser = await userService.getUser();
+        } catch (fetchErr: any) {
+          if (fetchErr?.status !== 404) throw fetchErr;
+          if (!firebaseUser.email) {
+            throw new Error(
+              `Your ${providerLabel} account didn't share an email address, so we can't create a profile for it. Please allow email access, or sign up with Google or email instead.`
+            );
+          }
+          const name = firebaseUser.displayName || firebaseUser.email.split("@")[0];
+          backendUser = await userService.createUser({
+            name,
+            email: firebaseUser.email,
+            firebase_uid: firebaseUser.uid,
+            is_customer: userRole === "customer",
+            is_chef: userRole === "chef",
+            status: "active",
+            // The backend requires a chef_profile for a chef signup; the rest is
+            // filled in from the dashboard. Customers send no location — a 0,0
+            // placeholder would be saved as their primary address.
+            ...(userRole === "chef"
+              ? {
+                  chef_profile: {
+                    kitchen_name: name,
+                    kitchen_description: "",
+                    specialties: [],
+                    dietary_tags: [],
+                    documents: [],
+                    ...(firebaseUser.photoURL ? { profile_picture_url: firebaseUser.photoURL } : {}),
+                  },
+                }
+              : {}),
+          } as UserRegisterRequest);
+          isNewAccount = true;
+        }
+      } catch (backendErr: any) {
+        // Never leave a Firebase session behind without a backend account.
+        try { await firebaseSignOut(); } catch {}
+        setUser(null);
+        setDbUser(null);
+        setRoleState(null);
+        setEmailVerified(null);
+        await removeToken();
+        await AsyncStorage.removeItem(SESSION_FLAG_KEY);
+        await AsyncStorage.removeItem(ROLE_KEY);
+        if (backendErr?.status === 409) {
+          return {
+            error: new Error(
+              "This email is already linked to a different sign-in. Please sign in the way you did before."
+            ),
+          };
+        }
+        const status = backendErr?.status;
+        if (typeof status === "number") return { error: new Error(classifyAuthError(backendErr).message) };
+        return { error: backendErr instanceof Error ? backendErr : new Error("Sign-in failed. Please try again.") };
+      }
+
+      setUser(convertFirebaseUser(firebaseUser));
+      setDbUser(backendUser);
+      const resolvedRole: UserRole = backendUser.is_chef ? "chef" : "customer";
+      setRoleState(resolvedRole);
+      await AsyncStorage.setItem(ROLE_KEY, resolvedRole);
+      await AsyncStorage.setItem(SESSION_FLAG_KEY, "1");
+      // A new account acts as the role it signed up for. An existing one acts
+      // as the role of the screen it signed in from, when it holds that role
+      // (the activeRole effect corrects a role the account lacks).
+      if (isNewAccount || (userRole === "chef" ? backendUser.is_chef : backendUser.is_customer)) {
+        setActiveRoleState(userRole);
+        await AsyncStorage.setItem(ACTIVE_ROLE_KEY, userRole);
+      }
+      setAuthError(null);
+      return { error: null };
+    } catch (error) {
+      return { error: error as Error };
+    } finally {
+      socialSignInRef.current = false;
+      setLoading(false);
+    }
   };
+
+  const handleGoogleSignIn = (userRole: UserRole) =>
+    completeSocialSignIn(signInWithGoogle, "Google", userRole);
+
+  const handleFacebookSignIn = (userRole: UserRole) =>
+    completeSocialSignIn(signInWithFacebook, "Facebook", userRole);
 
   const handleSignOut = async () => {
     await AsyncStorage.removeItem(SESSION_FLAG_KEY);
@@ -551,6 +664,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signUp,
         signIn,
         signInWithGoogle: handleGoogleSignIn,
+        signInWithFacebook: handleFacebookSignIn,
         signOut: handleSignOut,
         setRole: (r) => { setRoleState(r); if (r) AsyncStorage.setItem(ROLE_KEY, r); else AsyncStorage.removeItem(ROLE_KEY); },
         switchRole,

@@ -26,7 +26,7 @@ import { validatePhoneNumber } from "@/lib/phone";
 import { colors, spacing, radius, typography, shadow } from "@/constants/theme";
 import { getCheckoutError } from "@/lib/errorMessages";
 import { orderService } from "@/services/orderService";
-import { buildCartOrderPayload } from "@/lib/orderPayload";
+import { buildCartOrderPayload, buildOrderItem } from "@/lib/orderPayload";
 import { requestService } from "@/services/requestService";
 import { userService } from "@/services/userService";
 import { dishService } from "@/services/dishService";
@@ -36,6 +36,12 @@ import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { ORDERS_DISABLED, PAYFAST_DISABLED } from "@/services/featureFlagService";
 import { ApiError } from "@/lib/api";
 import { PayFastCheckoutModal } from "@/components/PayFastCheckoutModal";
+import { VoucherCard } from "@/components/VoucherCard";
+import { useCheckoutVoucher } from "@/hooks/useCheckoutVoucher";
+import { publishCheckoutVoucher } from "@/lib/activeCheckoutVoucher";
+import { VOUCHER_NOT_APPLICABLE, isLineCoveredByVoucher } from "@/services/voucherService";
+import { fillTemplate } from "@/lib/template";
+import type { OrderItemCreate } from "@/services/types";
 
 interface OfferCheckout {
   offerId: number;
@@ -48,7 +54,7 @@ interface OfferCheckout {
 
 export default function CheckoutScreen() {
   const router = useRouter();
-  const { formatPrice } = useI18n();
+  const { formatPrice, t } = useI18n();
   const params = useLocalSearchParams<{
     offerId?: string;
     chefId?: string;
@@ -171,8 +177,35 @@ export default function CheckoutScreen() {
   const deliveryFee =
     deliveryType === "delivery" && !isOfferMode ? delivery.deliveryFee : null;
   const isDeliveryFeeCharged = !!deliveryFee?.charged;
+
+  // One FoodPal-funded voucher per cart order, previewed against the same
+  // lines `POST /orders` receives. Request-offer orders can't use vouchers.
+  // The discount comes off the food only, never the delivery fee. See
+  // feature-docs/16-vouchers-in-the-app.md.
+  const vouchersEnabled = flags.vouchers_enabled && !isOfferMode;
+  const voucherBasket = useMemo<OrderItemCreate[]>(() => {
+    if (isOfferMode) return [];
+    try {
+      return items.map(buildOrderItem);
+    } catch {
+      return [];
+    }
+  }, [isOfferMode, items]);
+  const voucher = useCheckoutVoucher({
+    enabled: vouchersEnabled,
+    basket: voucherBasket,
+    deliveryType,
+  });
+  // Let the Vouchers screen ("View all") work on this checkout's voucher.
+  useEffect(() => {
+    publishCheckoutVoucher(vouchersEnabled ? voucher : null);
+  }, [voucher, vouchersEnabled]);
+  useEffect(() => () => publishCheckoutVoucher(null), []);
+  const discount = Math.min(voucher.discount, checkoutTotal);
+  const foodPayable = checkoutTotal - discount;
   const payableTotal =
-    checkoutTotal + (deliveryFee && isDeliveryFeeCharged ? deliveryFee.amount : 0);
+    foodPayable + (deliveryFee && isDeliveryFeeCharged ? deliveryFee.amount : 0);
+  const voucherCode = voucher.applied?.code ?? undefined;
 
   // The delivery point has to sit inside the zone too. Checked on the device
   // so the card can say so; the server re-checks regardless.
@@ -398,6 +431,7 @@ export default function CheckoutScreen() {
               specialInstructions: instructions.trim() || undefined,
               paymentMethod: "PAYFAST",
               locationPayload: gate.orderLocationPayload,
+              voucherCode,
             })
           );
           orderId = order.id;
@@ -433,6 +467,7 @@ export default function CheckoutScreen() {
           deliveryPhone: phone,
           specialInstructions: instructions.trim() || undefined,
           locationPayload: gate.orderLocationPayload,
+          voucherCode,
         });
         const order = await orderService.createOrder(payload);
         await orderService.payOrder(order.id, { method: "CASH" });
@@ -454,6 +489,18 @@ export default function CheckoutScreen() {
         },
       });
     } catch (err: any) {
+      // The voucher stopped applying between preview and order (it ran out,
+      // its hours ended, ...). No order was created. Take it off so the
+      // customer sees the real total and orders again knowingly — never retry
+      // on their behalf.
+      if (err instanceof ApiError && err.status === 409 && err.code === VOUCHER_NOT_APPLICABLE) {
+        voucher.dropAfterOrderRefusal(err.message);
+        Alert.alert(
+          t("vouchers.notApplicableTitle"),
+          fillTemplate(t("vouchers.notApplicableBody"), { message: err.message })
+        );
+        return;
+      }
       // A switch flipped since this screen last checked: catch up, so the
       // PayFast choice disappears along with the refusal.
       if (
@@ -498,6 +545,15 @@ export default function CheckoutScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Offers & vouchers — hidden entirely while the flag is off. */}
+        {vouchersEnabled ? (
+          <VoucherCard
+            voucher={voucher}
+            maxOffers={3}
+            onViewAll={() => router.push("/vouchers")}
+          />
+        ) : null}
+
         {/* Order Summary */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -531,26 +587,48 @@ export default function CheckoutScreen() {
           ) : (
             <View style={styles.itemsList}>
               {items.map((item) => (
-                <View key={item.id} style={styles.summaryRow}>
-                  <Text style={styles.summaryItemName} numberOfLines={1}>
-                    {item.variantName ? `${item.name} (${item.variantName})` : item.name} ×{" "}
-                    {item.quantity}
-                  </Text>
-                  <Text style={styles.summaryItemPrice}>
-                    {formatPrice(item.price * item.quantity)}
-                  </Text>
+                <View key={item.id}>
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryItemName} numberOfLines={1}>
+                      {item.variantName ? `${item.name} (${item.variantName})` : item.name} ×{" "}
+                      {item.quantity}
+                    </Text>
+                    <Text style={styles.summaryItemPrice}>
+                      {formatPrice(item.price * item.quantity)}
+                    </Text>
+                  </View>
+                  {isLineCoveredByVoucher(
+                    voucher.applied,
+                    Number(item.foodListingId),
+                    item.variantId
+                  ) ? (
+                    <View style={styles.offerAppliedTag}>
+                      <Ionicons name="pricetag" size={11} color={colors.successSubtleForeground} />
+                      <Text style={styles.offerAppliedText}>{t("vouchers.offerApplied")}</Text>
+                    </View>
+                  ) : null}
                 </View>
               ))}
             </View>
           )}
 
           <View style={styles.divider} />
+          {deliveryFee || discount > 0 ? (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryItemName}>Subtotal</Text>
+              <Text style={styles.summaryItemPrice}>{formatPrice(checkoutTotal)}</Text>
+            </View>
+          ) : null}
+          {discount > 0 ? (
+            <View style={styles.summaryRow}>
+              <Text style={styles.discountLabel}>
+                {fillTemplate(t("vouchers.discountLine"), { code: voucherCode ?? "" })}
+              </Text>
+              <Text style={styles.discountValue}>−{formatPrice(discount)}</Text>
+            </View>
+          ) : null}
           {deliveryFee ? (
             <>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryItemName}>Subtotal</Text>
-                <Text style={styles.summaryItemPrice}>{formatPrice(checkoutTotal)}</Text>
-              </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryItemName}>
                   Delivery fee
@@ -572,7 +650,7 @@ export default function CheckoutScreen() {
             <View style={styles.feeWaived}>
               {deliveryFee && !isDeliveryFeeCharged ? (
                 <Text style={styles.struckPrice}>
-                  {formatPrice(checkoutTotal + deliveryFee.amount)}
+                  {formatPrice(foodPayable + deliveryFee.amount)}
                 </Text>
               ) : null}
               <Text style={styles.totalValue}>{formatPrice(payableTotal)}</Text>
@@ -930,7 +1008,12 @@ export default function CheckoutScreen() {
           onPress={handlePlaceOrder}
           loading={isSubmitting}
           disabled={
-            isSubmitting || !acceptedTerms || isDeliveryOutsideArea
+            isSubmitting ||
+            !acceptedTerms ||
+            isDeliveryOutsideArea ||
+            // Never place an order while the shown discount is being re-checked.
+            voucher.isRevalidating ||
+            voucher.applyingCode !== null
           }
         >
           {isSubmitting
@@ -1065,6 +1148,33 @@ const styles = StyleSheet.create({
     ...typography.sm,
     fontWeight: "500",
     color: colors.foreground,
+  },
+  offerAppliedTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 3,
+    marginTop: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: radius.full,
+    backgroundColor: colors.successSubtle,
+  },
+  offerAppliedText: {
+    ...typography.xs,
+    fontWeight: "600",
+    color: colors.successSubtleForeground,
+  },
+  discountLabel: {
+    ...typography.sm,
+    color: colors.success,
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  discountValue: {
+    ...typography.sm,
+    fontWeight: "600",
+    color: colors.success,
   },
   divider: {
     height: 1,

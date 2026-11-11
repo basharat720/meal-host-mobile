@@ -14,6 +14,8 @@ export interface FeatureFlags {
   payfast_enabled: boolean;
   /** Whether the app offers PayFast; read by the app only, never enforced by the server. */
   mobile_payfast_enabled: boolean;
+  /** Offers & vouchers at checkout. See feature-docs/16-vouchers-in-the-app.md. */
+  vouchers_enabled: boolean;
 }
 
 /**
@@ -25,6 +27,8 @@ export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
   orders_enabled: true,
   payfast_enabled: true,
   mobile_payfast_enabled: false,
+  // Off until the server says otherwise, so a failed load never shows offers.
+  vouchers_enabled: false,
 };
 
 /** The codes the server returns (with a 503) when a request hits a switched-off feature. */

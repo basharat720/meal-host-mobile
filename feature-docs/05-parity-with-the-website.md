@@ -22,10 +22,11 @@ mobile app**. Until then the app offers cash only. See
 
 ## Waiting on credentials or configuration
 
-**Social sign-in.** Google sign-in has never worked in any build of the app —
-the button always failed — so it is hidden. Turning it on needs Google OAuth
-client IDs and a new native build. Facebook sign-in, which the website has,
-has not been built.
+**Facebook sign-in.** Built in the app the same way as Google, but switched
+off until a Facebook (Meta) app exists and its App ID and Client Token are set
+for the build. Firebase also has Facebook turned off today, so the website's
+Facebook button cannot work either until that is done. Google sign-in is
+live — see [Accounts & Signing In](02-accounts-and-signing-in.md).
 
 **Email links opening the app.** Order emails link to a specific order but
 open the website. Fixing this needs two verification files hosted on

@@ -213,6 +213,8 @@ export interface OrderItem {
   variant_name?: string | null;
   quantity: number;
   unit_price: number;
+  /** This line's share of the voucher discount; 0 when none. */
+  discount_amount?: number;
 }
 
 export interface Order {
@@ -254,6 +256,18 @@ export interface Order {
   chat_can_send?: boolean;
   /** How the order is paid. PAYFAST orders show as paid by card. */
   payment_method?: "cash" | "card" | null;
+  /** Rider delivery fee; added to `amount_due` only when `delivery_fee_charged`. */
+  delivery_fee?: number | null;
+  delivery_fee_charged?: boolean;
+  /**
+   * What the customer pays: food + charged delivery fee − voucher discount.
+   * `total_amount` stays the full food price (the chef's money).
+   */
+  amount_due?: number | null;
+  /** The voucher used, snapshotted at order time. */
+  voucher_code?: string | null;
+  /** FoodPal-funded discount, already taken off `amount_due`. 0 when none. */
+  discount_amount?: number;
 }
 
 /** A requested dish line. The server resolves its price and title. */
@@ -296,6 +310,8 @@ export interface OrderCreate {
   customer_latitude?: number;
   customer_longitude?: number;
   customer_location_accuracy_m?: number;
+  /** One voucher per order; the server re-checks it and works out the discount. */
+  voucher_code?: string;
 }
 
 export interface OrderUpdate {

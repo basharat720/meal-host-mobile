@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "837237844814-jan2u3bb4of0t9ov4q07sfche3qo84td.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mealhost.mobile",
+            "certificate_hash": "f84f53758688638b30dbce94bf899f3efaf98ae5"
+          }
+        },
+        {
+          "client_id": "837237844814-mh520qj33jorq27mfemm469fv012spdi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mealhost.mobile",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
           "client_id": "837237844814-vevq405rh0ga07g7e8ngkh74ktcuums4.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -31,10 +47,10 @@
               "client_type": 3
             },
             {
-              "client_id": "837237844814-q6469baef68q5e5ofpthu3mnom2a7504.apps.googleusercontent.com",
+              "client_id": "837237844814-9qab1etbs8jpgu6ip9en3u04q8bsiuhs.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "meal-host"
+                "bundle_id": "com.mealhost.mobile"
               }
             }
           ]
@@ -67,10 +83,10 @@
               "client_type": 3
             },
             {
-              "client_id": "837237844814-q6469baef68q5e5ofpthu3mnom2a7504.apps.googleusercontent.com",
+              "client_id": "837237844814-9qab1etbs8jpgu6ip9en3u04q8bsiuhs.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "meal-host"
+                "bundle_id": "com.mealhost.mobile"
               }
             }
           ]

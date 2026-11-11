@@ -23,15 +23,40 @@ export const GOOGLE_MAPS_API_KEY =
   process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
 /**
- * Whether to offer social sign-in on the auth screens.
+ * Whether to offer "Continue with Google" on the auth screens.
  *
- * Off, because Google sign-in does not work in any build: the app imports
- * src/integrations/google-signin-stub.ts unconditionally and that stub always
- * throws. The real @react-native-google-signin/google-signin package isn't
- * installed, and it needs OAuth client IDs plus a native build — it can't run
- * in Expo Go at all.
- *
- * Flip this back to true once the real package is wired up; the handlers and
- * buttons are all still here behind it.
+ * Needs a native build: @react-native-google-signin/google-signin does not run
+ * in Expo Go. Android is matched by package name + signing-key SHA-1, so every
+ * key that signs a build (debug, upload, and Play's app-signing key) must be
+ * registered on the FoodPal Android app in Firebase (project mealhost-dev).
  */
-export const SOCIAL_AUTH_ENABLED = false;
+export const SOCIAL_AUTH_ENABLED = true;
+
+/**
+ * OAuth client IDs for Google sign-in (Firebase project mealhost-dev). They
+ * are public identifiers, not secrets, so they default to the real values and
+ * a release build can't silently ship with them blank.
+ *
+ * - Web client: the audience of the ID token Firebase verifies (both OSes).
+ * - iOS client: belongs to bundle com.mealhost.mobile. Its reversed form is the
+ *   iosUrlScheme of the google-signin plugin in app.json — change both together.
+ */
+export const GOOGLE_WEB_CLIENT_ID =
+  process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+  "837237844814-vevq405rh0ga07g7e8ngkh74ktcuums4.apps.googleusercontent.com";
+export const GOOGLE_IOS_CLIENT_ID =
+  process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
+  "837237844814-9qab1etbs8jpgu6ip9en3u04q8bsiuhs.apps.googleusercontent.com";
+
+/**
+ * Facebook (Meta) app for "Continue with Facebook". The button only appears
+ * when an App ID is set; app.config.js adds the react-native-fbsdk-next plugin
+ * from the same variables, so the JS switch and the native setup always match
+ * within one build. Both values are embedded in the app, so neither is secret.
+ *
+ * The same Meta app must also be enabled as the Facebook provider in Firebase
+ * (project mealhost-dev) with its App Secret — that also fixes the website's
+ * Facebook button.
+ */
+export const FACEBOOK_APP_ID = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID ?? "";
+export const FACEBOOK_AUTH_ENABLED = SOCIAL_AUTH_ENABLED && FACEBOOK_APP_ID !== "";

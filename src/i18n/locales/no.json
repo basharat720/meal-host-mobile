@@ -345,5 +345,33 @@
         "mutton biryani som bestemor lagde"
       ]
     }
+  },
+  "vouchers": {
+    "title": "Tilbud og kuponger",
+    "codePlaceholder": "Skriv inn en kupongkode",
+    "apply": "Bruk",
+    "remove": "Fjern",
+    "applied": "Brukt",
+    "youSave": "Du sparer {amount}",
+    "onePerOrder": "Ett tilbud per bestilling. Bruker du et annet, erstattes dette.",
+    "availableOffers": "Tilgjengelige tilbud",
+    "loadingOffers": "Laster tilbud…",
+    "noOffers": "Ingen tilbud akkurat nå.",
+    "enterCode": "Skriv inn en kupongkode først.",
+    "cantUse": "Denne koden kan ikke brukes på denne bestillingen.",
+    "checkFailed": "Kunne ikke sjekke koden. Prøv igjen.",
+    "removedNotice": "Tilbudet ditt ble fjernet: {message}",
+    "checking": "Sjekker tilbudet ditt…",
+    "discountLine": "Rabatt ({code})",
+    "offerApplied": "Tilbud brukt",
+    "notApplicableTitle": "Tilbudet er ikke lenger tilgjengelig",
+    "notApplicableBody": "{message}\n\nBestillingen ble ikke lagt inn og tilbudet er fjernet. Sjekk den nye totalen, og legg inn bestillingen på nytt.",
+    "subtotal": "Delsum",
+    "deliveryFee": "Leveringsgebyr",
+    "chefNote": "Kunden brukte et FoodPal-tilbud — du tjener fortsatt hele {amount}",
+    "viewAll": "Se alle {count} tilbud",
+    "back": "Tilbake til kassen",
+    "noCheckout": "Åpne kassen for å se tilbudene for handlekurven din.",
+    "goToCart": "Gå til handlekurven"
   }
 }

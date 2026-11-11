@@ -17,6 +17,7 @@ import { uploadProfilePicture } from "@/services/imageService";
 import { colors, spacing, typography, fonts, radius } from "@/constants/theme";
 import { getUserFriendlyError } from "@/lib/errorMessages";
 import { SOCIAL_AUTH_ENABLED } from "@/constants/config";
+import { SocialSignInButtons } from "@/components/auth/SocialSignInButtons";
 import { Logo } from "@/components/Logo";
 
 type Coords = { latitude: number; longitude: number };
@@ -27,7 +28,7 @@ const validatePhone = (phone: string): string | null =>
   validatePhoneNumber(phone, true).error ?? null;
 
 export default function ChefSignupScreen() {
-  const { signUp, signInWithGoogle } = useAuth();
+  const { signUp } = useAuth();
   const [step, setStep] = useState(1);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -46,7 +47,6 @@ export default function ChefSignupScreen() {
   const [coords, setCoords] = useState<Coords | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // The CNIC halves are sent as first_name/last_name; `name` is the joined
@@ -170,13 +170,6 @@ export default function ChefSignupScreen() {
     else router.replace("/(auth)/verify-email");
   };
 
-  const handleGoogleSignup = async () => {
-    setIsGoogleLoading(true);
-    const { error } = await signInWithGoogle("chef");
-    setIsGoogleLoading(false);
-    if (error) Alert.alert("Google Sign-Up Failed", error.message);
-    else router.replace("/(chef)/dashboard");
-  };
 
   const previewUri = localImageUri || profilePictureUrl || null;
 
@@ -225,7 +218,7 @@ export default function ChefSignupScreen() {
                   <Text style={styles.dividerText}>or</Text>
                   <View style={styles.dividerLine} />
                 </View>
-                <Button variant="outline" onPress={handleGoogleSignup} loading={isGoogleLoading}>Continue with Google</Button>
+                <SocialSignInButtons role="chef" mode="signup" onSuccess={() => router.replace("/(chef)/dashboard")} />
               </>
             )}
           </View>

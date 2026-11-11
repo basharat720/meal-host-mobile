@@ -18,6 +18,7 @@ import { useFocusEffect, useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n/context";
+import { fillTemplate } from "@/lib/template";
 import { orderService } from "@/services/orderService";
 import { dishService } from "@/services/dishService";
 import { requestService } from "@/services/requestService";
@@ -269,7 +270,7 @@ function OrderCard({
   unreadMessages,
   onOpenChat,
 }: OrderCardProps) {
-  const { formatPrice } = useI18n();
+  const { formatPrice, t } = useI18n();
   const isUpdating = updatingId === order.id;
   const isDelivery = order.delivery_type === "delivery";
   const isCancelled = order.status === "CANCELLED";
@@ -380,6 +381,16 @@ function OrderCard({
           ) : null}
         </View>
       </View>
+
+      {/* A FoodPal voucher is FoodPal's cost: the chef's money is unchanged. */}
+      {(order.discount_amount ?? 0) > 0 ? (
+        <View style={styles.voucherNote}>
+          <Ionicons name="pricetag-outline" size={14} color={colors.successSubtleForeground} />
+          <Text style={styles.voucherNoteText}>
+            {fillTemplate(t("vouchers.chefNote"), { amount: formatPrice(order.total_amount) })}
+          </Text>
+        </View>
+      ) : null}
 
       {/* ── Action row: the next step, never buried ── */}
       <View style={styles.actionRow}>
@@ -1207,6 +1218,23 @@ const styles = StyleSheet.create({
   },
   stripTitle: { ...typography.sm, fontWeight: "700" },
   stripSub: { ...typography.xs, fontWeight: "500", opacity: 0.9, marginTop: 1 },
+  voucherNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+    backgroundColor: colors.successSubtle,
+  },
+  voucherNoteText: {
+    ...typography.xs,
+    fontWeight: "600",
+    color: colors.successSubtleForeground,
+    flex: 1,
+  },
 
   actionRow: {
     flexDirection: "row",

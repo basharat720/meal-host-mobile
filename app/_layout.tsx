@@ -101,6 +101,7 @@ export default function RootLayout() {
                     {/* Favorites also has a customer tab; this route is how the
                         chef area reaches the same screen. */}
                     <Stack.Screen name="favorites" options={{ headerShown: false }} />
+                    <Stack.Screen name="vouchers" options={{ headerShown: false }} />
                     {/* One order's chat, reached from an order card or a
                         new-message notification. */}
                     <Stack.Screen name="order-chat/[id]" options={{ headerShown: false }} />

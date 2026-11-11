@@ -3,7 +3,8 @@
 ## Two ways in
 
 Customers and chefs sign up on separate screens, because they are asked for
-different things. Both use an email address and a password.
+different things. Both use an email address and a password — or Google or
+Facebook instead; see *Signing in with Google or Facebook* below.
 
 ## What customer signup asks for
 
@@ -63,16 +64,50 @@ link, and moves you on by itself once you have.
 There is a **Resend** button with a 60-second countdown. The countdown starts
 already running, because signing up has just sent one.
 
-## Why there are no social sign-in buttons
+## Signing in with Google or Facebook
 
-There are none at the moment. There was a "Continue with Google" button on all
-four screens, but it never worked in any version of the app — it always failed
-with an error — so it has been hidden rather than left as a dead end. Email
-and password work everywhere.
+Every sign-in and sign-up screen — customer and chef — has a **Continue with
+Google** and a **Continue with Facebook** button under the email form, on both
+Android and iPhone, like the website.
 
-Getting Google sign-in working needs Google credentials and a new build of the
-app; it cannot be switched on from the app's code alone. Facebook sign-in,
-which the website has, has not been built for the app yet.
+Each button works for signing in *and* signing up, exactly like the
+website:
+
+- **You already have an account** with that email address — whether you made
+  it with a password, on the website, or with Google — and you are signed into
+  it. Nothing is duplicated.
+- **You don't have an account yet** — one is created for you, as a customer or
+  a chef depending on which screen you pressed the button on. Your name comes
+  from Google or Facebook. There is no email to verify, because Google or
+  Facebook has already confirmed the address.
+
+**Customers** go straight to the home feed.
+
+**Chefs** who sign up this way skip the two-step signup form, so their kitchen
+details, CNIC name, phone number and Partner Agreement are not collected up
+front. The new chef lands on the dashboard as **pending** — the same state as
+any new chef — with the dashboard listing what is still missing. Their kitchen
+name starts out as their own name until they change it.
+
+**Facebook needs your email address.** FoodPal accounts are keyed on email.
+If you untick "email" on Facebook's permission screen, or your Facebook
+account has no email (some are phone-only), the app can't create an account
+and asks you to use Google or email instead.
+
+**One email, one sign-in method — sometimes.** If you first signed up with a
+password or with Google and later press Facebook with the same email, the app
+tells you an account already exists for that email and to sign in
+the way you did before. It does not merge them for you.
+
+**On iPhone, Facebook uses its privacy-first "Limited Login".** FoodPal gets
+your name, email and profile picture and nothing else, and the app does not
+show Apple's "allow tracking" prompt for it.
+
+**If you cancel** the Google or Facebook window, nothing happens — you stay on the
+screen with no error. Any other failure shows a short message and leaves you
+signed out, never half-signed-in.
+
+Sign in with Apple is not in the app yet.
 
 ## Forgotten passwords
 

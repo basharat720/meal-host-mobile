@@ -14,6 +14,8 @@ export interface ListingOrderDetails {
     customer_longitude?: number;
     customer_location_accuracy_m?: number;
   };
+  /** An applied voucher code; omitted when none. */
+  voucherCode?: string;
 }
 
 /** One requested line: the dish, the variant chosen on it, and how many. */
@@ -44,6 +46,7 @@ const orderDetails = (details: ListingOrderDetails) => ({
     : {}),
   ...(details.paymentMethod === "PAYFAST" ? { payment_method: "PAYFAST" as const } : {}),
   ...(details.locationPayload ?? {}),
+  ...(details.voucherCode ? { voucher_code: details.voucherCode } : {}),
 });
 
 /**

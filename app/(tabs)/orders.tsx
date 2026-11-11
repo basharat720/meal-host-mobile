@@ -46,6 +46,7 @@ import {
   getOrderListingName,
 } from "@/lib/listingVariants";
 import { toTitleCase } from "@/lib/titleCase";
+import { fillTemplate } from "@/lib/template";
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 // Ported from meal-host-frontend `src/pages/CustomerOrdersPage.tsx` so a card
@@ -334,7 +335,7 @@ function OrderCard({
   onOpenChat,
   onOrderAgain,
 }: OrderCardProps) {
-  const { formatPrice } = useI18n();
+  const { formatPrice, t } = useI18n();
 
   // Inline review on the strip — a star opens the comment box.
   const [stars, setStars] = useState(0);
@@ -355,6 +356,16 @@ function OrderCard({
   const itemCount = order.items?.length
     ? order.items.reduce((sum, item) => sum + item.quantity, 0)
     : order.quantity;
+  // A FoodPal voucher comes off what the customer pays (`amount_due`), never
+  // off `total_amount`, which stays the full food price. Every card shows what
+  // the customer pays, so cards with and without a discount add up the same
+  // way (and match the website).
+  const discount = order.discount_amount ?? 0;
+  const hasDiscount = discount > 0;
+  const chargedDeliveryFee =
+    order.delivery_fee_charged && order.delivery_fee ? order.delivery_fee : 0;
+  const amountPaid =
+    order.amount_due ?? order.total_amount + chargedDeliveryFee - discount;
   const progress = orderProgress(order);
   const strip = statusStripCopy(order, chefName, hasReviewed);
   const pose = STATUS_POSE[order.status];
@@ -449,8 +460,11 @@ function OrderCard({
           <Text
             style={[cardStyles.amount, isCancelled && cardStyles.amountStruck]}
           >
-            {formatPrice(order.total_amount)}
+            {formatPrice(amountPaid)}
           </Text>
+          {hasDiscount ? (
+            <Text style={cardStyles.savedText}>−{formatPrice(discount)}</Text>
+          ) : null}
           <Text style={cardStyles.itemCount}>
             {itemCount} {itemCount === 1 ? "item" : "items"}
           </Text>
@@ -604,6 +618,28 @@ function OrderCard({
                 </Text>
               </View>
             )}
+            {hasDiscount ? (
+              <>
+                <View style={[cardStyles.lineRow, cardStyles.subtotalRow]}>
+                  <Text style={cardStyles.lineText}>{t("vouchers.subtotal")}</Text>
+                  <Text style={cardStyles.linePrice}>{formatPrice(order.total_amount)}</Text>
+                </View>
+                <View style={cardStyles.lineRow}>
+                  <Text style={[cardStyles.lineText, cardStyles.discountText]}>
+                    {fillTemplate(t("vouchers.discountLine"), { code: order.voucher_code ?? "" })}
+                  </Text>
+                  <Text style={[cardStyles.linePrice, cardStyles.discountText]}>
+                    −{formatPrice(discount)}
+                  </Text>
+                </View>
+                {chargedDeliveryFee > 0 ? (
+                  <View style={cardStyles.lineRow}>
+                    <Text style={cardStyles.lineText}>{t("vouchers.deliveryFee")}</Text>
+                    <Text style={cardStyles.linePrice}>{formatPrice(chargedDeliveryFee)}</Text>
+                  </View>
+                ) : null}
+              </>
+            ) : null}
             <View style={cardStyles.totalRow}>
               <Text style={cardStyles.totalText}>
                 Total
@@ -612,7 +648,7 @@ function OrderCard({
                   : ""}
               </Text>
               <Text style={cardStyles.totalText}>
-                {formatPrice(order.total_amount)}
+                {formatPrice(amountPaid)}
               </Text>
             </View>
 
@@ -786,6 +822,7 @@ const cardStyles = StyleSheet.create({
     textDecorationLine: "line-through",
   },
   itemCount: { ...typography.xs, color: colors.mutedForeground },
+  savedText: { ...typography.xs, fontWeight: "600", color: colors.success },
 
   strip: {
     marginHorizontal: spacing.md,
@@ -885,6 +922,14 @@ const cardStyles = StyleSheet.create({
   },
   lineText: { ...typography.sm, color: colors.foreground, flex: 1 },
   linePrice: { ...typography.sm, color: colors.foreground },
+  subtotalRow: {
+    borderTopWidth: 1,
+    borderStyle: "dashed",
+    borderTopColor: colors.border,
+    marginTop: 6,
+    paddingTop: 6,
+  },
+  discountText: { color: colors.success, fontWeight: "600" },
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",

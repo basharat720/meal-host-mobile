@@ -43,8 +43,11 @@ export const isValidPkIban = (value: string): boolean => {
 };
 
 /**
- * Every field is required on the profile form. Returns an error message per
- * invalid field, keyed by the field name; an empty object means valid.
+ * Bank & tax details are optional: a chef may leave them blank and add them
+ * later. Once any bank field is filled, all four are required (a partial
+ * account can't be paid into) and each is format-checked. NTN status is
+ * optional on its own. Returns an error message per invalid field, keyed by
+ * the field name; an empty object means valid.
  */
 export const validateLaunchDetails = (
   fields: LaunchDetailsFields,
@@ -52,23 +55,29 @@ export const validateLaunchDetails = (
   const errors: Partial<Record<keyof LaunchDetailsFields, string>> = {};
 
   const bankName = fields.bankName.trim();
-  if (!bankName) errors.bankName = "Bank name is required";
-  else if (bankName.length > 100) errors.bankName = "Bank name is too long";
-
   const title = fields.bankAccountTitle.trim();
-  if (!title) errors.bankAccountTitle = "Account title is required";
-  else if (title.length > 100) errors.bankAccountTitle = "Account title is too long";
-
   const accountNumber = normalizeAccountNumber(fields.bankAccountNumber);
-  if (!accountNumber) errors.bankAccountNumber = "Account number is required";
-  else if (!/^\d{8,20}$/.test(accountNumber))
-    errors.bankAccountNumber = "Account number must be 8-20 digits";
+  const iban = fields.bankIban.trim();
+  const anyBank = Boolean(bankName || title || accountNumber || iban);
 
-  if (!fields.bankIban.trim()) errors.bankIban = "IBAN is required";
-  else if (!isValidPkIban(fields.bankIban))
-    errors.bankIban = "Enter a valid Pakistani IBAN (24 characters starting with PK)";
+  if (anyBank) {
+    if (!bankName) errors.bankName = "Bank name is required";
+    else if (bankName.length > 100) errors.bankName = "Bank name is too long";
 
-  if (!fields.ntnStatus) errors.ntnStatus = "Select filer or non-filer";
+    if (!title) errors.bankAccountTitle = "Account title is required";
+    else if (title.length > 100) errors.bankAccountTitle = "Account title is too long";
+
+    if (!accountNumber) errors.bankAccountNumber = "Account number is required";
+    else if (!/^\d{8,20}$/.test(accountNumber))
+      errors.bankAccountNumber = "Account number must be 8-20 digits";
+
+    if (!iban) errors.bankIban = "IBAN is required";
+    else if (!isValidPkIban(iban))
+      errors.bankIban = "Enter a valid Pakistani IBAN (24 characters starting with PK)";
+  }
 
   return errors;
 };
+
+/** Trimmed value, or null when blank — the backend rejects blank strings. */
+export const blankToNull = (value: string): string | null => value || null;

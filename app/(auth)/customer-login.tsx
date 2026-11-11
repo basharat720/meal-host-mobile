@@ -12,10 +12,11 @@ import { Input } from "@/components/ui/Input";
 import { colors, spacing, typography, radius, fonts } from "@/constants/theme";
 import { getUserFriendlyError } from "@/lib/errorMessages";
 import { SOCIAL_AUTH_ENABLED } from "@/constants/config";
+import { SocialSignInButtons } from "@/components/auth/SocialSignInButtons";
 import { Logo } from "@/components/Logo";
 
 export default function CustomerLoginScreen() {
-  const { signIn, signInWithGoogle, setRole } = useAuth();
+  const { signIn, setRole } = useAuth();
   // Where to go after a successful login. Set by the gate that sent the user
   // here (e.g. checkout, profile); falls back to the home feed.
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
@@ -29,7 +30,6 @@ export default function CustomerLoginScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const validate = () => {
@@ -54,13 +54,6 @@ export default function CustomerLoginScreen() {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setIsGoogleLoading(true);
-    const { error } = await signInWithGoogle("customer");
-    setIsGoogleLoading(false);
-    if (error) Alert.alert("Google Sign-In Failed", error.message);
-    else router.replace(destination as any);
-  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -121,9 +114,7 @@ export default function CustomerLoginScreen() {
                 <View style={styles.dividerLine} />
               </View>
 
-              <Button variant="outline" onPress={handleGoogleLogin} loading={isGoogleLoading} style={styles.googleButton}>
-                Continue with Google
-              </Button>
+              <SocialSignInButtons role="customer" mode="signin" onSuccess={() => router.replace(destination as any)} />
             </>
           )}
         </View>
@@ -167,7 +158,6 @@ const styles = StyleSheet.create({
   divider: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginVertical: spacing.md },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
   dividerText: { ...typography.sm, color: colors.mutedForeground },
-  googleButton: {},
   footer: { flexDirection: "row", justifyContent: "center", marginTop: spacing.xl },
   chefLink: { flexDirection: "row", justifyContent: "center", marginTop: spacing.md },
   footerText: { ...typography.base, color: colors.mutedForeground },

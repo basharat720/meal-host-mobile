@@ -47,10 +47,11 @@ const EXAMPLE_COUNT = 4;
 
 /**
  * How far ahead a request may be placed — the same window as the website.
- * Chefs need a day's notice to shop and cook, and an open-ended date lets
+ * Two hours keeps short-notice requests possible while blocking times that are
+ * already past or leave a chef no time to reply. An open-ended date lets
  * someone post for months out and leave the request sitting in the queue.
  */
-const MIN_LEAD_MS = 24 * 60 * 60 * 1000;
+const MIN_LEAD_MS = 2 * 60 * 60 * 1000;
 const MAX_LEAD_MS = 14 * 24 * 60 * 60 * 1000;
 /** The picker has minute resolution, so the earliest value it offers sits a few
  *  seconds inside the limit; without this grace it would be rejected. */
@@ -60,6 +61,19 @@ const LEAD_GRACE_MS = 60 * 1000;
  *  and the API. */
 const MIN_PEOPLE = 1;
 const MAX_PEOPLE = 100;
+
+/**
+ * The earliest time the pickers offer: the same bound the submit check uses
+ * (including its grace), on a whole minute. The pickers have minute
+ * resolution, so a bound with seconds in it would grey out the very minute it
+ * stands for. Taken once when the picker opens so it does not creep forward
+ * while the user is scrolling.
+ */
+const earliestPickable = () => {
+  const d = new Date(Date.now() + MIN_LEAD_MS - LEAD_GRACE_MS);
+  d.setSeconds(0, 0);
+  return d;
+};
 
 /** The earliest allowed time, rounded up to the next 15 minutes. */
 const defaultEventDate = () => {
@@ -82,6 +96,8 @@ export default function PostRequestScreen() {
   const [eventDate, setEventDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  // Fixed when the date picker opens; see earliestPickable.
+  const [pickerMin, setPickerMin] = useState<Date>(earliestPickable);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [availableTags, setAvailableTags] = useState<DietaryTag[]>([]);
   const [locationId, setLocationId] = useState<number | null>(null);
@@ -205,7 +221,7 @@ export default function PostRequestScreen() {
     if (eventAt < submittedAt + MIN_LEAD_MS - LEAD_GRACE_MS) {
       Alert.alert(
         "Too soon",
-        "Chefs need at least a day's notice — please pick a time at least 24 hours from now."
+        "Please pick a time at least 2 hours from now, so chefs have time to respond."
       );
       return;
     }
@@ -373,6 +389,7 @@ export default function PostRequestScreen() {
                 // Seed a valid value: the iOS spinner only reports changes, so
                 // "Done" without spinning would otherwise leave it empty.
                 if (!eventDate) setEventDate(defaultEventDate());
+                setPickerMin(earliestPickable());
                 setShowDatePicker(true);
               }}
             >
@@ -391,7 +408,7 @@ export default function PostRequestScreen() {
                 {eventDate ? formatDisplayDate(eventDate) : "Select date & time"}
               </Text>
             </Pressable>
-            <Text style={styles.fieldHint}>Anywhere from 24 hours to 2 weeks from now.</Text>
+            <Text style={styles.fieldHint}>Anywhere from 2 hours to 2 weeks from now.</Text>
           </View>
 
           {/* Preferred location */}
@@ -521,7 +538,7 @@ export default function PostRequestScreen() {
             onChange={(e, d) => {
               if (d) setEventDate(d);
             }}
-            minimumDate={new Date(Date.now() + MIN_LEAD_MS)}
+            minimumDate={pickerMin}
             maximumDate={new Date(Date.now() + MAX_LEAD_MS)}
           />
         </View>
@@ -534,7 +551,7 @@ export default function PostRequestScreen() {
           mode="date"
           display="default"
           onChange={onDateChange}
-          minimumDate={new Date(Date.now() + MIN_LEAD_MS)}
+          minimumDate={pickerMin}
           maximumDate={new Date(Date.now() + MAX_LEAD_MS)}
         />
       )}

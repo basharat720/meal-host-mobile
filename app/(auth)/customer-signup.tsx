@@ -16,6 +16,7 @@ import { validatePhoneNumber } from "@/lib/phone";
 import { colors, spacing, typography, fonts, radius } from "@/constants/theme";
 import { getUserFriendlyError } from "@/lib/errorMessages";
 import { SOCIAL_AUTH_ENABLED } from "@/constants/config";
+import { SocialSignInButtons } from "@/components/auth/SocialSignInButtons";
 import { Logo } from "@/components/Logo";
 
 type Coords = { latitude: number; longitude: number };
@@ -26,7 +27,7 @@ const validatePhone = (phone: string): string | null =>
   validatePhoneNumber(phone, false).error ?? null;
 
 export default function CustomerSignupScreen() {
-  const { signUp, signInWithGoogle } = useAuth();
+  const { signUp } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,7 +38,6 @@ export default function CustomerSignupScreen() {
   const [coords, setCoords] = useState<Coords | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validate = () => {
@@ -99,13 +99,6 @@ export default function CustomerSignupScreen() {
     }
   };
 
-  const handleGoogleSignup = async () => {
-    setIsGoogleLoading(true);
-    const { error } = await signInWithGoogle("customer");
-    setIsGoogleLoading(false);
-    if (error) Alert.alert("Google Sign-Up Failed", error.message);
-    else router.replace("/(tabs)/chefs");
-  };
 
   // Mirrors the login screens: the signup route can be reached from a gate
   // deep in the app, so fall back to the home feed when there's no history.
@@ -178,7 +171,7 @@ export default function CustomerSignupScreen() {
                 <View style={styles.dividerLine} />
               </View>
 
-              <Button variant="outline" onPress={handleGoogleSignup} loading={isGoogleLoading}>Continue with Google</Button>
+              <SocialSignInButtons role="customer" mode="signup" onSuccess={() => router.replace("/(tabs)/chefs")} />
             </>
           )}
         </View>

@@ -14,12 +14,13 @@ import { Input } from "@/components/ui/Input";
 import { colors, spacing, typography, fonts, radius } from "@/constants/theme";
 import { getUserFriendlyError } from "@/lib/errorMessages";
 import { SOCIAL_AUTH_ENABLED } from "@/constants/config";
+import { SocialSignInButtons } from "@/components/auth/SocialSignInButtons";
 
 // Web's gradient-secondary: hsl(12 85% 62%) → hsl(18 90% 55%)
 const CHEF_GRADIENT: [string, string] = [colors.secondary, colors.gradientSecondaryEnd];
 
 export default function ChefLoginScreen() {
-  const { signIn, signInWithGoogle, setRole } = useAuth();
+  const { signIn, setRole } = useAuth();
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
   const destination = (redirect as string) || "/(chef)/dashboard";
 
@@ -32,7 +33,6 @@ export default function ChefLoginScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading]       = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const validate = () => {
@@ -58,13 +58,6 @@ export default function ChefLoginScreen() {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setIsGoogleLoading(true);
-    const { error } = await signInWithGoogle("chef");
-    setIsGoogleLoading(false);
-    if (error) Alert.alert("Google Sign-In Failed", error.message);
-    else router.replace(destination as any);
-  };
 
   return (
     <SafeAreaView style={styles.safe} edges={["bottom"]}>
@@ -150,9 +143,7 @@ export default function ChefLoginScreen() {
                 <View style={styles.dividerLine} />
               </View>
 
-              <Button variant="outline" onPress={handleGoogleLogin} loading={isGoogleLoading}>
-                Continue with Google
-              </Button>
+              <SocialSignInButtons role="chef" mode="signin" onSuccess={() => router.replace(destination as any)} />
             </>
           )}
 

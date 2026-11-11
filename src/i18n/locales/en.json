@@ -346,5 +346,33 @@
         "mutton biryani like my nani made"
       ]
     }
+  },
+  "vouchers": {
+    "title": "Offers & vouchers",
+    "codePlaceholder": "Enter a voucher code",
+    "apply": "Apply",
+    "remove": "Remove",
+    "applied": "Applied",
+    "youSave": "You save {amount}",
+    "onePerOrder": "One offer per order. Applying another replaces this one.",
+    "availableOffers": "Available offers",
+    "loadingOffers": "Loading offers…",
+    "noOffers": "No offers are running right now.",
+    "enterCode": "Enter a voucher code first.",
+    "cantUse": "This code can't be used on this order.",
+    "checkFailed": "Couldn't check that code. Please try again.",
+    "removedNotice": "Your offer was removed: {message}",
+    "checking": "Checking your offer…",
+    "discountLine": "Discount ({code})",
+    "offerApplied": "Offer applied",
+    "notApplicableTitle": "Offer no longer available",
+    "notApplicableBody": "{message}\n\nYour order was not placed and the offer has been removed. Check the new total, then place your order again.",
+    "subtotal": "Subtotal",
+    "deliveryFee": "Delivery fee",
+    "chefNote": "Customer used a FoodPal offer — you still earn the full {amount}",
+    "viewAll": "View all {count} offers",
+    "back": "Back to checkout",
+    "noCheckout": "Open checkout to see the offers for your basket.",
+    "goToCart": "Go to cart"
   }
 }

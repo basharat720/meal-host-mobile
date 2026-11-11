@@ -29,7 +29,7 @@ between the two.
 | Document | What it covers |
 | --- | --- |
 | [Getting Around the App](01-getting-around-the-app.md) | The tab bars, which tab opens first, and the two separate areas for chefs and customers |
-| [Accounts & Signing In](02-accounts-and-signing-in.md) | What signup asks for, email verification, and why there are no social sign-in buttons |
+| [Accounts & Signing In](02-accounts-and-signing-in.md) | What signup asks for, email verification, and signing in with Google or Facebook |
 | [Notifications & Opening a Link](03-notifications-and-links.md) | Push notifications, the badge on the app icon, and what happens when a link points at the app |
 | [Location & Address Privacy](04-location-and-address-privacy.md) | When the app asks for your location, and how a chef's address is protected |
 | [Where the App Differs from the Website](05-parity-with-the-website.md) | A current, honest list of what the website does that the app does not yet |
@@ -43,3 +43,4 @@ between the two.
 | [Order Cards in the App](13-order-cards-in-the-app.md) | The redesigned customer and chef order cards: status strip, Pal, progress bar, queues and search |
 | [Paying with PayFast in the App](14-paying-with-payfast.md) | Paying online through PayFast at checkout, the two switches that control it (off in the app for now), and what happens when a payment fails |
 | [Delivery Fee in the App](15-delivery-fee-in-the-app.md) | The delivery fee line at checkout, crossed out with "Delivery is free for now" until admins switch charging on |
+| [Vouchers & Offers in the App](16-vouchers-in-the-app.md) | Applying a voucher code or an offer at checkout, the discount line, and the note on chef order cards |

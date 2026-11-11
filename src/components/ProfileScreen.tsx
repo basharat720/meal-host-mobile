@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -30,6 +30,7 @@ import {
   normalizeAccountNumber,
   normalizeIban,
   validateLaunchDetails,
+  blankToNull,
 } from "@/lib/chefLaunchDetails";
 import type { User as DbUser } from "@/services/types";
 import {
@@ -154,11 +155,21 @@ export const ProfileScreen = () => {
   );
   const [localImageUri, setLocalImageUri] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [savingPicture, setSavingPicture] = useState(false);
+  // Set right before the refresh that follows a picture auto-save, so the
+  // sync effect updates only the picture and keeps the chef's unsaved edits
+  // in the rest of the form.
+  const pictureOnlySync = useRef(false);
   const [saving, setSaving] = useState(false);
 
   // Sync when dbUser loads (e.g. after navigation)
   useEffect(() => {
     if (!dbUser) return;
+    if (pictureOnlySync.current) {
+      pictureOnlySync.current = false;
+      setProfilePictureUrl(dbUser.chef_profile?.profile_picture_url ?? "");
+      return;
+    }
     const primary =
       dbUser.locations?.find((l) => l.is_primary) ?? dbUser.locations?.[0];
     setName(dbUser.name ?? "");
@@ -191,7 +202,47 @@ export const ProfileScreen = () => {
   // ---------------------------------------------------------------------------
   // Pick profile picture
   // ---------------------------------------------------------------------------
+  const savedPictureUrl = dbUser?.chef_profile?.profile_picture_url ?? "";
+
+  /**
+   * Saves the profile picture on its own, straight away — no "Save" needed.
+   * Only `profile_picture_url` is sent, so unsaved edits elsewhere in the form
+   * are neither saved nor lost. On failure the picture reverts to the stored
+   * one. Returns whether the save went through.
+   */
+  const persistProfilePicture = async (url: string): Promise<boolean> => {
+    if (!dbUser?.id) return false;
+    setSavingPicture(true);
+    try {
+      await userService.updateUser(dbUser.id, {
+        chef_profile: { profile_picture_url: url || null },
+      });
+      pictureOnlySync.current = true;
+      await refreshDbUser();
+      setProfilePictureTouched(false);
+      return true;
+    } catch (err: any) {
+      setProfilePictureUrl(savedPictureUrl);
+      setLocalImageUri(null);
+      setProfilePictureTouched(false);
+      Alert.alert("Error", err?.message ?? "Failed to save profile picture.");
+      return false;
+    } finally {
+      setSavingPicture(false);
+    }
+  };
+
+  // A pasted URL is saved when the field loses focus, if it is valid and new.
+  const handleProfilePictureUrlBlur = () => {
+    const url = profilePictureUrl.trim();
+    const error = validateProfilePictureUrl(url);
+    setProfilePictureError(error);
+    if (error || url === savedPictureUrl) return;
+    void persistProfilePicture(url);
+  };
+
   const pickProfilePicture = async () => {
+    if (uploadingImage || savingPicture) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -206,9 +257,9 @@ export const ProfileScreen = () => {
     try {
       const uploadedUrl = await uploadProfilePicture(uri);
       setProfilePictureUrl(uploadedUrl);
-      setProfilePictureTouched(true);
       setProfilePictureError(null);
       setLocalImageUri(null); // use remote URL
+      await persistProfilePicture(uploadedUrl);
     } catch {
       // Fall back to showing locally only — user can still save (URL won't be sent if empty)
       setLocalImageUri(uri);
@@ -222,13 +273,13 @@ export const ProfileScreen = () => {
   };
 
   // ---------------------------------------------------------------------------
-  // Remove profile picture (clears it; the removal is persisted on save)
+  // Remove profile picture (saved straight away)
   // ---------------------------------------------------------------------------
   const removeProfilePicture = () => {
     setProfilePictureUrl("");
     setLocalImageUri(null);
-    setProfilePictureTouched(true);
     setProfilePictureError(null);
+    void persistProfilePicture("");
   };
 
   // ---------------------------------------------------------------------------
@@ -350,11 +401,13 @@ export const ProfileScreen = () => {
 
         updateData.chef_profile = {
           kitchen_name: kitchenName.trim(),
-          bank_name: bankName.trim(),
-          bank_account_title: bankAccountTitle.trim(),
-          bank_account_number: normalizeAccountNumber(bankAccountNumber),
-          bank_iban: normalizeIban(bankIban),
-          ntn_status: ntnStatus as NtnStatus,
+          // Bank details are optional; blanks go as null (the backend
+          // rejects blank strings, and null clears a stored value).
+          bank_name: blankToNull(bankName.trim()),
+          bank_account_title: blankToNull(bankAccountTitle.trim()),
+          bank_account_number: blankToNull(normalizeAccountNumber(bankAccountNumber)),
+          bank_iban: blankToNull(normalizeIban(bankIban)),
+          ntn_status: (ntnStatus || null) as NtnStatus | null,
           kitchen_description: bio.trim(),
           ...(yearsOfExperience !== undefined
             ? { years_of_experience: yearsOfExperience }
@@ -492,7 +545,7 @@ export const ProfileScreen = () => {
         {/* Avatar */}
         <View style={styles.avatarSection}>
           <Pressable onPress={isChef ? pickProfilePicture : undefined} style={styles.avatarWrap}>
-            {uploadingImage ? (
+            {uploadingImage || savingPicture ? (
               <View style={styles.avatarFallback}>
                 <ActivityIndicator color={colors.primaryForeground} />
               </View>
@@ -674,6 +727,8 @@ export const ProfileScreen = () => {
                 setProfilePictureTouched(true);
                 setProfilePictureError(validateProfilePictureUrl(v));
               }}
+              onBlur={handleProfilePictureUrlBlur}
+              editable={!savingPicture}
               autoCapitalize="none"
               keyboardType="url"
               error={profilePictureError ?? undefined}
@@ -684,6 +739,7 @@ export const ProfileScreen = () => {
                 variant="outline"
                 size="sm"
                 onPress={removeProfilePicture}
+                disabled={uploadingImage || savingPicture}
                 style={styles.removePictureBtn}
               >
                 Remove Picture
@@ -742,12 +798,12 @@ export const ProfileScreen = () => {
             <View style={styles.headerSection}>
               <Text style={styles.sectionTitle}>Bank & Tax Details</Text>
               <Text style={styles.fieldHint}>
-                Used to pay you. Only you and the FoodPal team can see these.
+                Used to pay you. Optional for now — you can add them later. Only you and the FoodPal team can see these.
               </Text>
             </View>
 
             <Input
-              label="Bank Name *"
+              label="Bank Name"
               placeholder="e.g. Meezan Bank"
               value={bankName}
               onChangeText={setBankName}
@@ -755,7 +811,7 @@ export const ProfileScreen = () => {
               error={launchErrors.bankName}
             />
             <Input
-              label="Account Title *"
+              label="Account Title"
               placeholder="Name the account is held in"
               value={bankAccountTitle}
               onChangeText={setBankAccountTitle}
@@ -763,7 +819,7 @@ export const ProfileScreen = () => {
               error={launchErrors.bankAccountTitle}
             />
             <Input
-              label="Account Number *"
+              label="Account Number"
               placeholder="Digits only"
               keyboardType="number-pad"
               value={bankAccountNumber}
@@ -771,7 +827,7 @@ export const ProfileScreen = () => {
               error={launchErrors.bankAccountNumber}
             />
             <Input
-              label="IBAN *"
+              label="IBAN"
               placeholder="PK00 XXXX 0000 0000 0000 0000"
               autoCapitalize="characters"
               autoCorrect={false}
@@ -781,7 +837,7 @@ export const ProfileScreen = () => {
             />
 
             <View style={styles.ntnGroup}>
-              <Text style={styles.ntnLabel}>NTN Status *</Text>
+              <Text style={styles.ntnLabel}>NTN Status</Text>
               <View style={styles.ntnRow}>
                 {NTN_OPTIONS.map((opt) => {
                   const selected = ntnStatus === opt.value;
