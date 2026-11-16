@@ -171,7 +171,7 @@ export default function OrderChatScreen() {
     return (
       <View style={[styles.bubbleRow, mine ? styles.bubbleRowMine : styles.bubbleRowTheirs]}>
         <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
-          <Text style={[styles.bubbleText, mine && styles.bubbleTextMine]}>
+          <Text selectable style={[styles.bubbleText, mine && styles.bubbleTextMine]}>
             {item.message.body}
           </Text>
           <Text style={[styles.bubbleTime, mine && styles.bubbleTimeMine]}>

@@ -32,6 +32,22 @@ exist too, but have no tab of their own — you reach them from wherever they
 make sense, and a cart button floats above the tabs whenever you have
 something in it.
 
+**Your requests are tracked from Home.** Home opens with an orange banner for
+posting a request. Once you are signed in, the same spot also leads to the
+requests you have already posted:
+
+- If you have open requests, a strip appears under the banner. It says how
+  many offers are waiting for your answer ("3 offers waiting on your
+  requests"), or, if no chef has offered yet, how many requests are open
+  ("2 open requests — waiting for chefs' offers"). Tapping it opens My
+  Requests — or, when only one request is open, that request itself.
+- If nothing is open, a small **My Requests** link sits under the banner
+  instead, so your past requests are still one tap from Home.
+
+The strip refreshes every time you come back to Home, and simply falls back to
+the plain link if the count cannot be loaded. Signed-out visitors see only the
+banner. My Requests is also still in the Profile tab.
+
 **Favorites has a tab of its own in the customer area.** Saved kitchens and
 dishes are something you come back to often, so they get a tab with a heart
 icon rather than being buried in the profile. The chef tab bar is already full,

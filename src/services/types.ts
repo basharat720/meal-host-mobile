@@ -362,6 +362,10 @@ export interface FoodRequest {
   chef_name?: string | null;
   /** Chef's kitchen to the delivery location; set only when a chef lists requests. */
   distance_km?: number | null;
+  /** Offers made on the request; set only on the viewer's own requests. */
+  offer_count?: number | null;
+  /** Offers still awaiting the customer's answer; own requests only. */
+  pending_offer_count?: number | null;
 }
 
 export interface FoodRequestCreate {

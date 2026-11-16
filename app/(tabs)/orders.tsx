@@ -352,7 +352,10 @@ function OrderCard({
   const isCancelled = order.status === "CANCELLED";
   const chefName = toTitleCase(order.chef_name) || "the kitchen";
   const address = order.delivery_address || chefInfo?.address;
-  const phone = order.delivery_phone || chefInfo?.phone;
+  // The Call button always rings the kitchen. `delivery_phone` is the
+  // customer's own contact number, so it is only ever shown as plain text.
+  const kitchenPhone = chefInfo?.phone;
+  const ownPhone = isDelivery ? order.delivery_phone : undefined;
   const itemCount = order.items?.length
     ? order.items.reduce((sum, item) => sum + item.quantity, 0)
     : order.quantity;
@@ -558,7 +561,7 @@ function OrderCard({
       {/* ── Expanded detail: where, and what was ordered ── */}
       {isExpanded ? (
         <View style={cardStyles.details}>
-          {address || phone ? (
+          {address || kitchenPhone ? (
             <View style={cardStyles.panel}>
               <Text style={cardStyles.panelTitle}>
                 {isDelivery ? "DELIVER TO" : "PICK UP FROM"}
@@ -567,6 +570,14 @@ function OrderCard({
                 <View style={cardStyles.detailRow}>
                   <Ionicons name="location-outline" size={16} color={colors.primary} />
                   <Text style={cardStyles.detailText}>{address}</Text>
+                </View>
+              ) : null}
+              {ownPhone ? (
+                <View style={[cardStyles.detailRow, { marginTop: spacing.sm }]}>
+                  <Ionicons name="person-outline" size={16} color={colors.primary} />
+                  <Text style={cardStyles.detailText}>
+                    Your contact number: {ownPhone}
+                  </Text>
                 </View>
               ) : null}
               <View style={cardStyles.panelActions}>
@@ -580,15 +591,17 @@ function OrderCard({
                     <Text style={cardStyles.pillBtnText}>Directions</Text>
                   </Pressable>
                 ) : null}
-                {phone ? (
+                {kitchenPhone ? (
                   <Pressable
                     style={cardStyles.pillBtn}
-                    onPress={() => callPhone(phone)}
+                    onPress={() => callPhone(kitchenPhone)}
                     accessibilityRole="link"
-                    accessibilityLabel={`Call ${phone}`}
+                    accessibilityLabel={`Call the kitchen on ${kitchenPhone}`}
                   >
                     <Ionicons name="call-outline" size={15} color={colors.primary} />
-                    <Text style={cardStyles.pillBtnText}>{phone}</Text>
+                    <Text style={cardStyles.pillBtnText}>
+                      Call kitchen · {kitchenPhone}
+                    </Text>
                   </Pressable>
                 ) : null}
               </View>

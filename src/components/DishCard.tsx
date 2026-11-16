@@ -115,7 +115,7 @@ export const DishCard = ({
           disabled={orderDisabled}
         >
           <Ionicons
-            name={orderDisabled ? "close" : hasVariants ? "options-outline" : "add"}
+            name={orderDisabled ? "close" : "add"}
             size={18}
             color={colors.white}
           />

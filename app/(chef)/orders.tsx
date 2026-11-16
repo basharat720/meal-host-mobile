@@ -11,6 +11,7 @@ import {
   Modal,
   Platform,
   TextInput,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -41,6 +42,12 @@ import {
 // Helpers — ported from meal-host-frontend `src/pages/ChefDashboard.tsx` so a
 // chef's card reads the same in the app and on the website.
 // ---------------------------------------------------------------------------
+
+const callPhone = (phone: string) => {
+  Linking.openURL(`tel:${phone.replace(/\s+/g, "")}`).catch(() =>
+    Alert.alert("Couldn't start a call", phone),
+  );
+};
 
 // Orders are grouped by what the chef has to do about them, not by raw status.
 type OrderQueue = "action" | "waiting" | "history";
@@ -274,6 +281,9 @@ function OrderCard({
   const isUpdating = updatingId === order.id;
   const isDelivery = order.delivery_type === "delivery";
   const isCancelled = order.status === "CANCELLED";
+  // The customer's number appears only once the chef has confirmed the order.
+  const customerPhone =
+    order.status !== "PENDING" && !isCancelled ? order.delivery_phone : undefined;
 
   const names = orderItemNames(order, dishInfo, requestInfo);
   const orderTitle = names.length > 1 ? `${names[0]} +${names.length - 1} more` : names[0];
@@ -513,9 +523,21 @@ function OrderCard({
                 ) : null}
               </View>
             </View>
+            {customerPhone ? (
+              <Pressable
+                style={styles.callBtn}
+                onPress={() => callPhone(customerPhone)}
+                accessibilityRole="link"
+                accessibilityLabel={`Call the customer on ${customerPhone}`}
+              >
+                <Ionicons name="call-outline" size={15} color={colors.primary} />
+                <Text style={styles.callBtnText}>Call customer · {customerPhone}</Text>
+              </Pressable>
+            ) : null}
             {order.status === "PENDING" ? (
               <Text style={styles.panelNote}>
-                You can message the customer once you confirm the order.
+                You can message the customer, and see their phone number, once
+                you confirm the order.
               </Text>
             ) : null}
           </View>
@@ -1313,6 +1335,19 @@ const styles = StyleSheet.create({
   detailRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
   detailText: { ...typography.sm, color: colors.foreground, flex: 1 },
   detailSub: { ...typography.sm, color: colors.mutedForeground },
+  callBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: 6,
+    marginTop: spacing.sm + 4,
+  },
+  callBtnText: { ...typography.sm, fontWeight: "600", color: colors.primary },
   progressRow: { flexDirection: "row", gap: 6 },
   progressSeg: {
     flex: 1,

@@ -26,7 +26,10 @@ described in `meal-host-frontend/feature-docs/04-customer-orders.md` and
   unread count), **I received my order**, **Order again** (opens the dish), and
   Details.
 - **Details** shows where to pick up or deliver, with **Directions** (opens
-  Maps) and **Call** buttons, and the full line-by-line order with notes.
+  Maps) and **Call kitchen** buttons, and the full line-by-line order with
+  notes. The Call button always rings the kitchen. On a delivery order the
+  customer's own number is listed as plain text ("Your contact number"), never
+  as a call button.
 - Cancelled orders show the reason on the strip and the price struck through.
 - Four tabs — **Upcoming, In transit, Completed, Cancelled** — and a search box
   over order numbers and dish names that searches all tabs at once. The count
@@ -50,8 +53,9 @@ described in `meal-host-frontend/feature-docs/04-customer-orders.md` and
 - **The chef's last tap is Mark handed over / Mark delivered.** There is no
   Complete order button: once the customer confirms receipt the order moves to
   History by itself and the chef gets a notification.
-- The **customer's phone number is no longer shown** on the card, matching the
-  website — chat is the way to reach a customer.
+- The **customer's phone number appears once the chef confirms the order**, as
+  a **Call customer** button in the Handover panel, matching the website. It is
+  hidden while the order is still pending and on cancelled orders.
 - **Confirm order** now pre-fills "Ready in" with the chef's usual prep time.
 
 ## Small differences from the website
@@ -75,5 +79,5 @@ These are on purpose, or follow from how the app loads orders:
 - **"Ready in"** is pre-filled from the chef's usual prep time as saved on
   their profile. A chef who has never set one sees the box empty, and leaving
   it empty keeps the estimate the customer was shown.
-- A customer's phone number can still be **searched** on the chef side, but
-  it is never shown on the card.
+- A customer's phone number can be **searched** on the chef side at any
+  stage, including before it is shown on the card.

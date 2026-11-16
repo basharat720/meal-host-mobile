@@ -27,6 +27,27 @@ export const requestService = {
     return apiRequest<PaginatedResponse<FoodRequest>>(`requests/?customer_id=${customerId}&skip=${skip}&limit=${limit}`);
   },
 
+  /**
+   * What the Home tracker needs: how many of the customer's requests are open
+   * and how many offers on them await an answer. `pendingOffers` is null when
+   * the server does not send offer counts.
+   */
+  getOpenRequestSummary: async (
+    customerId: number
+  ): Promise<{ openCount: number; pendingOffers: number | null; onlyRequestId: number | null }> => {
+    const page = await apiRequest<PaginatedResponse<FoodRequest>>(
+      `requests/?customer_id=${customerId}&status=OPEN&limit=50`
+    );
+    const counted = page.items.every((r) => typeof r.pending_offer_count === "number");
+    return {
+      openCount: page.total,
+      pendingOffers: counted
+        ? page.items.reduce((sum, r) => sum + (r.pending_offer_count ?? 0), 0)
+        : null,
+      onlyRequestId: page.total === 1 && page.items.length === 1 ? page.items[0].id : null,
+    };
+  },
+
   getRequestById: async (requestId: number): Promise<FoodRequest> => {
     return apiRequest<FoodRequest>(`requests/${requestId}`);
   },

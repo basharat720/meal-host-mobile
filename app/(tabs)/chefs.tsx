@@ -30,6 +30,7 @@ import {
   MatchedDish,
 } from "@/services/types";
 import { useAuth } from "@/contexts/AuthContext";
+import { RequestTrackerStrip } from "@/components/RequestTrackerStrip";
 import { chefDisplayName } from "@/lib/chefName";
 import { colors, fonts, radius, requestCtaGradient, spacing, typography, shadow } from "@/constants/theme";
 import { Logo } from "@/components/Logo";
@@ -340,6 +341,7 @@ export default function ChefsScreen() {
   );
 
   const listHeader = (
+    <View>
     <Pressable onPress={handlePostRequest}>
       <LinearGradient
         colors={requestCtaGradient}
@@ -356,6 +358,9 @@ export default function ChefsScreen() {
         <Ionicons name="arrow-forward-circle" size={28} color={colors.secondaryForeground} />
       </LinearGradient>
     </Pressable>
+    {/* The way back to requests already posted — see RequestTrackerStrip. */}
+    <RequestTrackerStrip />
+    </View>
   );
 
   return (
@@ -697,7 +702,7 @@ const styles = StyleSheet.create({
     // this banner and the Dishes feed's CTA sweep identically.
     borderRadius: radius.lg,
     padding: spacing.md,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     ...shadow.sm,
   },
   requestBannerText: { flex: 1, gap: 2 },

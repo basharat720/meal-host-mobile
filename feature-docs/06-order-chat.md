@@ -16,6 +16,11 @@ The keyboard is handled the way a messaging app should handle it: the message
 box rises with the keyboard, the newest message stays in view, and the thread
 opens scrolled to the bottom.
 
+## Copying a message
+
+Message text can be selected and copied — press and hold a message. This is
+how an address, a time or a phone number sent in chat gets into another app.
+
 ## A safety notice before the first message
 
 A conversation that has not started yet opens on a short notice rather than an
