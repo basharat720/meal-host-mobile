@@ -18,8 +18,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
 const CONTACT_EMAIL = "contact@foodpal.co";
-const SUPPORT_PHONE = "+92 304 3856448";
-const WHATSAPP_NUMBER = "+92 320 111 0441";
+const SUPPORT_PHONE = "+92 320 111 0441";
 
 /** Mirrors the backend's column widths (and the website's form), so an
  *  over-long field is caught here rather than coming back as a 422. */
@@ -318,25 +317,17 @@ export default function ContactScreen() {
 
         <SectionTitle>Customer Service</SectionTitle>
         <Paragraph>
-          Call or WhatsApp us for any inquiries, support, or assistance with your orders.
+          Call us for any inquiries, support, or assistance with your orders.
         </Paragraph>
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>
-            <Text style={styles.bold}>Phone:</Text>{" "}
-            <Text style={styles.link} onPress={() => Linking.openURL("tel:+923043856448")}>
-              +92 304 3856448
-            </Text>
-          </Text>
-          <Text style={styles.infoText}>
-            <Text style={styles.bold}>WhatsApp:</Text>{" "}
+            <Text style={styles.bold}>Call Us:</Text>{" "}
             <Text
               style={styles.link}
-              onPress={() =>
-                Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, "")}`)
-              }
+              onPress={() => Linking.openURL(`tel:${SUPPORT_PHONE.replace(/\s/g, "")}`)}
               accessibilityRole="link"
             >
-              {WHATSAPP_NUMBER}
+              {SUPPORT_PHONE}
             </Text>
           </Text>
         </View>
