@@ -372,6 +372,9 @@
     "viewAll": "Se alle {count} tilbud",
     "back": "Tilbake til kassen",
     "noCheckout": "Åpne kassen for å se tilbudene for handlekurven din.",
-    "goToCart": "Gå til handlekurven"
+    "goToCart": "Gå til handlekurven",
+    "autoAppliedFirstOrder": "Tilbud for første bestilling brukt",
+    "autoApplied": "Tilbud brukt for deg",
+    "autoHintTitle": "Ikke gå glipp av tilbudet"
   }
 }

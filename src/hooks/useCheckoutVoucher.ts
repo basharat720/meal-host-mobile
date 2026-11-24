@@ -29,6 +29,10 @@ export interface CheckoutVoucher {
   notice: string | null;
   /** True while the applied voucher is being re-checked against a changed basket. */
   isRevalidating: boolean;
+  /** The applied voucher was put on by checkout itself (an auto-apply offer). */
+  autoApplied: boolean;
+  /** An auto-apply offer this basket can't use yet, shown as a nudge. */
+  autoApplyHint: VoucherQuote | null;
   apply: (code: string) => Promise<boolean>;
   remove: () => void;
   /**
@@ -41,7 +45,11 @@ export interface CheckoutVoucher {
 /**
  * The voucher state behind checkout's **Offers & vouchers** card. Everything
  * here is a preview; the server prices the voucher again when the order is
- * placed. See feature-docs/16-vouchers-in-the-app.md.
+ * placed.
+ *
+ * Auto-apply: when nothing is applied, the best auto-apply offer the basket
+ * can use goes on by itself, until the customer removes it or picks another
+ * code. See feature-docs/16-vouchers-in-the-app.md.
  */
 export function useCheckoutVoucher({ enabled, basket, deliveryType }: Options): CheckoutVoucher {
   const { t } = useI18n();
@@ -54,6 +62,10 @@ export function useCheckoutVoucher({ enabled, basket, deliveryType }: Options): 
   const [isRevalidating, setIsRevalidating] = useState(false);
   // Bumped to reload the offers list after an order refusal.
   const [offersVersion, setOffersVersion] = useState(0);
+  // Which applied code checkout put on by itself (for the banner), and
+  // whether the customer has opted out of that for this checkout.
+  const [autoAppliedCode, setAutoAppliedCode] = useState<string | null>(null);
+  const [autoApplyOff, setAutoApplyOff] = useState(false);
 
   // The effects below key on the basket's contents, not its identity, and
   // read the latest basket/applied voucher through refs so that applying a
@@ -145,6 +157,8 @@ export function useCheckoutVoucher({ enabled, basket, deliveryType }: Options): 
         const quote = await voucherService.validate(code, basketRef.current);
         if (quote.eligible) {
           setApplied(quote);
+          // Choosing a code yourself turns auto-apply off for this checkout.
+          setAutoApplyOff(true);
           return true;
         }
         setError(quote.message ?? t("vouchers.cantUse"));
@@ -164,6 +178,7 @@ export function useCheckoutVoucher({ enabled, basket, deliveryType }: Options): 
     setApplied(null);
     setError(null);
     setNotice(null);
+    setAutoApplyOff(true);
   }, []);
 
   const dropAfterOrderRefusal = useCallback(
@@ -172,15 +187,38 @@ export function useCheckoutVoucher({ enabled, basket, deliveryType }: Options): 
       setError(null);
       setNotice(fillTemplate(t("vouchers.removedNotice"), { message }));
       setOffersVersion((v) => v + 1);
+      setAutoApplyOff(true);
     },
     [t]
   );
+
+  // Put the best auto-apply offer on when nothing is applied. The server
+  // sorts usable offers first, biggest saving first, so the first usable
+  // auto-apply offer is the best one. Offers still loading for a changed
+  // basket are skipped so a stale price is never applied.
+  useEffect(() => {
+    if (!enabled || applied || autoApplyOff || offersLoading || applyingCode) return;
+    const best = offers.find((o) => o.auto_apply && o.eligible && o.code);
+    if (!best) return;
+    setApplied(best);
+    setAutoAppliedCode(best.code ?? null);
+    setError(null);
+    setNotice(null);
+  }, [enabled, applied, autoApplyOff, offersLoading, applyingCode, offers]);
 
   const discount = enabled && applied?.eligible ? applied.discount_amount : 0;
 
   // Memoised so the object only changes when something in it does: the
   // Vouchers screen re-renders off it (see lib/activeCheckoutVoucher.ts).
   const visibleApplied = enabled ? applied : null;
+  const autoApplied = !!visibleApplied && visibleApplied.code === autoAppliedCode;
+  const autoApplyHint = useMemo(
+    () =>
+      enabled && !applied && !autoApplyOff && !offersLoading
+        ? offers.find((o) => o.auto_apply && !o.eligible) ?? null
+        : null,
+    [enabled, applied, autoApplyOff, offersLoading, offers]
+  );
   return useMemo(
     () => ({
       applied: visibleApplied,
@@ -191,13 +229,16 @@ export function useCheckoutVoucher({ enabled, basket, deliveryType }: Options): 
       error,
       notice,
       isRevalidating,
+      autoApplied,
+      autoApplyHint,
       apply,
       remove,
       dropAfterOrderRefusal,
     }),
     [
       visibleApplied, discount, offers, offersLoading, applyingCode, error,
-      notice, isRevalidating, apply, remove, dropAfterOrderRefusal,
+      notice, isRevalidating, autoApplied, autoApplyHint, apply, remove,
+      dropAfterOrderRefusal,
     ]
   );
 }

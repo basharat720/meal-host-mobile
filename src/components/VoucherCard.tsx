@@ -45,6 +45,42 @@ export function VoucherCard({ voucher, maxOffers, onViewAll }: Props) {
         <Text style={styles.title}>{t("vouchers.title")}</Text>
       </View>
 
+      {/* Auto-applied offer, or a nudge for one the basket doesn't fit yet. */}
+      {voucher.autoApplied && applied ? (
+        <View style={styles.autoBanner} accessibilityLiveRegion="polite">
+          <Ionicons name="gift" size={20} color={colors.primary} />
+          <View style={styles.autoText}>
+            <Text style={styles.autoTitle}>
+              {applied.first_order_only
+                ? t("vouchers.autoAppliedFirstOrder")
+                : t("vouchers.autoApplied")}
+            </Text>
+            <Text style={styles.autoBody}>{applied.summary || applied.title}</Text>
+            <Text style={styles.autoSaving}>
+              {fillTemplate(t("vouchers.youSave"), {
+                amount: formatPrice(applied.discount_amount),
+              })}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+      {voucher.autoApplyHint ? (
+        <View style={[styles.autoBanner, styles.autoHint]} accessibilityLiveRegion="polite">
+          <Ionicons name="gift-outline" size={20} color={colors.primary} />
+          <View style={styles.autoText}>
+            <Text style={styles.autoTitle}>
+              {t("vouchers.autoHintTitle")}: {offerTitle(voucher.autoApplyHint)}
+            </Text>
+            {voucher.autoApplyHint.summary ? (
+              <Text style={styles.autoBody}>{voucher.autoApplyHint.summary}</Text>
+            ) : null}
+            {voucher.autoApplyHint.message ? (
+              <Text style={styles.autoHintMessage}>{voucher.autoApplyHint.message}</Text>
+            ) : null}
+          </View>
+        </View>
+      ) : null}
+
       {applied ? (
         <View style={styles.chip}>
           <Ionicons name="checkmark-circle" size={20} color={colors.success} />
@@ -231,6 +267,22 @@ const styles = StyleSheet.create({
   chipTitle: { ...typography.xs, color: colors.foreground },
   chipSaving: { ...typography.xs, fontWeight: "600", color: colors.successSubtleForeground },
   removeText: { color: colors.destructive },
+  autoBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    padding: spacing.sm + 4,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySubtle,
+  },
+  autoHint: { backgroundColor: colors.card },
+  autoText: { flex: 1, gap: 2 },
+  autoTitle: { ...typography.sm, fontWeight: "700", color: colors.foreground },
+  autoBody: { ...typography.xs, color: colors.foreground },
+  autoSaving: { ...typography.xs, fontWeight: "700", color: colors.success },
+  autoHintMessage: { ...typography.xs, fontWeight: "600", color: colors.primary },
   errorText: { ...typography.sm, color: colors.destructive },
   notice: {
     flexDirection: "row",

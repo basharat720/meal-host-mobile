@@ -373,6 +373,9 @@
     "viewAll": "View all {count} offers",
     "back": "Back to checkout",
     "noCheckout": "Open checkout to see the offers for your basket.",
-    "goToCart": "Go to cart"
+    "goToCart": "Go to cart",
+    "autoAppliedFirstOrder": "First order offer applied",
+    "autoApplied": "Offer applied for you",
+    "autoHintTitle": "Don't miss your offer"
   }
 }

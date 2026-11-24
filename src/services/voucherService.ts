@@ -22,6 +22,8 @@ export type VoucherReasonCode =
   | "WRONG_TIME"
   | "USAGE_LIMIT_REACHED"
   | "ALREADY_USED"
+  | "NOT_FIRST_ORDER"
+  | "WRONG_PLATFORM"
   | "REQUEST_ORDER_NOT_ALLOWED"
   | "NO_ELIGIBLE_ITEMS"
   | "MIN_ORDER_NOT_MET";
@@ -54,6 +56,10 @@ export interface VoucherQuote {
   eligible_items: VoucherLineRef[];
   reason_code?: VoucherReasonCode | string | null;
   message?: string | null;
+  /** Only for customers who have never ordered on FoodPal. */
+  first_order_only?: boolean;
+  /** Checkout applies the best-fitting auto-apply offer by itself. */
+  auto_apply?: boolean;
 }
 
 export interface VoucherOffers {
