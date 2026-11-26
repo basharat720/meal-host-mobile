@@ -1,4 +1,5 @@
 import { auth } from "@/integrations/firebase/config";
+import { getDeviceId } from "@/lib/deviceId";
 
 export const getAuthToken = async (forceRefresh = false): Promise<string | null> => {
   try {
@@ -19,6 +20,11 @@ export const authenticatedFetch = async (
 
   const headers = new Headers(options.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  // Lets the backend keep first-order offers to one per device.
+  if (!headers.has("X-Device-Id")) {
+    const deviceId = await getDeviceId();
+    if (deviceId) headers.set("X-Device-Id", deviceId);
+  }
 
   let response = await fetch(url, { ...options, headers });
 
