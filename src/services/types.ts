@@ -243,6 +243,14 @@ export interface Order {
   special_instructions?: string;
   order_notes?: string;          // Notes from chef to customer
   cancellation_reason?: string;  // If cancelled, why?
+  /**
+   * True while the customer may cancel right now: the chef hasn't accepted and
+   * the 10-minute window hasn't run out. Worked out by the server
+   * (feature-docs/29-cancellation-flows.md in meal-host).
+   */
+  customer_can_cancel?: boolean;
+  /** When the cancel window closes (ISO UTC). Null when there is no deadline. */
+  customer_cancel_deadline?: string | null;
   tentative_eta_min_minutes?: number;
   tentative_eta_max_minutes?: number;
   confirmed_eta_at?: string;
@@ -317,6 +325,8 @@ export interface OrderCreate {
 export interface OrderUpdate {
   status: "PENDING" | "CONFIRMED" | "READY_FOR_PICKUP" | "DELIVERED" | "RECEIVED" | "COMPLETED" | "CANCELLED";
   confirmed_eta_minutes?: number;
+  /** Optional, up to 500 characters; sent with a CANCELLED status. */
+  cancellation_reason?: string;
 }
 
 export interface PaymentBase {
@@ -336,6 +346,9 @@ export interface Chef extends User {
 }
 
 export type RequestStatus = "OPEN" | "CLOSED";
+
+/** Why a request closed. Null while open, and on requests closed before this was recorded. */
+export type RequestClosedReason = "ACCEPTED" | "WITHDRAWN" | "EXPIRED";
 
 export interface PaginatedResponse<T> {
   items: T[];
@@ -366,6 +379,9 @@ export interface FoodRequest {
   offer_count?: number | null;
   /** Offers still awaiting the customer's answer; own requests only. */
   pending_offer_count?: number | null;
+  closed_reason?: RequestClosedReason | null;
+  /** When the request closed (ISO UTC). */
+  closed_at?: string | null;
 }
 
 export interface FoodRequestCreate {

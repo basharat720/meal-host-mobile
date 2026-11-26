@@ -47,6 +47,7 @@ import {
 } from "@/lib/listingVariants";
 import { toTitleCase } from "@/lib/titleCase";
 import { fillTemplate } from "@/lib/template";
+import { cancellationErrorMessage } from "@/lib/requestStatus";
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 // Ported from meal-host-frontend `src/pages/CustomerOrdersPage.tsx` so a card
@@ -224,6 +225,43 @@ const callPhone = (phone: string) => {
   );
 };
 
+/**
+ * Whole seconds left until `deadline`, ticking every second and stopping at 0.
+ * Null when there is no (valid) deadline. Lets the Cancel button vanish the
+ * moment the window closes, without waiting for a refresh.
+ */
+function useSecondsLeft(deadline: string | null | undefined): number | null {
+  const deadlineMs = deadline ? new Date(deadline).getTime() : NaN;
+  const secondsLeft = () =>
+    isNaN(deadlineMs) ? null : Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000));
+  const [left, setLeft] = useState<number | null>(secondsLeft);
+
+  useEffect(() => {
+    if (isNaN(deadlineMs)) {
+      setLeft(null);
+      return;
+    }
+    const tick = () => {
+      const next = Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000));
+      setLeft(next);
+      return next;
+    };
+    if (tick() === 0) return;
+    const interval = setInterval(() => {
+      if (tick() === 0) clearInterval(interval);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [deadlineMs]);
+
+  return left;
+}
+
+/** 462 -> "7:42". */
+const formatCountdown = (seconds: number): string =>
+  `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+
+const CANCEL_REASON_MAX = 500;
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type DishInfo = { title: string; imageUrl: string | null };
@@ -317,6 +355,8 @@ interface OrderCardProps {
   unreadMessages: number;
   onOpenChat: (order: Order) => void;
   onOrderAgain: (listingId: number) => void;
+  /** The server's copy of the order once the customer has cancelled it. */
+  onCancelled: (order: Order) => void;
 }
 
 function OrderCard({
@@ -334,6 +374,7 @@ function OrderCard({
   unreadMessages,
   onOpenChat,
   onOrderAgain,
+  onCancelled,
 }: OrderCardProps) {
   const { formatPrice, t } = useI18n();
 
@@ -342,6 +383,21 @@ function OrderCard({
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+
+  // Customer cancel (feature-docs/25 in meal-host-frontend): only while the
+  // server says so, and only until the countdown runs out. An unpaid online
+  // order has no deadline, so its button shows without a countdown.
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const cancelSecondsLeft = useSecondsLeft(
+    order.customer_can_cancel ? order.customer_cancel_deadline : null,
+  );
+  const canCancel =
+    order.customer_can_cancel === true &&
+    order.status !== "CANCELLED" &&
+    (cancelSecondsLeft === null || cancelSecondsLeft > 0);
 
   const names = orderItemNames(order, dish, requestInfo);
   const dishName =
@@ -409,6 +465,23 @@ function OrderCard({
       );
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const submitCancel = async () => {
+    setCancelError(null);
+    setCancelling(true);
+    try {
+      const updated = await orderService.cancelOrder(order.id, cancelReason);
+      setConfirmingCancel(false);
+      setCancelReason("");
+      onCancelled(updated);
+    } catch (err) {
+      setCancelError(
+        cancellationErrorMessage(err, "Couldn't cancel the order. Please try again."),
+      );
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -753,6 +826,27 @@ function OrderCard({
                 ) : null}
               </Pressable>
             ) : null}
+            {canCancel && !confirmingCancel ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onPress={() => {
+                  setCancelError(null);
+                  setConfirmingCancel(true);
+                }}
+                style={cardStyles.cancelBtn}
+                textStyle={cardStyles.cancelBtnText}
+                accessibilityLabel={
+                  cancelSecondsLeft !== null
+                    ? `Cancel order, ${formatCountdown(cancelSecondsLeft)} left`
+                    : "Cancel order"
+                }
+              >
+                {cancelSecondsLeft !== null
+                  ? `Cancel order (${formatCountdown(cancelSecondsLeft)} left)`
+                  : "Cancel order"}
+              </Button>
+            ) : null}
             {order.status === "DELIVERED" ? (
               <Button
                 size="sm"
@@ -784,6 +878,58 @@ function OrderCard({
               />
             </Pressable>
           </View>
+
+          {/* Confirm the cancel, with an optional reason the chef will see. */}
+          {canCancel && confirmingCancel ? (
+            <View style={cardStyles.cancelBox}>
+              <Text style={cardStyles.cancelTitle}>Cancel this order?</Text>
+              <Text style={cardStyles.cancelSub}>
+                {cancelSecondsLeft !== null
+                  ? `You can cancel for another ${formatCountdown(cancelSecondsLeft)}. `
+                  : ""}
+                {chefName} will be told it's cancelled.
+              </Text>
+              <TextInput
+                style={cardStyles.commentInput}
+                placeholder="Reason for cancelling (optional)"
+                placeholderTextColor={colors.mutedForeground}
+                value={cancelReason}
+                onChangeText={setCancelReason}
+                multiline
+                numberOfLines={2}
+                maxLength={CANCEL_REASON_MAX}
+                textAlignVertical="top"
+                editable={!cancelling}
+              />
+              {cancelError ? (
+                <Text style={cardStyles.reviewError}>{cancelError}</Text>
+              ) : null}
+              <View style={cardStyles.cancelConfirmRow}>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onPress={submitCancel}
+                  loading={cancelling}
+                  disabled={cancelling}
+                  style={{ flex: 1 }}
+                >
+                  Cancel order
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={cancelling}
+                  onPress={() => {
+                    setConfirmingCancel(false);
+                    setCancelReason("");
+                    setCancelError(null);
+                  }}
+                >
+                  Keep order
+                </Button>
+              </View>
+            </View>
+          ) : null}
         </View>
       ) : (
         <View style={{ height: spacing.md }} />
@@ -1021,6 +1167,18 @@ const cardStyles = StyleSheet.create({
     paddingVertical: 7,
   },
   detailsBtnText: { ...typography.sm, fontWeight: "600", color: colors.primary },
+  cancelBtn: { borderColor: colors.destructive },
+  cancelBtnText: { color: colors.destructive },
+  cancelBox: {
+    borderWidth: 1,
+    borderColor: `${colors.destructive}33`,
+    borderRadius: radius.md,
+    padding: spacing.sm + 4,
+    gap: spacing.sm,
+  },
+  cancelTitle: { ...typography.sm, fontWeight: "700", color: colors.foreground },
+  cancelSub: { ...typography.xs, color: colors.mutedForeground },
+  cancelConfirmRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
 });
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
@@ -1309,6 +1467,14 @@ export default function OrdersScreen() {
       setReceivingOrderId(null);
     }
   };
+
+  // A cancelled order leaves Upcoming; follow it to the Cancelled tab, where
+  // its strip shows the reason.
+  const handleCancelled = useCallback((updated: Order) => {
+    setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+    setActiveTab("cancelled");
+    setExpandedOrderId(null);
+  }, []);
 
   const handleReviewSubmitted = useCallback((orderId: number) => {
     setReviewedOrderIds((prev) => new Set(prev).add(orderId));
@@ -1643,6 +1809,7 @@ export default function OrdersScreen() {
                 })
               }
               onOrderAgain={(listingId) => router.push(`/dish/${listingId}`)}
+              onCancelled={handleCancelled}
             />
           )}
           ListFooterComponent={

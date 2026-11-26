@@ -89,6 +89,26 @@ export const requestService = {
     });
   },
 
+  /**
+   * The customer withdraws their own open request. Pending offers on it are
+   * closed and their chefs told. 403 if not the owner, 409 if already closed.
+   */
+  withdrawRequest: async (requestId: number, reason?: string): Promise<FoodRequest> => {
+    const trimmed = reason?.trim();
+    return apiRequest<FoodRequest>(`requests/${requestId}/withdraw`, {
+      method: "POST",
+      body: JSON.stringify(trimmed ? { reason: trimmed } : {}),
+    });
+  },
+
+  /** Recently closed requests the chef can see, newest first. */
+  getClosedRequests: async (limit = 50): Promise<FoodRequest[]> => {
+    const res = await apiRequest<PaginatedResponse<FoodRequest> | FoodRequest[]>(
+      `requests/?status=CLOSED&limit=${limit}`
+    );
+    return Array.isArray(res) ? res : res.items;
+  },
+
   rejectOffer: async (offerId: number, reason?: string): Promise<Offer> => {
     return apiRequest<Offer>(`requests/offers/${offerId}/reject`, {
       method: "POST",

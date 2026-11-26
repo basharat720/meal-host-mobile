@@ -91,6 +91,21 @@ export const orderService = {
     });
   },
 
+  /**
+   * The customer cancels their own order. The server allows it only while
+   * `customer_can_cancel` holds and refuses otherwise with a 400 whose message
+   * is worth showing as-is.
+   */
+  cancelOrder: async (orderId: number, reason?: string): Promise<Order> => {
+    const body: OrderUpdate = { status: "CANCELLED" };
+    const trimmed = reason?.trim();
+    if (trimmed) body.cancellation_reason = trimmed;
+    return apiRequest<Order>(`orders/${orderId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  },
+
   payOrder: async (orderId: number, paymentData: PaymentBase): Promise<PaymentRecord | PaymentIntentOut> => {
     return apiRequest<PaymentRecord | PaymentIntentOut>(`orders/${orderId}/pay`, {
       method: "POST",

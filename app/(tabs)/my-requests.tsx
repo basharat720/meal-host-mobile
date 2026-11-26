@@ -20,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { requestService } from "@/services/api";
 import { FoodRequest } from "@/services/types";
 import { colors, spacing, typography, radius, shadow } from "@/constants/theme";
+import { requestStatusLabel } from "@/lib/requestStatus";
 
 function statusBadgeVariant(
   status: FoodRequest["status"]
@@ -314,7 +315,7 @@ export default function MyRequestsScreen() {
                 {item.title}
               </Text>
               <Badge
-                label={item.status}
+                label={requestStatusLabel(item)}
                 variant={statusBadgeVariant(item.status)}
               />
             </View>

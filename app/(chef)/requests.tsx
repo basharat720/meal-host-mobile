@@ -25,6 +25,7 @@ import { useI18n } from "@/i18n/context";
 import { colors, radius, shadow, spacing, typography } from "@/constants/theme";
 import { getUserFriendlyError } from "@/lib/errorMessages";
 import { formatDistance } from "@/lib/addressPrivacy";
+import { chefClosedContext } from "@/lib/requestStatus";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -203,6 +204,14 @@ function RequestCard({
   const myOffers = offers ?? [];
   const pendingOffer = myOffers.find((o) => o.status === "PENDING");
   const rejectedOffers = myOffers.filter((o) => o.status === "REJECTED");
+  const isClosed = item.status !== "OPEN";
+  const offerAccepted = myOffers.some((o) => o.status === "ACCEPTED");
+  // Why a closed request turned this chef's offer down (feature-docs/29 in
+  // meal-host). Unknown on requests closed before the reason was recorded.
+  const closedContext =
+    isClosed && !offerAccepted && rejectedOffers.length > 0
+      ? chefClosedContext(item.closed_reason)
+      : null;
 
   return (
     <View style={[styles.card, highlighted && styles.cardHighlighted]}>
@@ -211,7 +220,7 @@ function RequestCard({
         {item.status === "OPEN" ? (
           <Badge label="Open" variant="success" />
         ) : (
-          <Badge label={item.status} variant="outline" />
+          <Badge label="Closed" variant="outline" />
         )}
       </View>
 
@@ -300,6 +309,20 @@ function RequestCard({
           <Ionicons name="hourglass-outline" size={14} color={colors.mutedForeground} />
           <Text style={styles.metaText}>Loading your offers…</Text>
         </View>
+      ) : isClosed ? (
+        <View style={styles.closedBox}>
+          <Ionicons
+            name={offerAccepted ? "checkmark-circle-outline" : "lock-closed-outline"}
+            size={16}
+            color={offerAccepted ? colors.success : colors.mutedForeground}
+            style={{ marginTop: 1 }}
+          />
+          <Text style={styles.closedText}>
+            {offerAccepted
+              ? "Your offer was accepted"
+              : closedContext ?? "This request is closed"}
+          </Text>
+        </View>
       ) : pendingOffer ? (
         <View style={styles.awaitingBox}>
           <Ionicons name="time-outline" size={18} color={colors.primary} style={{ marginTop: 1 }} />
@@ -381,6 +404,18 @@ export default function ChefRequestsScreen() {
       try {
         const data = await requestService.getOpenRequests();
         const list = Array.isArray(data) ? data : [];
+        // A "request withdrawn / closed / went to another chef" notification
+        // points at a request that is no longer open. Pin it to the top so the
+        // chef can see what happened to their offer.
+        if (deepLinkedRequestId !== null && !list.some((r) => r.id === deepLinkedRequestId)) {
+          try {
+            const closed = await requestService.getClosedRequests();
+            const target = closed.find((r) => r.id === deepLinkedRequestId);
+            if (target) list.unshift(target);
+          } catch (err) {
+            console.error("Failed to fetch the linked request:", err);
+          }
+        }
         setRequests(list);
         await fetchOffers(list);
       } catch (err) {
@@ -390,7 +425,7 @@ export default function ChefRequestsScreen() {
         setRefreshing(false);
       }
     },
-    [fetchOffers]
+    [fetchOffers, deepLinkedRequestId]
   );
 
   useFocusEffect(
@@ -579,6 +614,20 @@ const styles = StyleSheet.create({
   awaitingTitle: { ...typography.sm, fontWeight: "700", color: colors.foreground },
   awaitingDetail: { ...typography.xs, color: colors.mutedForeground, marginTop: 2 },
   awaitingPrice: { fontWeight: "700", color: colors.foreground },
+
+  // Closed request: what happened to the chef's offer
+  closedBox: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    alignItems: "flex-start",
+    marginTop: spacing.sm,
+    backgroundColor: colors.muted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+  },
+  closedText: { flex: 1, ...typography.sm, fontWeight: "600", color: colors.foreground },
 
   // Previous declined offers
   declinedSection: { marginTop: spacing.sm, gap: spacing.xs },

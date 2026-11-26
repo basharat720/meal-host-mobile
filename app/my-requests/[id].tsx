@@ -27,6 +27,9 @@ import { chefDisplayName } from "@/lib/chefName";
 import { OfferChefInfo } from "@/components/OfferChefInfo";
 import { colors, spacing, typography, radius, shadow } from "@/constants/theme";
 import { getUserFriendlyError } from "@/lib/errorMessages";
+import { cancellationErrorMessage, requestStatusLabel } from "@/lib/requestStatus";
+
+const WITHDRAW_REASON_MAX = 300;
 
 function offerBadgeVariant(
   status: Offer["status"]
@@ -73,6 +76,11 @@ export default function RequestDetailScreen() {
   >(null);
   const [rejectReason, setRejectReason] = useState("");
   const [isRejecting, setIsRejecting] = useState(false);
+
+  // Withdraw flow state (feature-docs/25 in meal-host-frontend)
+  const [confirmingWithdraw, setConfirmingWithdraw] = useState(false);
+  const [withdrawReason, setWithdrawReason] = useState("");
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   const loadData = useCallback(
     async (showFullLoader = true) => {
@@ -180,6 +188,40 @@ export default function RequestDetailScreen() {
     );
   };
 
+  const handleWithdrawConfirm = async () => {
+    setIsWithdrawing(true);
+    try {
+      const updated = await requestService.withdrawRequest(requestId, withdrawReason);
+      setRequest(updated);
+      setConfirmingWithdraw(false);
+      setWithdrawReason("");
+      Alert.alert(
+        "Request withdrawn",
+        "Chefs who had an offer waiting have been told."
+      );
+      // Pending offers on it are now closed.
+      loadData(false);
+    } catch (err: any) {
+      Alert.alert(
+        "Couldn't withdraw",
+        cancellationErrorMessage(err, "Failed to withdraw the request.")
+      );
+      // It may have closed meanwhile (an offer accepted, or the event time
+      // passed): pick up its current state.
+      if (dbUser) {
+        requestService
+          .getCustomerRequests(dbUser.id as number, 0, 200)
+          .then((page) => {
+            const found = page.items.find((r) => r.id === requestId);
+            if (found) setRequest(found);
+          })
+          .catch(() => {});
+      }
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
   const handleRejectConfirm = async (offer: Offer) => {
     setIsRejecting(true);
     try {
@@ -278,7 +320,7 @@ export default function RequestDetailScreen() {
             <View style={styles.requestTitleRow}>
               <Text style={styles.requestTitle}>{request.title}</Text>
               <Badge
-                label={request.status}
+                label={requestStatusLabel(request)}
                 variant={request.status === "OPEN" ? "success" : "default"}
               />
             </View>
@@ -329,6 +371,65 @@ export default function RequestDetailScreen() {
                 ))}
               </View>
             )}
+
+            {/* Withdraw: only while open. Once an offer is accepted it's an
+                order, which is cancelled from My Orders instead. */}
+            {request.status === "OPEN" && !confirmingWithdraw ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onPress={() => {
+                  setWithdrawReason("");
+                  setConfirmingWithdraw(true);
+                }}
+                style={styles.withdrawBtn}
+                textStyle={styles.rejectBtnText}
+              >
+                Withdraw request
+              </Button>
+            ) : null}
+            {request.status === "OPEN" && confirmingWithdraw ? (
+              <View style={styles.rejectReasonContainer}>
+                <Text style={styles.withdrawPrompt}>
+                  Withdraw this request? Any offers still waiting for your
+                  answer will be closed, and those chefs will be told.
+                </Text>
+                <TextInput
+                  style={styles.rejectReasonInput}
+                  placeholder="Reason for withdrawing (optional)"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={withdrawReason}
+                  onChangeText={setWithdrawReason}
+                  multiline
+                  numberOfLines={2}
+                  maxLength={WITHDRAW_REASON_MAX}
+                  textAlignVertical="top"
+                  editable={!isWithdrawing}
+                />
+                <View style={styles.rejectConfirmRow}>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    loading={isWithdrawing}
+                    onPress={handleWithdrawConfirm}
+                    style={styles.confirmRejectBtn}
+                  >
+                    Withdraw request
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={isWithdrawing}
+                    onPress={() => {
+                      setConfirmingWithdraw(false);
+                      setWithdrawReason("");
+                    }}
+                  >
+                    Keep it open
+                  </Button>
+                </View>
+              </View>
+            ) : null}
           </Card>
         )}
 
@@ -749,6 +850,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   confirmRejectBtn: { flex: 1 },
+
+  // Withdraw
+  withdrawBtn: {
+    alignSelf: "flex-start",
+    borderColor: colors.destructive,
+    marginTop: spacing.sm,
+  },
+  withdrawPrompt: {
+    ...typography.sm,
+    color: colors.foreground,
+    marginBottom: spacing.sm,
+  },
 
   // Error state
   errorContainer: {
